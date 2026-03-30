@@ -4,14 +4,22 @@ import * as THREE from 'three'
 
 const COUNT      = 500
 const TUBE_R     = 2.4
-const TUBE_LEN   = 100
+const TUBE_LEN   = 22     // short tube — more particles near camera in the brief warp window
 const V0         = 80     // initial warp speed (units/s)
-const DECAY      = 1.25   // exponential speed decay rate
-const WARP_DUR   = 2.5
-const SETTLE_DUR = 1.0
-const SHAKE_DUR  = 0.35   // seconds of camera shake at landing
-const SHAKE_AMP  = 0.18
+const DECAY      = 5.75   // slam: near-zero by ~0.8s (v(0.8) ≈ 0.8 u/s)
+const WARP_DUR   = 1.0
+const SETTLE_DUR = 0.42   // 420ms splat
+const SHAKE_DUR  = 0.18   // ~200ms violent shake
+const SHAKE_AMP  = 0.30
 const HOLD_DUR   = 0.5
+
+// Overshoot: particles punch 25% past target then snap back
+// c1=3.0 → ~25% overshoot at p≈0.5 of settle duration
+function easeOutBack(x: number): number {
+  const c1 = 3.0
+  const c3 = c1 + 1
+  return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2)
+}
 
 // Soft gaussian glow as a canvas texture — AdditiveBlending makes overlaps bloom
 function createGlowTexture(): THREE.CanvasTexture {
@@ -97,36 +105,40 @@ function Scene({ onComplete }: { onComplete: () => void }) {
         for (let i = 0; i < COUNT; i++) {
           const i3    = i * 3
           const theta = Math.atan2(pos[i3 + 1], pos[i3])
-          const r     = 0.6 + Math.random() * 5.2
+          // wider scatter radius so overshoot carries particles off-axis visibly
+          const r     = 0.8 + Math.random() * 6.5
           sd[i3]      = Math.cos(theta) * r
           sd[i3 + 1]  = Math.sin(theta) * r
-          sd[i3 + 2]  = (Math.random() - 0.5) * 0.3 // nearly flat
+          sd[i3 + 2]  = (Math.random() - 0.5) * 0.2
         }
         settled.current = sd
       }
 
       const p    = (t - WARP_DUR) / SETTLE_DUR
-      // easeOutExpo: slams to rest fast, long graceful tail
-      const ease = p >= 1 ? 1 : 1 - Math.pow(2, -10 * p)
-      const snap = snapshot.current!
-      const sd   = settled.current!
+      const pc   = Math.min(p, 1)
+      // z: easeOutExpo — snaps to the flat plane hard, no bounce
+      const zEase  = pc >= 1 ? 1 : 1 - Math.pow(2, -10 * pc)
+      // xy: easeOutBack — 25% overshoot then snap, simulates ricochet off surface
+      const xyEase = easeOutBack(pc)
+      const snap   = snapshot.current!
+      const sd     = settled.current!
 
-      // Camera shake — violent on impact, decays to zero
-      const shakeT = p / (SHAKE_DUR / SETTLE_DUR)
-      if (shakeT < 1) {
-        const amp = SHAKE_AMP * Math.pow(1 - shakeT, 2)
+      // Snappy camera shake — decays in SHAKE_DUR (200ms), quadratic falloff
+      const shakeT = Math.min(p / (SHAKE_DUR / SETTLE_DUR), 1)
+      const amp    = SHAKE_AMP * Math.pow(1 - shakeT, 2)
+      if (amp > 0.001) {
         camera.position.x = (Math.random() - 0.5) * 2 * amp
         camera.position.y = (Math.random() - 0.5) * 2 * amp
       } else {
-        camera.position.x *= 0.82
-        camera.position.y *= 0.82
+        camera.position.x *= 0.75
+        camera.position.y *= 0.75
       }
 
       for (let i = 0; i < COUNT; i++) {
         const i3 = i * 3
-        pos[i3]     = snap[i3]     + (sd[i3]     - snap[i3])     * ease
-        pos[i3 + 1] = snap[i3 + 1] + (sd[i3 + 1] - snap[i3 + 1]) * ease
-        pos[i3 + 2] = snap[i3 + 2] + (sd[i3 + 2] - snap[i3 + 2]) * ease
+        pos[i3]     = snap[i3]     + (sd[i3]     - snap[i3])     * xyEase
+        pos[i3 + 1] = snap[i3 + 1] + (sd[i3 + 1] - snap[i3 + 1]) * xyEase
+        pos[i3 + 2] = snap[i3 + 2] + (sd[i3 + 2] - snap[i3 + 2]) * zEase
       }
       attr.needsUpdate = true
 
