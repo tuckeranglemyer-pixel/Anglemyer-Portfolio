@@ -1,9 +1,15 @@
 import { useState } from 'react'
+import EntryAnimation from './EntryAnimation'
 
 type Mode = 'pro' | 'creative'
 
 export default function App() {
+  const [animationComplete, setAnimationComplete] = useState(false)
   const [mode, setMode] = useState<Mode>('creative')
+
+  if (!animationComplete) {
+    return <EntryAnimation onComplete={() => setAnimationComplete(true)} />
+  }
 
   return (
     <div className="w-full min-h-screen bg-black flex items-center justify-center relative">
