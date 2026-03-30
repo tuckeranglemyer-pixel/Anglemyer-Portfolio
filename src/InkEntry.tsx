@@ -222,6 +222,62 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
   )
 }
 
+// ─── water caustics shader plane ─────────────────────────────────────────────
+// Sits at y=-0.01 (behind rings), outside the shake group, never moves.
+// Four directional sine waves create slow interference patterns that read
+// as light refracting through dark water.
+function WaterCaustics() {
+  const mat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float uTime;
+          varying vec2 vUv;
+
+          void main() {
+            // Scale UVs so the pattern covers the visible plane naturally
+            vec2 uv = (vUv - 0.5) * 10.0;
+
+            // Four directional waves at distinct angles and speeds
+            float w = sin( uv.x * 0.80 + uv.y * 0.60 + uTime * 0.25)
+                    + sin(-uv.x * 0.50 + uv.y * 1.20 + uTime * 0.18)
+                    + sin( uv.x * 1.30 - uv.y * 0.40 + uTime * 0.30)
+                    + sin( uv.x * 0.30 - uv.y * 1.10 + uTime * 0.22);
+
+            // Normalize [-4,4] → [0,1] then sharpen into caustic hot-spots
+            w = w * 0.125 + 0.5;
+            float caustic = pow(w, 5.0);
+
+            // Dark blue (#0a1a2e) on black — peak output is still very dark
+            vec3 color = vec3(0.039, 0.102, 0.180) * caustic * 2.2;
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `,
+        uniforms: { uTime: { value: 0 } },
+      }),
+    [],
+  )
+
+  useFrame((_, dt) => {
+    mat.uniforms.uTime.value += dt
+  })
+
+  return (
+    // 15×15 plane covers all viewport corners at this camera distance
+    <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[15, 15]} />
+      <primitive object={mat} attach="material" />
+    </mesh>
+  )
+}
+
 // ─── main export ─────────────────────────────────────────────────────────────
 interface InkEntryProps {
   onComplete?: () => void
@@ -243,6 +299,7 @@ export default function InkEntry({ onComplete }: InkEntryProps) {
         gl={{ alpha: true, antialias: true }}
         style={{ width: '100%', height: '100%' }}
       >
+        <WaterCaustics />
         <InkScene onComplete={onComplete ?? (() => {})} />
       </Canvas>
     </div>
