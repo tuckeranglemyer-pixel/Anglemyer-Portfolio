@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
+import SharkFinCursor from './SharkFinCursor'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -511,6 +512,10 @@ export default function App() {
       {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
           Static feTurbulence texture. Pointer-events none, opacity 0.035. */}
       <GrainOverlay />
+
+      {/* ── Layer 9: Shark fin cursor (z-index 9999, desktop only) ───────────
+          Replaces default cursor. Touch devices receive null from component. */}
+      <SharkFinCursor accent={accent} />
     </>
   )
 }

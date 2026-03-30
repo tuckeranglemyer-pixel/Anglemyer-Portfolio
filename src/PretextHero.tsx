@@ -16,9 +16,16 @@ export interface PretextHeroProps {
   mode:    Mode
 }
 
+// ─── orb type ─────────────────────────────────────────────────────────────────
+type Orb = { x: number; y: number; r: number }
+
 // ─── constants ────────────────────────────────────────────────────────────────
-const ORB_RADIUS = 30   // half of 60px orb
-const ORB_GAP    = 14   // breathing room between orb edge and text
+// Floating ambient orb — large, gentle drift
+const ORB_EFFECTIVE_R = 44   // ORB_RADIUS(30) + ORB_GAP(14)
+// Fin cursor — narrow, dramatic slice
+const FIN_EFFECTIVE_R = 18   // FIN_RADIUS(10) + FIN_GAP(8)
+// Y offset to center exclusion in fin body rather than at the sharp tip
+const FIN_Y_OFFSET    = 10
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function getFontSize(mode: Mode, containerWidth: number): number {
@@ -35,58 +42,59 @@ function getModeText(mode: Mode): string {
   return mode === 'pro' ? 'Tucker Anglemyer' : 'ANGLEMYER'
 }
 
-// ─── exclusion zone math ──────────────────────────────────────────────────────
-// For a horizontal band [lineY, lineY+lineHeight] and a circular orb,
-// return the xOffset (where text starts) and maxWidth (available text width).
-// Uses the chord of the circle at the band's closest point to the orb center.
+// ─── exclusion zone ───────────────────────────────────────────────────────────
+// For a circular orb at (orb.x, orb.y) with effective radius orb.r,
+// compute the xOffset and maxWidth for a line in the band [lineY, lineY+lineHeight].
 function getLineExclusion(
   lineY:          number,
   lineHeight:     number,
-  orb:            { x: number; y: number } | null,
+  orb:            Orb | null,
   containerWidth: number,
 ): { xOffset: number; maxWidth: number } {
   if (!orb) return { xOffset: 0, maxWidth: containerWidth }
-
-  const r = ORB_RADIUS + ORB_GAP
 
   // Nearest y on the band to the orb center
   const clampedY = Math.max(lineY, Math.min(orb.y, lineY + lineHeight))
   const dy       = Math.abs(orb.y - clampedY)
 
-  if (dy >= r) return { xOffset: 0, maxWidth: containerWidth }
+  if (dy >= orb.r) return { xOffset: 0, maxWidth: containerWidth }
 
-  const chordHalf = Math.sqrt(r * r - dy * dy)
+  const chordHalf = Math.sqrt(orb.r * orb.r - dy * dy)
   const orbLeft   = orb.x - chordHalf
   const orbRight  = orb.x + chordHalf
 
   if (orb.x <= containerWidth / 2) {
-    // Orb on left — text starts after orb right edge
+    // Orb on left — text starts after right edge of exclusion chord
     const xOff = Math.max(0, Math.min(orbRight, containerWidth * 0.75))
     return { xOffset: xOff, maxWidth: Math.max(60, containerWidth - xOff) }
   } else {
-    // Orb on right — text is limited to orb left edge
+    // Orb on right — text is limited to left edge of exclusion chord
     return { xOffset: 0, maxWidth: Math.max(60, orbLeft) }
   }
 }
 
 // ─── PretextHero ──────────────────────────────────────────────────────────────
 export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
-  const containerRef  = useRef<HTMLDivElement>(null)
-  const canvasRef     = useRef<HTMLCanvasElement>(null)
-  const orbDivRef     = useRef<HTMLDivElement>(null)
-  const preparedRef   = useRef<PreparedTextWithSegments | null>(null)
-  const fontStringRef = useRef('')
-  const colorRef      = useRef(color)
-  const accentRef     = useRef(accent)
-  const modeRef       = useRef(mode)
-  const orbPosRef     = useRef<{ x: number; y: number } | null>(null)
+  const containerRef    = useRef<HTMLDivElement>(null)
+  const canvasRef       = useRef<HTMLCanvasElement>(null)
+  const preparedRef     = useRef<PreparedTextWithSegments | null>(null)
+  const fontStringRef   = useRef('')
+  // Ambient floating orb — drives text flow when fin is not in the hero
+  const orbPosRef       = useRef<Orb | null>(null)
+  // Fin cursor position — overrides orbPosRef when mouse is in the hero
+  const mouseInHeroRef  = useRef(false)
+  const mousePosRef     = useRef<Orb | null>(null)
+
+  const colorRef  = useRef(color)
+  const accentRef = useRef(accent)  // eslint-disable-line @typescript-eslint/no-unused-vars
+  const modeRef   = useRef(mode)
   const [fallback, setFallback] = useState(false)
 
   colorRef.current  = color
   accentRef.current = accent
   modeRef.current   = mode
 
-  // ── draw (hot path — runs 60fps while orb is active) ──────────────────────
+  // ── draw (hot path) ───────────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas    = canvasRef.current
     const container = containerRef.current
@@ -102,10 +110,14 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       const fontSize    = getFontSize(currentMode, cssWidth)
       const lineHeight  = fontSize * 1.1
 
-      // Only apply orb exclusion on desktop
-      const orb = cssWidth >= 600 ? orbPosRef.current : null
+      // Fin cursor takes priority over floating orb when mouse is in hero
+      const orb: Orb | null = cssWidth >= 600
+        ? (mouseInHeroRef.current && mousePosRef.current
+            ? mousePosRef.current
+            : orbPosRef.current)
+        : null
 
-      // ── Layout via layoutNextLine (supports per-line width) ───────────────
+      // ── layoutNextLine loop with per-line exclusion zone ─────────────────
       let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
       let y                    = 0
       const rendered: { text: string; x: number; y: number }[] = []
@@ -115,7 +127,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
         const { xOffset, maxWidth } = getLineExclusion(y, lineHeight, orb, cssWidth)
 
         if (maxWidth < fontSize * 0.5) {
-          // Orb completely blocks this band — skip the slot
+          // Exclusion zone completely blocks this band — skip the slot
           y += lineHeight
           continue
         }
@@ -185,28 +197,56 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     [draw],
   )
 
-  // Re-prepare when mode changes
+  // Re-prepare on mode change
   useEffect(() => {
     doPrepare(mode)
   }, [mode, doPrepare])
 
-  // ── Orb animation — Lissajous figure-8 via rAF (desktop only) ─────────────
+  // ── Mouse tracking — fin cursor drives exclusion when in hero ─────────────
   useEffect(() => {
     const container = containerRef.current
-    // Don't start animation on mobile-sized containers
+    if (!container) return
+
+    const onMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      mousePosRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top + FIN_Y_OFFSET,
+        r: FIN_EFFECTIVE_R,
+      }
+      mouseInHeroRef.current = true
+      draw()
+    }
+
+    const onMouseLeave = () => {
+      mouseInHeroRef.current = false
+      mousePosRef.current    = null
+      draw()
+    }
+
+    container.addEventListener('mousemove', onMouseMove, { passive: true })
+    container.addEventListener('mouseleave', onMouseLeave)
+    return () => {
+      container.removeEventListener('mousemove', onMouseMove)
+      container.removeEventListener('mouseleave', onMouseLeave)
+    }
+  }, [draw])
+
+  // ── Ambient floating orb — Lissajous figure-8, desktop only ──────────────
+  // Invisible (no orb div). Just keeps text gently drifting when cursor is away.
+  useEffect(() => {
+    const container = containerRef.current
     if (!container || container.offsetWidth < 600) return
 
     const startMs = performance.now()
     let frame: number
 
     function animate(now: number) {
-      const cont   = containerRef.current
-      const orbDiv = orbDivRef.current
-      if (!cont || !orbDiv) { frame = requestAnimationFrame(animate); return }
+      const cont = containerRef.current
+      if (!cont) { frame = requestAnimationFrame(animate); return }
 
       const cssWidth = cont.offsetWidth
       if (cssWidth < 600) {
-        // Fell to mobile — suspend orb but keep RAF alive for resize back
         orbPosRef.current = null
         frame = requestAnimationFrame(animate)
         return
@@ -216,16 +256,16 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       const fontSize    = getFontSize(currentMode, cssWidth)
       const lineHeight  = fontSize * 1.1
 
-      // Figure-8 (2:1 Lissajous): x = sin(2t),  y = sin(t)
+      // Figure-8 (2:1 Lissajous)
       const t    = (now - startMs) / 8000 * Math.PI * 2
       const orbX = cssWidth * 0.72 + Math.sin(2 * t) * 40
       const orbY = lineHeight * 0.5 + Math.sin(t) * lineHeight * 0.32
 
-      orbPosRef.current   = { x: orbX, y: orbY }
-      orbDiv.style.left   = `${orbX}px`
-      orbDiv.style.top    = `${orbY}px`
+      orbPosRef.current = { x: orbX, y: orbY, r: ORB_EFFECTIVE_R }
 
-      draw()
+      // Only draw from rAF when fin is NOT in the hero — mouse events handle it otherwise
+      if (!mouseInHeroRef.current) draw()
+
       frame = requestAnimationFrame(animate)
     }
 
@@ -233,7 +273,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     return () => cancelAnimationFrame(frame)
   }, [draw])
 
-  // ── ResizeObserver — re-layout (or re-prepare if font bucket changed) ──────
+  // ── ResizeObserver ────────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -257,7 +297,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     return () => ro.disconnect()
   }, [draw, doPrepare])
 
-  // Re-draw when color changes (mode crossfade)
+  // Re-draw on color change
   useEffect(() => { draw() }, [color, draw])
 
   // ── Fallback ───────────────────────────────────────────────────────────────
@@ -284,32 +324,10 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      {/* Canvas — the text surface */}
+      {/* Canvas — the text surface. Orb div removed; fin cursor is the effect driver. */}
       <canvas
         ref={canvasRef}
         style={{ display: 'block', background: 'transparent' }}
-      />
-
-      {/* Orb — absolute, desktop only, positioned imperatively by rAF */}
-      <div
-        ref={orbDivRef}
-        style={{
-          position:             'absolute',
-          width:                '60px',
-          height:               '60px',
-          borderRadius:         '50%',
-          background:           `radial-gradient(circle at 38% 38%, ${accent}cc, ${accent}11)`,
-          boxShadow:            `0 0 0 1.5px ${accent}44, 0 0 22px 8px ${accent}77, 0 0 55px 22px ${accent}33`,
-          opacity:              0.9,
-          backdropFilter:       'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-          pointerEvents:        'none',
-          transform:            'translate(-50%, -50%)',
-          // Smooth accent color transitions when mode switches
-          transition:           'box-shadow 0.7s ease, background 0.7s ease',
-          willChange:           'top, left',
-          // top/left intentionally omitted — set imperatively by rAF
-        }}
       />
     </div>
   )
