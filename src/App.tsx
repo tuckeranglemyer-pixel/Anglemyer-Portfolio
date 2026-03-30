@@ -11,6 +11,77 @@ import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
 type Mode  = 'pro' | 'creative'
 
+// ─── ModeToggle ───────────────────────────────────────────────────────────────
+// Fixed top-right pill. Dot slides left (NIGHT/pro) ↔ right (DAY/creative).
+function ModeToggle({ mode, onToggle }: { mode: Mode; onToggle: () => void }) {
+  const isNight = mode === 'pro'
+  return (
+    <button
+      onClick={onToggle}
+      aria-label={`Switch to ${isNight ? 'day' : 'night'} mode`}
+      style={{
+        position: 'fixed',
+        top: '1.5rem',
+        right: '1.5rem',
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        padding: '5px 10px',
+        borderRadius: '999px',
+        border: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgba(0,0,0,0.28)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        cursor: 'pointer',
+        fontFamily: '"Space Mono", monospace',
+        fontSize: '10px',
+        letterSpacing: '0.25em',
+        textTransform: 'uppercase',
+        color: 'rgba(255,255,255,0.7)',
+        outline: 'none',
+        WebkitFontSmoothing: 'antialiased',
+        userSelect: 'none',
+      }}
+    >
+      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 1 : 0.35 }}>
+        NIGHT
+      </span>
+
+      {/* sliding track */}
+      <div
+        style={{
+          position: 'relative',
+          width: '22px',
+          height: '10px',
+          borderRadius: '999px',
+          background: 'rgba(255,255,255,0.08)',
+          flexShrink: 0,
+        }}
+      >
+        {/* dot */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '1px',
+            left: isNight ? '1px' : '11px',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.9)',
+            boxShadow: '0 0 5px rgba(255,255,255,0.25)',
+            transition: 'left 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+          }}
+        />
+      </div>
+
+      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 0.35 : 1 }}>
+        DAY
+      </span>
+    </button>
+  )
+}
+
 const DEFAULT_HERO_COLOR = '#00d4ff'
 
 // ─── color palette ───────────────────────────────────────────────────────────
@@ -240,6 +311,7 @@ export default function App() {
           Fades in during transition alongside the main content. */}
       {phase !== 'entry' && (
         <WaterBackground
+          mode={mode}
           style={{
             opacity:    phase === 'text-reveal' ? 0 : 1,
             transition: 'opacity 1s ease-in-out',
@@ -288,7 +360,7 @@ export default function App() {
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
-        <div className="w-full min-h-screen flex items-center justify-center relative">
+        <div className="w-full min-h-screen flex items-center justify-center">
           <h1
             style={{
               fontFamily: mode === 'pro'
@@ -303,20 +375,21 @@ export default function App() {
           >
             {mode === 'pro' ? 'Tucker Anglemyer' : 'ANGLEMYER'}
           </h1>
-
-          <button
-            onClick={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
-            className="absolute bottom-8 right-8 text-white/40 hover:text-white/90 transition-colors duration-300 text-xs tracking-widest uppercase border border-white/20 hover:border-white/60 px-4 py-2 cursor-pointer"
-            style={{ fontFamily: '"Space Mono", monospace' }}
-          >
-            {mode === 'pro' ? 'creative' : 'pro'}
-          </button>
         </div>
       </div>
 
       {/* ── Layer 4: Color picker (z-index 40) ────────────────────────────────
           One-time prompt for new visitors to leave their color mark. */}
       {showPicker && <ColorPicker onSelect={handleColorSelect} />}
+
+      {/* ── Layer 5: Mode toggle pill (z-index 50, top-right) ─────────────────
+          Only interactive once the main page is visible. */}
+      {phase === 'main' && (
+        <ModeToggle
+          mode={mode}
+          onToggle={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
+        />
+      )}
     </>
   )
 }
