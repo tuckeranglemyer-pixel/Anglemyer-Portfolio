@@ -1,20 +1,69 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
 // ─── types ────────────────────────────────────────────────────────────────────
-// entry       → ink drop animation plays (with visitor drops first)
-// text-reveal → "ANGLEMYER" fades in over the canvas (0.8 s)
-// transition  → canvas fades out, water bg + main content fade in (1 s)
-// main        → full page, water background persists
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
 type Mode  = 'pro' | 'creative'
 
+// ─── accent colors ────────────────────────────────────────────────────────────
+const ACCENTS: Record<Mode, string> = {
+  pro:      '#38bdf8',  // sky blue
+  creative: '#fb923c',  // warm orange
+}
+
+// ─── CursorGlow ───────────────────────────────────────────────────────────────
+// 200px radial gradient that follows the mouse. Position is updated imperatively
+// (no React re-renders on mousemove). Background transitions on mode change.
+function CursorGlow({ accent }: { accent: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  // Wire up mouse tracking once — no deps, runs forever
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!ref.current) return
+      ref.current.style.transform = `translate(${e.clientX - 100}px, ${e.clientY - 100}px)`
+    }
+    window.addEventListener('mousemove', handler, { passive: true })
+    return () => window.removeEventListener('mousemove', handler)
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position:      'fixed',
+        top:           0,
+        left:          0,
+        width:         '200px',
+        height:        '200px',
+        borderRadius:  '50%',
+        background:    `radial-gradient(circle, ${accent} 0%, transparent 70%)`,
+        opacity:       0.05,
+        pointerEvents: 'none',
+        zIndex:        2,
+        willChange:    'transform',
+        // transform intentionally omitted — managed imperatively above
+        transition:    'background 0.8s ease',
+      }}
+    />
+  )
+}
+
 // ─── ModeToggle ───────────────────────────────────────────────────────────────
 // Fixed top-right pill. Dot slides left (NIGHT/pro) ↔ right (DAY/creative).
-function ModeToggle({ mode, onToggle }: { mode: Mode; onToggle: () => void }) {
+// Dot glow matches the current mode accent color.
+function ModeToggle({
+  mode,
+  accent,
+  onToggle,
+}: {
+  mode: Mode
+  accent: string
+  onToggle: () => void
+}) {
   const isNight = mode === 'pro'
   return (
     <button
@@ -60,18 +109,18 @@ function ModeToggle({ mode, onToggle }: { mode: Mode; onToggle: () => void }) {
           flexShrink: 0,
         }}
       >
-        {/* dot */}
+        {/* dot with accent glow */}
         <div
           style={{
-            position: 'absolute',
-            top: '1px',
-            left: isNight ? '1px' : '11px',
-            width: '8px',
-            height: '8px',
+            position:   'absolute',
+            top:        '1px',
+            left:       isNight ? '1px' : '11px',
+            width:      '8px',
+            height:     '8px',
             borderRadius: '50%',
             background: 'rgba(255,255,255,0.9)',
-            boxShadow: '0 0 5px rgba(255,255,255,0.25)',
-            transition: 'left 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            boxShadow:  `0 0 6px 2px ${accent}55`,
+            transition: `left 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.7s ease`,
           }}
         />
       </div>
@@ -220,6 +269,7 @@ export default function App() {
 
   const [phase, setPhase] = useState<Phase>(skipAnimation ? 'main' : 'entry')
   const [mode,  setMode]  = useState<Mode>('creative')
+  const accent = ACCENTS[mode]
 
   // Visitor data from Firestore
   const [visitors,      setVisitors]      = useState<Visitor[]>([])
@@ -362,7 +412,7 @@ export default function App() {
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
-        <MainContent mode={mode} active={phase === 'main'} />
+        <MainContent mode={mode} accent={accent} active={phase === 'main'} />
       </div>
 
       {/* ── Layer 4: Color picker (z-index 40) ────────────────────────────────
@@ -374,9 +424,35 @@ export default function App() {
       {phase === 'main' && (
         <ModeToggle
           mode={mode}
+          accent={accent}
           onToggle={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
         />
       )}
+
+      {/* ── Layer 6: Visitor count (z-index 50, top-left) ─────────────────────
+          Shows after animation; only rendered when there are prior visitors. */}
+      {phase === 'main' && visitors.length > 0 && (
+        <div
+          style={{
+            position:      'fixed',
+            top:           '1.5rem',
+            left:          '1.5rem',
+            zIndex:        50,
+            fontFamily:    '"Space Mono", monospace',
+            fontSize:      '10px',
+            letterSpacing: '0.15em',
+            color:         'rgba(255,255,255,0.2)',
+            pointerEvents: 'none',
+            userSelect:    'none',
+          }}
+        >
+          {visitors.length} visitors
+        </div>
+      )}
+
+      {/* ── Layer 7: Cursor glow (z-index 2, pointer-events none) ─────────────
+          Imperative position updates; only background transitions via React. */}
+      {phase === 'main' && <CursorGlow accent={accent} />}
     </>
   )
 }

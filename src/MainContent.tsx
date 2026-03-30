@@ -3,9 +3,6 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 type Mode = 'pro' | 'creative'
 
 // ─── Reveal ───────────────────────────────────────────────────────────────────
-// Each child fades in and slides up 20px when it enters the viewport.
-// `active` must be true before observation begins — prevents animations firing
-// while the parent container is still invisible (pre-main phase).
 function Reveal({
   children,
   delay = 0,
@@ -15,21 +12,15 @@ function Reveal({
   delay?: number
   active?: boolean
 }) {
-  const ref     = useRef<HTMLDivElement>(null)
+  const ref          = useRef<HTMLDivElement>(null)
   const [show, setShow] = useState(false)
 
   useEffect(() => {
     if (!active) return
     const el = ref.current
     if (!el) return
-
     const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShow(true)
-          io.disconnect()
-        }
-      },
+      ([entry]) => { if (entry.isIntersecting) { setShow(true); io.disconnect() } },
       { threshold: 0.05, rootMargin: '0px 0px -20px 0px' },
     )
     io.observe(el)
@@ -52,10 +43,7 @@ function Reveal({
 }
 
 // ─── ProjectBlock ─────────────────────────────────────────────────────────────
-interface LinkDef {
-  label: string
-  href: string
-}
+interface LinkDef { label: string; href: string }
 
 function ProjectBlock({
   title,
@@ -63,26 +51,38 @@ function ProjectBlock({
   link,
   delay = 0,
   active,
+  accent,
 }: {
   title: string
   description: string
   link?: LinkDef
   delay?: number
   active?: boolean
+  accent: string
 }) {
+  const [hovered, setHovered] = useState(false)
+
   return (
     <Reveal delay={delay} active={active}>
       <div style={{ marginBottom: '3.5rem' }}>
+        {/* Title — skews and shifts to accent on hover */}
         <h2
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
-            fontFamily: '"Instrument Serif", serif',
-            fontStyle:  'italic',
-            fontSize:   '28px',
-            fontWeight: 400,
-            color:      'rgba(255,255,255,0.95)',
-            margin:     '0 0 14px',
+            fontFamily:    '"Instrument Serif", serif',
+            fontStyle:     'italic',
+            fontSize:      '28px',
+            fontWeight:    400,
+            margin:        '0 0 14px',
             letterSpacing: '-0.01em',
-            lineHeight: 1.15,
+            lineHeight:    1.15,
+            display:       'inline-block',
+            cursor:        'default',
+            color:         hovered ? accent : 'rgba(255,255,255,0.95)',
+            transform:     hovered ? 'skewX(-2deg) scale(1.02)' : 'skewX(0deg) scale(1)',
+            transformOrigin: 'left center',
+            transition:    'transform 0.3s ease, color 0.3s ease',
           }}
         >
           {title}
@@ -90,11 +90,11 @@ function ProjectBlock({
 
         <p
           style={{
-            fontFamily:  '"Space Mono", monospace',
-            fontSize:    '13px',
-            lineHeight:  1.85,
-            color:       'rgba(255,255,255,0.4)',
-            margin:      '0 0 16px',
+            fontFamily:    '"Space Mono", monospace',
+            fontSize:      '13px',
+            lineHeight:    1.85,
+            color:         'rgba(255,255,255,0.4)',
+            margin:        '0 0 16px',
             letterSpacing: '0.02em',
           }}
         >
@@ -107,15 +107,15 @@ function ProjectBlock({
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              display:     'inline-flex',
-              alignItems:  'center',
-              gap:         '7px',
-              fontFamily:  '"Space Mono", monospace',
-              fontSize:    '11px',
-              letterSpacing: '0.12em',
-              color:       'rgba(255,255,255,0.4)',
+              display:        'inline-flex',
+              alignItems:     'center',
+              gap:            '7px',
+              fontFamily:     '"Space Mono", monospace',
+              fontSize:       '11px',
+              letterSpacing:  '0.12em',
+              color:          'rgba(255,255,255,0.4)',
               textDecoration: 'none',
-              transition:  'color 0.2s ease',
+              transition:     'color 0.2s ease',
             }}
             onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.88)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
@@ -129,25 +129,62 @@ function ProjectBlock({
   )
 }
 
+// ─── EmailLink ────────────────────────────────────────────────────────────────
+// Underline expands left-to-right on hover using a width transition on an
+// absolutely-positioned span. React controls the width via hover state.
+function EmailLink() {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <a
+      href="mailto:tucker@untrackedmusic.com"
+      style={{
+        position:       'relative',
+        display:        'inline-block',
+        fontFamily:     '"Space Mono", monospace',
+        fontSize:       '11px',
+        letterSpacing:  '0.15em',
+        color:          hovered ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
+        textDecoration: 'none',
+        transition:     'color 0.25s ease',
+        paddingBottom:  '2px',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      tucker@untrackedmusic.com
+      {/* expanding underline */}
+      <span
+        style={{
+          position:   'absolute',
+          bottom:     0,
+          left:       0,
+          height:     '1px',
+          background: 'rgba(255,255,255,0.35)',
+          width:      hovered ? '100%' : '0%',
+          transition: 'width 0.35s ease',
+        }}
+      />
+    </a>
+  )
+}
+
 // ─── MainContent ──────────────────────────────────────────────────────────────
 interface MainContentProps {
-  mode: Mode
-  // Becomes true once the page is fully visible so reveals don't fire early
+  mode:    Mode
+  accent:  string
   active?: boolean
 }
 
-export default function MainContent({ mode, active = false }: MainContentProps) {
-  // Hero fades out briefly when mode switches so the style change isn't abrupt
+export default function MainContent({ mode, accent, active = false }: MainContentProps) {
+  // Hero fades out briefly when mode switches so the style swap isn't abrupt
   const [displayMode, setDisplayMode] = useState<Mode>(mode)
   const [heroOpacity,  setHeroOpacity]  = useState(1)
 
   useEffect(() => {
     if (mode === displayMode) return
     setHeroOpacity(0)
-    const t = setTimeout(() => {
-      setDisplayMode(mode)
-      setHeroOpacity(1)
-    }, 220)
+    const t = setTimeout(() => { setDisplayMode(mode); setHeroOpacity(1) }, 220)
     return () => clearTimeout(t)
   }, [mode, displayMode])
 
@@ -167,8 +204,8 @@ export default function MainContent({ mode, active = false }: MainContentProps) 
       <Reveal delay={0} active={active}>
         <div
           style={{
-            opacity:    heroOpacity,
-            transition: 'opacity 0.22s ease',
+            opacity:      heroOpacity,
+            transition:   'opacity 0.22s ease',
             marginBottom: '72px',
           }}
         >
@@ -221,6 +258,7 @@ export default function MainContent({ mode, active = false }: MainContentProps) 
         link={{ label: 'untrackedmusic.com', href: 'https://untrackedmusic.com' }}
         delay={80}
         active={active}
+        accent={accent}
       />
 
       <ProjectBlock
@@ -228,25 +266,12 @@ export default function MainContent({ mode, active = false }: MainContentProps) 
         description="Multi-agent adversarial AI product analysis engine. 1st place, yconic New England AI Hackathon. Built in 24 hours with a two-person team."
         delay={160}
         active={active}
+        accent={accent}
       />
 
       {/* ── Contact ──────────────────────────────────────────────────────────── */}
       <Reveal delay={240} active={active}>
-        <a
-          href="mailto:tucker@untrackedmusic.com"
-          style={{
-            fontFamily:    '"Space Mono", monospace',
-            fontSize:      '11px',
-            letterSpacing: '0.15em',
-            color:         'rgba(255,255,255,0.25)',
-            textDecoration: 'none',
-            transition:    'color 0.2s ease',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
-        >
-          tucker@untrackedmusic.com
-        </a>
+        <EmailLink />
       </Reveal>
     </div>
   )
