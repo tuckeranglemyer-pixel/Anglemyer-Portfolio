@@ -5,8 +5,10 @@ import * as THREE from 'three'
 
 // ─── constants ───────────────────────────────────────────────────────────────
 const DROP_COLOR   = '#00d4ff'
-const DROP_START_Y = 3.0    // above camera (camera y ≈ 1.3 at cPolarAngle=75)
-const GRAVITY      = 14
+// cPolarAngle=30, cDistance=8 → camera at y≈6.93, z≈4.0
+// Top of viewport on y-axis ≈ y=3.86 → start at 4.5 to enter from just off-screen top
+const DROP_START_Y = 4.5
+const GRAVITY      = 16
 const DELAY        = 0.5    // seconds before drop appears
 const RING_DUR     = 1.2    // ring expansion duration
 const RING2_DELAY  = 0.1    // echo ring starts 100ms after first
@@ -99,15 +101,19 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         // ring2 becomes visible once its delay elapses (handled in ring phase)
 
         // Spawn splash: evenly spaced angles + random jitter
+        // Higher hSpeed — with overhead camera XZ spread is the dominant visual
         for (let i = 0; i < SPLASH_COUNT; i++) {
           const angle  = (i / SPLASH_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
-          const hSpeed = 2.0 + Math.random() * 2.5
+          const hSpeed = 3.5 + Math.random() * 3.0
           const vSpeed = 2.0 + Math.random() * 3.5
           const i3 = i * 3
           splashVel.current[i3]     = Math.cos(angle) * hSpeed
           splashVel.current[i3 + 1] = vSpeed
           splashVel.current[i3 + 2] = Math.sin(angle) * hSpeed
-          splashPos[i3] = splashPos[i3 + 1] = splashPos[i3 + 2] = 0
+          // Start just above surface so they're not clipped on frame 1
+          splashPos[i3]     = 0
+          splashPos[i3 + 1] = 0.05
+          splashPos[i3 + 2] = 0
         }
         ;(splashRef.current.attributes.position as THREE.BufferAttribute).needsUpdate = true
       }
@@ -237,8 +243,8 @@ export default function InkEntry({ onComplete }: InkEntryProps) {
         uSpeed={0.08}
         uStrength={2.5}
         uFrequency={3}
-        cPolarAngle={75}
-        cDistance={5}
+        cPolarAngle={30}
+        cDistance={8}
         lightType="3d"
         envPreset="city"
         brightness={1.0}
