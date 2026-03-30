@@ -4,11 +4,12 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // ─── constants ───────────────────────────────────────────────────────────────
-const DROP_COLOR   = '#00f0ff'
+const DROP_COLOR   = '#00d4ff'
 const DROP_START_Y = 3.0    // above camera (camera y ≈ 1.3 at cPolarAngle=75)
 const GRAVITY      = 14
 const DELAY        = 0.5    // seconds before drop appears
 const RING_DUR     = 1.2    // ring expansion duration
+const RING2_DELAY  = 0.1    // echo ring starts 100ms after first
 const SPLASH_COUNT = 10
 const SPLASH_LIFE  = 0.5    // seconds for splash particles to die
 
@@ -21,7 +22,8 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
   // scene shake group — ShaderGradient owns the camera, so we shake our objects
   const shakeRef  = useRef<THREE.Group>(null!)
   const dropRef   = useRef<THREE.Mesh>(null!)
-  const ringRef   = useRef<THREE.Mesh>(null!)
+  const ring1Ref  = useRef<THREE.Mesh>(null!)
+  const ring2Ref  = useRef<THREE.Mesh>(null!)
   const splashRef = useRef<THREE.BufferGeometry>(null!)
 
   // Imperative materials — updated directly in useFrame without React re-renders
@@ -30,7 +32,14 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
     blending: THREE.AdditiveBlending, depthWrite: false,
   }), [])
 
-  const ringMat = useMemo(() => new THREE.MeshBasicMaterial({
+  // Two ring materials — different peak opacities, both fade to 0
+  const ring1Mat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: DROP_COLOR, transparent: true, opacity: 0,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }), [])
+
+  const ring2Mat = useMemo(() => new THREE.MeshBasicMaterial({
     color: DROP_COLOR, transparent: true, opacity: 0,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending, depthWrite: false,
@@ -86,7 +95,8 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         dropRef.current.visible = false
         phase.current = 'ring'
         ringT.current = 0
-        ringRef.current.visible = true
+        ring1Ref.current.visible = true
+        // ring2 becomes visible once its delay elapses (handled in ring phase)
 
         // Spawn splash: evenly spaced angles + random jitter
         for (let i = 0; i < SPLASH_COUNT; i++) {
@@ -107,15 +117,23 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
     // ── Phase: ring ──────────────────────────────────────────────────────────
     if (phase.current === 'ring') {
       ringT.current += dt
-      const rp    = Math.min(ringT.current / RING_DUR, 1)
-      const eased = easeOutExpo(rp)
 
-      // Ring expands in XZ plane — mesh is rotated -90° X, so local XY → world XZ
-      // scale.x = world X, scale.y = world Z, scale.z = world Y (no thickness)
-      const r = Math.max(0.001, eased * 3.0)
-      ringRef.current.scale.set(r, r, 1)
-      // Opacity: sin curve — fades in then gracefully out by rp=1
-      ringMat.opacity = Math.sin(rp * Math.PI) * 0.85
+      // ── Ring 1 (primary) ─────────────────────────────────────────────────
+      const rp1   = Math.min(ringT.current / RING_DUR, 1)
+      const r1    = Math.max(0.001, easeOutExpo(rp1) * 3.0)
+      ring1Ref.current.scale.set(r1, r1, 1)
+      // Starts at 0.6, linearly fades to 0 as ring expands — subtle, not neon
+      ring1Mat.opacity = 0.6 * (1 - rp1)
+
+      // ── Ring 2 (echo — 100ms delayed, softer) ────────────────────────────
+      const t2  = Math.max(0, ringT.current - RING2_DELAY)
+      const rp2 = Math.min(t2 / RING_DUR, 1)
+      if (ringT.current >= RING2_DELAY) {
+        ring2Ref.current.visible = true
+        const r2 = Math.max(0.001, easeOutExpo(rp2) * 3.0)
+        ring2Ref.current.scale.set(r2, r2, 1)
+        ring2Mat.opacity = 0.28 * (1 - rp2)
+      }
 
       // Scene shake instead of camera shake (ShaderGradient owns camera)
       const shakeDecay = Math.max(0, 1 - ringT.current / 0.2)
@@ -151,8 +169,8 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         }
       }
 
-      // Ring fully expanded — done
-      if (rp >= 1 && !done.current) {
+      // Ring 1 fully expanded — done
+      if (rp1 >= 1 && !done.current) {
         done.current = true
         shakeRef.current.position.set(0, 0, 0)
         onComplete()
@@ -168,15 +186,26 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         <primitive object={dropMat} attach="material" />
       </mesh>
 
-      {/* Impact ring — rotated flat in XZ (water) plane, starts at scale≈0 */}
+      {/* Ring 1 — primary ripple, thin annulus (0.02 width), flat in XZ plane */}
       <mesh
-        ref={ringRef}
+        ref={ring1Ref}
         rotation={[-Math.PI / 2, 0, 0]}
         scale={[0.001, 0.001, 1]}
         visible={false}
       >
-        <ringGeometry args={[0.88, 1.0, 64]} />
-        <primitive object={ringMat} attach="material" />
+        <ringGeometry args={[0.98, 1.0, 128]} />
+        <primitive object={ring1Mat} attach="material" />
+      </mesh>
+
+      {/* Ring 2 — echo ripple, 100ms delayed, softer */}
+      <mesh
+        ref={ring2Ref}
+        rotation={[-Math.PI / 2, 0, 0]}
+        scale={[0.001, 0.001, 1]}
+        visible={false}
+      >
+        <ringGeometry args={[0.98, 1.0, 128]} />
+        <primitive object={ring2Mat} attach="material" />
       </mesh>
 
       {/* Splash particles */}
