@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
+import PretextHero from './PretextHero'
 
 type Mode = 'pro' | 'creative'
 
@@ -226,31 +227,13 @@ export default function MainContent({ mode, accent, active = false }: MainConten
             marginBottom: '72px',
           }}
         >
-          <h1
-            style={{
-              margin:         '0 0 22px',
-              lineHeight:     1.0,
-              overflowWrap:   'break-word',
-              ...(isPro
-                ? {
-                    fontFamily:    '"Instrument Serif", serif',
-                    fontSize:      isMobile ? '48px' : 'clamp(52px, 7vw, 80px)',
-                    fontWeight:    400,
-                    letterSpacing: '-0.02em',
-                    color:         'rgba(255,255,255,0.95)',
-                  }
-                : {
-                    fontFamily:    '"Space Mono", monospace',
-                    fontSize:      isMobile ? '48px' : 'clamp(44px, 6vw, 72px)',
-                    fontWeight:    700,
-                    letterSpacing: isMobile ? '0.05em' : '0.08em',
-                    textTransform: 'uppercase' as const,
-                    color:         'white',
-                  }),
-            }}
-          >
-            {isPro ? 'Tucker Anglemyer' : 'ANGLEMYER'}
-          </h1>
+          <div style={{ margin: '0 0 22px' }}>
+            <PretextHero
+              mode={displayMode}
+              color={isPro ? 'rgba(255,255,255,0.95)' : 'white'}
+              accent={accent}
+            />
+          </div>
 
           <p
             style={{
@@ -264,7 +247,7 @@ export default function MainContent({ mode, accent, active = false }: MainConten
           >
             {isPro
               ? 'Providence College\u2009·\u2009Accounting & Finance\u2009·\u2009Incoming PwC\u2009·\u2009Founder, Untracked'
-              : 'Underground house\u2009·\u2009AI at 2am\u2009·\u2009Solo shows\u2009·\u2009The range is the resume'}
+              : 'Founder by day\u2009·\u2009Underground house by night\u2009·\u2009AI agents at 2am\u2009·\u2009The range is the point'}
           </p>
         </div>
       </Reveal>

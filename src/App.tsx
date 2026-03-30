@@ -99,7 +99,7 @@ function ModeToggle({
   isMobile: boolean
   onToggle: () => void
 }) {
-  const isNight = mode === 'pro'
+  const isNight = mode === 'creative'
   return (
     <button
       onClick={onToggle}
@@ -131,8 +131,8 @@ function ModeToggle({
         userSelect: 'none',
       }}
     >
-      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 1 : 0.35 }}>
-        NIGHT
+      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 0.35 : 1 }}>
+        DAY
       </span>
 
       {/* sliding track */}
@@ -151,7 +151,7 @@ function ModeToggle({
           style={{
             position:   'absolute',
             top:        '1px',
-            left:       isNight ? '1px' : '11px',
+            left:       isNight ? '11px' : '1px',
             width:      '8px',
             height:     '8px',
             borderRadius: '50%',
@@ -162,8 +162,8 @@ function ModeToggle({
         />
       </div>
 
-      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 0.35 : 1 }}>
-        DAY
+      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 1 : 0.35 }}>
+        NIGHT
       </span>
     </button>
   )
@@ -305,7 +305,7 @@ export default function App() {
   })()
 
   const [phase, setPhase] = useState<Phase>(skipAnimation ? 'main' : 'entry')
-  const [mode,  setMode]  = useState<Mode>('creative')
+  const [mode,  setMode]  = useState<Mode>('pro')
   const accent   = ACCENTS[mode]
   const isMobile = useIsMobile()
 
