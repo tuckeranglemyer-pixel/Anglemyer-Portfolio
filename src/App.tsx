@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
+import MainContent from './MainContent'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -353,29 +354,15 @@ export default function App() {
           Invisible until transition, then fades in over 1 s. */}
       <div
         style={{
-          position: 'relative', zIndex: 5,
-          minHeight: '100vh',
+          position:      'relative',
+          zIndex:        5,
+          minHeight:     '100vh',
           opacity:       phase === 'main' || phase === 'transition' ? 1 : 0,
           transition:    phase === 'transition' ? 'opacity 1s ease-in-out' : undefined,
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
-        <div className="w-full min-h-screen flex items-center justify-center">
-          <h1
-            style={{
-              fontFamily: mode === 'pro'
-                ? '"Instrument Serif", serif'
-                : '"Space Mono", monospace',
-            }}
-            className={`text-white select-none transition-all duration-500 ${
-              mode === 'pro'
-                ? 'text-5xl font-normal tracking-normal'
-                : 'text-6xl font-bold tracking-widest uppercase'
-            }`}
-          >
-            {mode === 'pro' ? 'Tucker Anglemyer' : 'ANGLEMYER'}
-          </h1>
-        </div>
+        <MainContent mode={mode} active={phase === 'main'} />
       </div>
 
       {/* ── Layer 4: Color picker (z-index 40) ────────────────────────────────
