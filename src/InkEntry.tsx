@@ -1,58 +1,209 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import type { Visitor } from './visitors'
 
 // ─── constants ───────────────────────────────────────────────────────────────
-const DROP_COLOR   = '#00d4ff'
+const DEFAULT_HERO_COLOR = '#00d4ff'
 // cPolarAngle=30, cDistance=8 → camera at y≈6.93, z≈4.0
 // Top of viewport on y-axis ≈ y=3.86 → start at 4.5 to enter from just off-screen top
-const DROP_START_Y = 4.5
-const GRAVITY      = 16
-const DELAY        = 0.5    // seconds before drop appears
-const RING_DUR     = 1.2    // ring expansion duration
-const RING2_DELAY  = 0.1    // echo ring starts 100ms after first
-const SPLASH_COUNT = 10
-const SPLASH_LIFE  = 0.5    // seconds for splash particles to die
+const DROP_START_Y  = 4.5
+const GRAVITY       = 16
+const DEFAULT_DELAY = 0.5   // hero delay when no visitor drops precede it
+const VISITOR_DELAY = 1.6   // hero delay when visitor drops play first
+const RING_DUR      = 1.2   // hero ring expansion duration
+const RING2_DELAY   = 0.1   // echo ring starts 100ms after first
+const SPLASH_COUNT  = 10
+const SPLASH_LIFE   = 0.5   // seconds for splash particles to die
+
+// Visitor drop constants
+const VISITOR_RING_DUR = 0.7  // shorter, softer expansion
+const VISITOR_STAGGER  = 1.3  // total window to stagger all visitor drops (s)
 
 function easeOutExpo(x: number): number {
   return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x)
 }
 
-// ─── inner scene (must be inside ShaderGradientCanvas to access R3F context) ─
-function InkScene({ onComplete }: { onComplete: () => void }) {
-  // scene shake group — ShaderGradient owns the camera, so we shake our objects
+// ─── visitor drops ───────────────────────────────────────────────────────────
+// Renders each past visitor's colored drop falling before the hero drop.
+// Drops are staggered over VISITOR_STAGGER seconds, scattered in XZ.
+interface VisitorDropData {
+  startDelay: number
+  x: number
+  z: number
+  phase: 'waiting' | 'falling' | 'ring' | 'done'
+  dropY: number
+  dropVY: number
+  ringT: number
+}
+
+function VisitorDrops({ visitors }: { visitors: Visitor[] }) {
+  const count = visitors.length
+  if (count === 0) return null
+
+  // Per-visitor materials (different colors)
+  const mats = useMemo(
+    () =>
+      visitors.map(v => ({
+        drop: new THREE.MeshBasicMaterial({
+          color: v.color,
+          transparent: true,
+          opacity: 1,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+        ring: new THREE.MeshBasicMaterial({
+          color: v.color,
+          transparent: true,
+          opacity: 0,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      })),
+    // visitors is stable (fetched once); safe to depend on it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [count],
+  )
+
+  useEffect(() => {
+    return () => mats.forEach(m => { m.drop.dispose(); m.ring.dispose() })
+  }, [mats])
+
+  // Animation state — mutable objects, only useFrame touches them
+  const data = useMemo<VisitorDropData[]>(
+    () =>
+      visitors.map((_, i) => ({
+        startDelay: count > 1 ? (i / (count - 1)) * VISITOR_STAGGER : 0,
+        x: (Math.random() - 0.5) * 2.0,
+        z: (Math.random() - 0.5) * 2.0,
+        phase: 'waiting',
+        dropY: DROP_START_Y,
+        dropVY: 0,
+        ringT: 0,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [count],
+  )
+
+  const dropMeshes = useRef<{ [k: number]: THREE.Mesh | null }>({})
+  const ringMeshes = useRef<{ [k: number]: THREE.Mesh | null }>({})
+  const elapsed    = useRef(0)
+
+  useFrame((_, dt) => {
+    elapsed.current += dt
+
+    for (let i = 0; i < count; i++) {
+      const d  = data[i]
+      const dm = dropMeshes.current[i]
+      const rm = ringMeshes.current[i]
+      if (!dm || !rm || d.phase === 'done') continue
+
+      const t = elapsed.current - d.startDelay
+      if (t < 0) continue
+
+      if (d.phase === 'waiting') {
+        d.phase  = 'falling'
+        d.dropY  = DROP_START_Y
+        d.dropVY = 0
+        dm.visible = true
+        dm.position.set(d.x, d.dropY, d.z)
+      }
+
+      if (d.phase === 'falling') {
+        d.dropVY -= GRAVITY * dt
+        d.dropY  += d.dropVY * dt
+        dm.position.y = d.dropY
+
+        if (d.dropY <= 0) {
+          d.phase = 'ring'
+          dm.visible = false
+          rm.visible = true
+          rm.position.set(d.x, 0.005, d.z)
+          d.ringT = 0
+        }
+      }
+
+      if (d.phase === 'ring') {
+        d.ringT += dt
+        const rp = Math.min(d.ringT / VISITOR_RING_DUR, 1)
+        const r  = Math.max(0.001, easeOutExpo(rp) * 1.2)
+        rm.scale.set(r, r, 1)
+        mats[i].ring.opacity = 0.35 * (1 - rp)
+
+        if (rp >= 1) {
+          d.phase    = 'done'
+          rm.visible = false
+        }
+      }
+    }
+  })
+
+  return (
+    <>
+      {visitors.map((v, i) => (
+        <group key={v.id}>
+          <mesh
+            ref={(el: THREE.Mesh | null) => { dropMeshes.current[i] = el }}
+            visible={false}
+          >
+            <sphereGeometry args={[0.02, 16, 16]} />
+            <primitive object={mats[i].drop} attach="material" />
+          </mesh>
+          <mesh
+            ref={(el: THREE.Mesh | null) => { ringMeshes.current[i] = el }}
+            rotation={[-Math.PI / 2, 0, 0]}
+            scale={[0.001, 0.001, 1]}
+            visible={false}
+          >
+            <ringGeometry args={[0.98, 1.0, 64]} />
+            <primitive object={mats[i].ring} attach="material" />
+          </mesh>
+        </group>
+      ))}
+    </>
+  )
+}
+
+// ─── hero ink drop scene ──────────────────────────────────────────────────────
+function InkScene({
+  onComplete,
+  heroColor = DEFAULT_HERO_COLOR,
+  heroDelay = DEFAULT_DELAY,
+}: {
+  onComplete: () => void
+  heroColor?: string
+  heroDelay?: number
+}) {
   const shakeRef  = useRef<THREE.Group>(null!)
   const dropRef   = useRef<THREE.Mesh>(null!)
   const ring1Ref  = useRef<THREE.Mesh>(null!)
   const ring2Ref  = useRef<THREE.Mesh>(null!)
   const splashRef = useRef<THREE.BufferGeometry>(null!)
 
-  // Imperative materials — updated directly in useFrame without React re-renders
   const dropMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: DROP_COLOR, transparent: true, opacity: 1.0,
+    color: heroColor, transparent: true, opacity: 1.0,
     blending: THREE.AdditiveBlending, depthWrite: false,
-  }), [])
+  }), [heroColor])
 
-  // Two ring materials — different peak opacities, both fade to 0
   const ring1Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: DROP_COLOR, transparent: true, opacity: 0,
+    color: heroColor, transparent: true, opacity: 0,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending, depthWrite: false,
-  }), [])
+  }), [heroColor])
 
   const ring2Mat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: DROP_COLOR, transparent: true, opacity: 0,
+    color: heroColor, transparent: true, opacity: 0,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending, depthWrite: false,
-  }), [])
+  }), [heroColor])
 
   const splashMat = useMemo(() => new THREE.PointsMaterial({
-    color: DROP_COLOR, size: 0.045, sizeAttenuation: true,
+    color: heroColor, size: 0.045, sizeAttenuation: true,
     transparent: true, opacity: 0,
     blending: THREE.AdditiveBlending, depthWrite: false,
-  }), [])
+  }), [heroColor])
 
-  // ─── animation state ────────────────────────────────────────────────────────
   const phase   = useRef<'delay' | 'falling' | 'ring'>('delay')
   const elapsed = useRef(0)
   const dropY   = useRef(DROP_START_Y)
@@ -60,7 +211,6 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
   const ringT   = useRef(0)
   const done    = useRef(false)
 
-  // Splash particle buffers (mutated in-place each frame)
   const splashPos = useMemo(() => new Float32Array(SPLASH_COUNT * 3), [])
   const splashVel = useRef(new Float32Array(SPLASH_COUNT * 3))
 
@@ -70,14 +220,13 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
     splashRef.current.setAttribute('position', attr)
   }, [splashPos])
 
-  // ─── animation loop ──────────────────────────────────────────────────────────
   useFrame((_, dt) => {
     elapsed.current += dt
 
-    // ── Phase: delay ────────────────────────────────────────────────────────
+    // ── delay ────────────────────────────────────────────────────────────────
     if (phase.current === 'delay') {
-      if (elapsed.current >= DELAY) {
-        phase.current = 'falling'
+      if (elapsed.current >= heroDelay) {
+        phase.current  = 'falling'
         dropRef.current.visible = true
         dropY.current  = DROP_START_Y
         dropVY.current = 0
@@ -85,22 +234,18 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
       return
     }
 
-    // ── Phase: falling ───────────────────────────────────────────────────────
+    // ── falling ──────────────────────────────────────────────────────────────
     if (phase.current === 'falling') {
-      dropVY.current    -= GRAVITY * dt
-      dropY.current     += dropVY.current * dt
+      dropVY.current        -= GRAVITY * dt
+      dropY.current         += dropVY.current * dt
       dropRef.current.position.y = dropY.current
 
       if (dropY.current <= 0) {
-        // ── IMPACT ──────────────────────────────────────────────────────────
         dropRef.current.visible = false
         phase.current = 'ring'
         ringT.current = 0
         ring1Ref.current.visible = true
-        // ring2 becomes visible once its delay elapses (handled in ring phase)
 
-        // Spawn splash: evenly spaced angles + random jitter
-        // Higher hSpeed — with overhead camera XZ spread is the dominant visual
         for (let i = 0; i < SPLASH_COUNT; i++) {
           const angle  = (i / SPLASH_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
           const hSpeed = 3.5 + Math.random() * 3.0
@@ -109,7 +254,6 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
           splashVel.current[i3]     = Math.cos(angle) * hSpeed
           splashVel.current[i3 + 1] = vSpeed
           splashVel.current[i3 + 2] = Math.sin(angle) * hSpeed
-          // Start just above surface so they're not clipped on frame 1
           splashPos[i3]     = 0
           splashPos[i3 + 1] = 0.05
           splashPos[i3 + 2] = 0
@@ -119,18 +263,15 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
       return
     }
 
-    // ── Phase: ring ──────────────────────────────────────────────────────────
+    // ── ring ─────────────────────────────────────────────────────────────────
     if (phase.current === 'ring') {
       ringT.current += dt
 
-      // ── Ring 1 (primary) ─────────────────────────────────────────────────
-      const rp1   = Math.min(ringT.current / RING_DUR, 1)
-      const r1    = Math.max(0.001, easeOutExpo(rp1) * 3.0)
+      const rp1 = Math.min(ringT.current / RING_DUR, 1)
+      const r1  = Math.max(0.001, easeOutExpo(rp1) * 3.0)
       ring1Ref.current.scale.set(r1, r1, 1)
-      // Starts at 0.6, linearly fades to 0 as ring expands — subtle, not neon
       ring1Mat.opacity = 0.6 * (1 - rp1)
 
-      // ── Ring 2 (echo — 100ms delayed, softer) ────────────────────────────
       const t2  = Math.max(0, ringT.current - RING2_DELAY)
       const rp2 = Math.min(t2 / RING_DUR, 1)
       if (ringT.current >= RING2_DELAY) {
@@ -140,7 +281,7 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         ring2Mat.opacity = 0.28 * (1 - rp2)
       }
 
-      // Scene shake instead of camera shake (ShaderGradient owns camera)
+      // Scene shake (ShaderGradient owns the camera; shake the objects instead)
       const shakeDecay = Math.max(0, 1 - ringT.current / 0.2)
       const amp = 0.15 * shakeDecay * shakeDecay
       if (amp > 0.001) {
@@ -151,9 +292,9 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         shakeRef.current.position.z *= 0.75
       }
 
-      // Splash particles: gravity + fade out over SPLASH_LIFE
+      // Splash particles
       if (splashRef.current.attributes.position) {
-        const attr = splashRef.current.attributes.position as THREE.BufferAttribute
+        const attr     = splashRef.current.attributes.position as THREE.BufferAttribute
         const lifeFrac = Math.max(0, 1 - ringT.current / SPLASH_LIFE)
         splashMat.opacity = lifeFrac * 0.9
 
@@ -164,7 +305,6 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
             splashPos[i3]     += splashVel.current[i3]     * dt
             splashPos[i3 + 1] += splashVel.current[i3 + 1] * dt
             splashPos[i3 + 2] += splashVel.current[i3 + 2] * dt
-            // Bounce off surface
             if (splashPos[i3 + 1] < 0) {
               splashPos[i3 + 1] = 0
               splashVel.current[i3 + 1] *= -0.2
@@ -174,7 +314,6 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         }
       }
 
-      // Ring 1 fully expanded — done
       if (rp1 >= 1 && !done.current) {
         done.current = true
         shakeRef.current.position.set(0, 0, 0)
@@ -185,13 +324,11 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
 
   return (
     <group ref={shakeRef}>
-      {/* Falling ink drop */}
       <mesh ref={dropRef} position={[0, DROP_START_Y, 0]} visible={false}>
         <sphereGeometry args={[0.03, 16, 16]} />
         <primitive object={dropMat} attach="material" />
       </mesh>
 
-      {/* Ring 1 — primary ripple, thin annulus (0.02 width), flat in XZ plane */}
       <mesh
         ref={ring1Ref}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -202,7 +339,6 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         <primitive object={ring1Mat} attach="material" />
       </mesh>
 
-      {/* Ring 2 — echo ripple, 100ms delayed, softer */}
       <mesh
         ref={ring2Ref}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -213,7 +349,6 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
         <primitive object={ring2Mat} attach="material" />
       </mesh>
 
-      {/* Splash particles */}
       <points>
         <bufferGeometry ref={splashRef} />
         <primitive object={splashMat} attach="material" />
@@ -222,10 +357,7 @@ function InkScene({ onComplete }: { onComplete: () => void }) {
   )
 }
 
-// ─── water caustics shader plane ─────────────────────────────────────────────
-// Sits at y=-0.01 (behind rings), outside the shake group, never moves.
-// Four directional sine waves create slow interference patterns that read
-// as light refracting through dark water.
+// ─── water caustics shader plane ──────────────────────────────────────────────
 function WaterCaustics() {
   const mat = useMemo(
     () =>
@@ -242,20 +374,13 @@ function WaterCaustics() {
           varying vec2 vUv;
 
           void main() {
-            // Scale UVs so the pattern covers the visible plane naturally
             vec2 uv = (vUv - 0.5) * 10.0;
-
-            // Four directional waves at distinct angles and speeds
             float w = sin( uv.x * 0.80 + uv.y * 0.60 + uTime * 0.25)
                     + sin(-uv.x * 0.50 + uv.y * 1.20 + uTime * 0.18)
                     + sin( uv.x * 1.30 - uv.y * 0.40 + uTime * 0.30)
                     + sin( uv.x * 0.30 - uv.y * 1.10 + uTime * 0.22);
-
-            // Normalize [-4,4] → [0,1] then sharpen into caustic hot-spots
             w = w * 0.125 + 0.5;
             float caustic = pow(w, 5.0);
-
-            // Dark blue (#0a1a2e) on black — peak output is still very dark
             vec3 color = vec3(0.039, 0.102, 0.180) * caustic * 2.2;
             gl_FragColor = vec4(color, 1.0);
           }
@@ -265,12 +390,9 @@ function WaterCaustics() {
     [],
   )
 
-  useFrame((_, dt) => {
-    mat.uniforms.uTime.value += dt
-  })
+  useFrame((_, dt) => { mat.uniforms.uTime.value += dt })
 
   return (
-    // 15×15 plane covers all viewport corners at this camera distance
     <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[15, 15]} />
       <primitive object={mat} attach="material" />
@@ -278,14 +400,21 @@ function WaterCaustics() {
   )
 }
 
-// ─── main export ─────────────────────────────────────────────────────────────
+// ─── main export ──────────────────────────────────────────────────────────────
 interface InkEntryProps {
   onComplete?: () => void
+  visitors?: Visitor[]
+  heroColor?: string
 }
 
-export default function InkEntry({ onComplete }: InkEntryProps) {
+export default function InkEntry({
+  onComplete,
+  visitors = [],
+  heroColor = DEFAULT_HERO_COLOR,
+}: InkEntryProps) {
+  const heroDelay = visitors.length > 0 ? VISITOR_DELAY : DEFAULT_DELAY
+
   return (
-    // CSS radial gradient sits behind the transparent R3F canvas
     <div
       style={{
         position: 'fixed',
@@ -300,7 +429,12 @@ export default function InkEntry({ onComplete }: InkEntryProps) {
         style={{ width: '100%', height: '100%' }}
       >
         <WaterCaustics />
-        <InkScene onComplete={onComplete ?? (() => {})} />
+        <VisitorDrops visitors={visitors} />
+        <InkScene
+          onComplete={onComplete ?? (() => {})}
+          heroColor={heroColor}
+          heroDelay={heroDelay}
+        />
       </Canvas>
     </div>
   )
