@@ -1,9 +1,14 @@
+import type { CSSProperties } from 'react'
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 
-export default function WaterBackground() {
+interface WaterBackgroundProps {
+  style?: CSSProperties
+}
+
+export default function WaterBackground({ style }: WaterBackgroundProps) {
   return (
     <ShaderGradientCanvas
-      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%' }}
+      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', ...style }}
       pointerEvents="none"
     >
       <ShaderGradient
