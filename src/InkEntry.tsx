@@ -1,6 +1,5 @@
 import { useRef, useMemo, useEffect } from 'react'
-import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
-import { useFrame } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -230,27 +229,22 @@ interface InkEntryProps {
 
 export default function InkEntry({ onComplete }: InkEntryProps) {
   return (
-    <ShaderGradientCanvas
-      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%' }}
-      pointerEvents="none"
+    // CSS radial gradient sits behind the transparent R3F canvas
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'radial-gradient(ellipse at center, #0d1f3c 0%, #000000 70%)',
+      }}
     >
-      <ShaderGradient
-        type="waterPlane"
-        animate="on"
-        color1="#0a1628"
-        color2="#0d1f3c"
-        color3="#060e1e"
-        uSpeed={0.08}
-        uStrength={2.5}
-        uFrequency={3}
-        cPolarAngle={30}
-        cDistance={8}
-        lightType="3d"
-        envPreset="city"
-        brightness={1.0}
-        grain="off"
-      />
-      <InkScene onComplete={onComplete ?? (() => {})} />
-    </ShaderGradientCanvas>
+      <Canvas
+        camera={{ position: [0, 6.93, 4.0], fov: 45 }}
+        onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
+        gl={{ alpha: true, antialias: true }}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <InkScene onComplete={onComplete ?? (() => {})} />
+      </Canvas>
+    </div>
   )
 }
