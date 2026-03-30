@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-* {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -11,4 +13,9 @@ body,
 #root {
   width: 100%;
   height: 100%;
+}
+
+/* Prevent horizontal scroll on small screens */
+body {
+  overflow-x: hidden;
 }

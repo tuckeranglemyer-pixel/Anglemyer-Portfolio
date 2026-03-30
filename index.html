@@ -4,16 +4,74 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>anglemyer-portfolio</title>
+
+    <!-- Primary meta -->
+    <title>Tucker Anglemyer</title>
+    <meta name="description" content="Builder. Founder. Operator." />
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:title"       content="Tucker Anglemyer" />
+    <meta property="og:description" content="Builder. Founder. Operator." />
+    <meta property="og:image"       content="/og.png" />
+    <meta property="og:image:width"  content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="Tucker Anglemyer" />
+    <meta name="twitter:description" content="Builder. Founder. Operator." />
+    <meta name="twitter:image"       content="/og.png" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Loading screen styles: starts invisible, fades in only if React
+         hasn't hydrated within 200 ms (animation-delay trick). -->
+    <style>
+      #loading {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        pointer-events: none;
+      }
+      #loading.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #loading span {
+        font-family: 'Space Mono', 'Courier New', monospace;
+        font-size: 22px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+        letter-spacing: 0.25em;
+      }
+    </style>
   </head>
   <body>
+    <!-- Minimal loading screen — only becomes visible if JS takes > 200 ms -->
+    <div id="loading"><span>A</span></div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Show loader only if hydration is slow -->
+    <script>
+      var _loaderTimer = setTimeout(function () {
+        var el = document.getElementById('loading')
+        if (el) el.classList.add('visible')
+      }, 200)
+    </script>
   </body>
 </html>

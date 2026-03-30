@@ -14,6 +14,39 @@ const ACCENTS: Record<Mode, string> = {
   creative: '#fb923c',  // warm orange
 }
 
+// ─── useIsMobile ──────────────────────────────────────────────────────────────
+function useIsMobile(breakpoint = 768) {
+  const [is, setIs] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < breakpoint,
+  )
+  useEffect(() => {
+    const update = () => setIs(window.innerWidth < breakpoint)
+    window.addEventListener('resize', update, { passive: true })
+    return () => window.removeEventListener('resize', update)
+  }, [breakpoint])
+  return is
+}
+
+// ─── GrainOverlay ─────────────────────────────────────────────────────────────
+// Static feTurbulence SVG tiled as a fixed overlay. Renders once; no repaints.
+function GrainOverlay() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position:      'fixed',
+        inset:         0,
+        zIndex:        100,
+        pointerEvents: 'none',
+        opacity:       0.035,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'repeat',
+        backgroundSize:   '200px 200px',
+      }}
+    />
+  )
+}
+
 // ─── CursorGlow ───────────────────────────────────────────────────────────────
 // 200px radial gradient that follows the mouse. Position is updated imperatively
 // (no React re-renders on mousemove). Background transitions on mode change.
@@ -53,15 +86,17 @@ function CursorGlow({ accent }: { accent: string }) {
 }
 
 // ─── ModeToggle ───────────────────────────────────────────────────────────────
-// Fixed top-right pill. Dot slides left (NIGHT/pro) ↔ right (DAY/creative).
+// Fixed pill. On desktop: top-right. On mobile: top-center.
 // Dot glow matches the current mode accent color.
 function ModeToggle({
   mode,
   accent,
+  isMobile,
   onToggle,
 }: {
-  mode: Mode
-  accent: string
+  mode:     Mode
+  accent:   string
+  isMobile: boolean
   onToggle: () => void
 }) {
   const isNight = mode === 'pro'
@@ -70,10 +105,12 @@ function ModeToggle({
       onClick={onToggle}
       aria-label={`Switch to ${isNight ? 'day' : 'night'} mode`}
       style={{
-        position: 'fixed',
-        top: '1.5rem',
-        right: '1.5rem',
-        zIndex: 50,
+        position:  'fixed',
+        top:       '1.5rem',
+        zIndex:    50,
+        ...(isMobile
+          ? { left: '50%', transform: 'translateX(-50%)' }
+          : { right: '1.5rem' }),
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
@@ -269,7 +306,22 @@ export default function App() {
 
   const [phase, setPhase] = useState<Phase>(skipAnimation ? 'main' : 'entry')
   const [mode,  setMode]  = useState<Mode>('creative')
-  const accent = ACCENTS[mode]
+  const accent   = ACCENTS[mode]
+  const isMobile = useIsMobile()
+
+  // ── remove loading screen on first hydration ────────────────────────────
+  useEffect(() => {
+    // Cancel the 200ms timer so the loader doesn't flash in
+    if (typeof window !== 'undefined' && (window as Window & { _loaderTimer?: ReturnType<typeof setTimeout> })._loaderTimer) {
+      clearTimeout((window as Window & { _loaderTimer?: ReturnType<typeof setTimeout> })._loaderTimer)
+    }
+    const el = document.getElementById('loading')
+    if (!el) return
+    el.classList.remove('visible')
+    el.style.opacity = '0'
+    const t = setTimeout(() => el.remove(), 300)
+    return () => clearTimeout(t)
+  }, []) // runs once after first render
 
   // Visitor data from Firestore
   const [visitors,      setVisitors]      = useState<Visitor[]>([])
@@ -419,12 +471,13 @@ export default function App() {
           One-time prompt for new visitors to leave their color mark. */}
       {showPicker && <ColorPicker onSelect={handleColorSelect} />}
 
-      {/* ── Layer 5: Mode toggle pill (z-index 50, top-right) ─────────────────
-          Only interactive once the main page is visible. */}
+      {/* ── Layer 5: Mode toggle pill (z-index 50) ────────────────────────────
+          Desktop: top-right. Mobile: top-center. */}
       {phase === 'main' && (
         <ModeToggle
           mode={mode}
           accent={accent}
+          isMobile={isMobile}
           onToggle={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
         />
       )}
@@ -451,8 +504,13 @@ export default function App() {
       )}
 
       {/* ── Layer 7: Cursor glow (z-index 2, pointer-events none) ─────────────
-          Imperative position updates; only background transitions via React. */}
-      {phase === 'main' && <CursorGlow accent={accent} />}
+          Imperative position updates; only background transitions via React.
+          Hidden on touch devices (they have no cursor). */}
+      {phase === 'main' && !isMobile && <CursorGlow accent={accent} />}
+
+      {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
+          Static feTurbulence texture. Pointer-events none, opacity 0.035. */}
+      <GrainOverlay />
     </>
   )
 }

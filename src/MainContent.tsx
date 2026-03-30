@@ -2,6 +2,18 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 
 type Mode = 'pro' | 'creative'
 
+function useIsMobile(breakpoint = 768) {
+  const [is, setIs] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < breakpoint,
+  )
+  useEffect(() => {
+    const update = () => setIs(window.innerWidth < breakpoint)
+    window.addEventListener('resize', update, { passive: true })
+    return () => window.removeEventListener('resize', update)
+  }, [breakpoint])
+  return is
+}
+
 // ─── Reveal ───────────────────────────────────────────────────────────────────
 function Reveal({
   children,
@@ -177,6 +189,8 @@ interface MainContentProps {
 }
 
 export default function MainContent({ mode, accent, active = false }: MainContentProps) {
+  const isMobile = useIsMobile()
+
   // Hero fades out briefly when mode switches so the style swap isn't abrupt
   const [displayMode, setDisplayMode] = useState<Mode>(mode)
   const [heroOpacity,  setHeroOpacity]  = useState(1)
@@ -190,13 +204,16 @@ export default function MainContent({ mode, accent, active = false }: MainConten
 
   const isPro = displayMode === 'pro'
 
+  const hPad = isMobile ? '24px' : '48px'
+  const vPad = isMobile ? '60px' : '80px'
+
   return (
     <div
       style={{
         maxWidth:      '600px',
-        paddingLeft:   '48px',
-        paddingRight:  '48px',
-        paddingTop:    '80px',
+        paddingLeft:   hPad,
+        paddingRight:  hPad,
+        paddingTop:    vPad,
         paddingBottom: '96px',
       }}
     >
@@ -211,21 +228,22 @@ export default function MainContent({ mode, accent, active = false }: MainConten
         >
           <h1
             style={{
-              margin:     '0 0 22px',
-              lineHeight: 1.0,
+              margin:         '0 0 22px',
+              lineHeight:     1.0,
+              overflowWrap:   'break-word',
               ...(isPro
                 ? {
                     fontFamily:    '"Instrument Serif", serif',
-                    fontSize:      'clamp(52px, 7vw, 80px)',
+                    fontSize:      isMobile ? '48px' : 'clamp(52px, 7vw, 80px)',
                     fontWeight:    400,
                     letterSpacing: '-0.02em',
                     color:         'rgba(255,255,255,0.95)',
                   }
                 : {
                     fontFamily:    '"Space Mono", monospace',
-                    fontSize:      'clamp(40px, 5.5vw, 72px)',
+                    fontSize:      isMobile ? '48px' : 'clamp(44px, 6vw, 72px)',
                     fontWeight:    700,
-                    letterSpacing: '0.08em',
+                    letterSpacing: isMobile ? '0.05em' : '0.08em',
                     textTransform: 'uppercase' as const,
                     color:         'white',
                   }),
