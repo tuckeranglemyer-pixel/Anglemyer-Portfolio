@@ -1,5 +1,14 @@
+import { useState } from 'react'
 import InkEntry from './InkEntry'
 
 export default function App() {
-  return <InkEntry />
+  const [impactComplete, setImpactComplete] = useState(false)
+
+  return (
+    <>
+      <InkEntry onComplete={() => setImpactComplete(true)} />
+      {/* future content mounts here once impactComplete === true */}
+      {impactComplete && null}
+    </>
+  )
 }
