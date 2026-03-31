@@ -505,7 +505,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Layer 6b: Celestial body (z-index 3, top-left corner peek) ─────────
+      {/* ── Layer 6b: Celestial body (z-index 2, top-left corner peek) ─────────
           Sun (pro) or Moon (creative). Only the bottom-right quarter is visible
           due to the negative top/left offset. Crossfades on mode switch.
           Hidden on mobile — no WebGL canvas, no cursor, clean content only. */}

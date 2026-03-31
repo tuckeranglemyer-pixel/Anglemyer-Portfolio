@@ -4,19 +4,12 @@ import * as THREE from 'three'
 
 type Mode = 'pro' | 'creative'
 
-// ─── mobile hook ──────────────────────────────────────────────────────────────
-function useIsMobile(bp = 768) {
-  const [is, setIs] = useState(() => typeof window !== 'undefined' && window.innerWidth < bp)
-  useEffect(() => {
-    const fn = () => setIs(window.innerWidth < bp)
-    window.addEventListener('resize', fn, { passive: true })
-    return () => window.removeEventListener('resize', fn)
-  }, [bp])
-  return is
-}
+// Canvas is 160×160 px; positioned at -85,-85 so only the bottom-right arc
+// is visible — just a subtle curved edge peeking from the viewport corner.
+const SIZE   = 160
+const OFFSET = -85
 
 // ─── GLSL: Stefan Gustavson 3-D simplex noise ─────────────────────────────────
-// Overloaded mod289 / permute / taylorInvSqrt (GLSL allows overloading).
 const NOISE_GLSL = /* glsl */`
 vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
 vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}
@@ -36,7 +29,7 @@ float snoise(vec3 v){
   vec4 p=permute(permute(permute(
     i.z+vec4(0.,i1.z,i2.z,1.))+
     i.y+vec4(0.,i1.y,i2.y,1.))+
-    i.x+vec4(0.,i1.x,i2.x,1.));
+    i.x+vec4(0.,i1.x,i2.x,1.)));
   float n_=.142857142857;
   vec3 ns=n_*D.wyz-D.xzx;
   vec4 j=p-49.*floor(p*ns.z*ns.z);
@@ -57,7 +50,7 @@ float snoise(vec3 v){
   return 42.*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
 }`
 
-// ─── GLSL: 5-octave fractal Brownian motion ───────────────────────────────────
+// ─── GLSL: 5-octave fBM ───────────────────────────────────────────────────────
 const FBM_GLSL = /* glsl */`
 float fbm(vec3 p){
   float v=0.,a=.5;
@@ -67,22 +60,20 @@ float fbm(vec3 p){
 }`
 
 // ─── Shared vertex shader ─────────────────────────────────────────────────────
-// Passes world-space position + normal so fragment shaders can compute view
-// direction and Fresnel without depending on view-space transforms.
 const VERT = /* glsl */`
 varying vec3 vWp;
 varying vec3 vWn;
 void main(){
   vec4 wp=modelMatrix*vec4(position,1.);
   vWp=wp.xyz;
-  // mat3(modelMatrix) is the rotation-scale part; normalise fixes non-unit scale
   vWn=normalize(mat3(modelMatrix)*normal);
   gl_Position=projectionMatrix*viewMatrix*wp;
 }`
 
-// ─── Sun: core sphere fragment (r = 1) ────────────────────────────────────────
-// Domain-warped fBM creates convection granules. Low-frequency noise punches
-// dark sunspot umbrae. Fresnel adds the corona rim on the sphere itself.
+// ─── Sun: core sphere ─────────────────────────────────────────────────────────
+// Palette shifted from vivid NASA-orange to muted warm amber:
+//   cool  #8b4513 (saddlebrown) → hot  #ffe4b5 (moccasin soft white)
+// Saturation reduced ~30% from original; Fresnel rim kept but toned down.
 const SUN_FRAG = /* glsl */`
 uniform float uTime;
 varying vec3 vWp;
@@ -92,56 +83,52 @@ ${FBM_GLSL}
 void main(){
   vec3 p=normalize(vWp);
 
-  // Domain warp: distort the sample point with slow-moving noise
+  // Domain warp — slow churning convection cells
   vec3 q=vec3(
     fbm(p*2.5+vec3(0.,0.,uTime*.04)),
     fbm(p*2.5+vec3(5.2,1.3,0.)+uTime*.04),
     fbm(p*2.5+vec3(2.4,8.6,0.)+uTime*.04));
-
-  // Heat: domain-warped fBM at convection scale (slow churn)
   float heat=fbm(p*2.5+.9*q+uTime*.022);
   heat=clamp(heat*.5+.5,0.,1.);
 
-  // Sunspots: low-frequency, slow drift
+  // Sunspots — low-freq, slow drift, softer than before
   float spot=fbm(p*.85+vec3(uTime*.011));
   spot=spot*.5+.5;
-  // Spots form in cooler regions at low-spot-noise threshold
   float spotMask=(1.-smoothstep(.36,.44,spot))*(1.-smoothstep(.46,.54,heat));
 
-  // Color ramp: cool #cc3300 → mid #ff6600 → hot #ffee88
-  vec3 cool=vec3(.80,.20,.00);
-  vec3 mid =vec3(1.00,.40,.00);
-  vec3 hot =vec3(1.00,.93,.53);
+  // Muted palette: saddlebrown → warm mid → moccasin
+  vec3 cool=vec3(.545,.271,.075);   // #8b4513
+  vec3 mid =vec3(.756,.498,.333);   // desaturated warm orange
+  vec3 hot =vec3(1.00,.894,.710);   // #ffe4b5
   vec3 col =heat<.5 ? mix(cool,mid,heat*2.) : mix(mid,hot,(heat-.5)*2.);
 
-  // Sunspot darkening (deep umbra, dark brownish-red)
-  col=mix(col,vec3(.35,.04,.00),spotMask*.80);
+  // Softer sunspot umbra
+  col=mix(col,vec3(.18,.07,.02),spotMask*.50);
 
-  // Fresnel corona glow at sphere rim
+  // Fresnel rim glow — muted warm amber, not blazing orange
   vec3 vd=normalize(cameraPosition-vWp);
-  float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),2.0);
-  col+=vec3(1.,.50,.07)*fr*1.6;
+  float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),2.5);
+  col+=vec3(.88,.52,.20)*fr*0.7;
 
   gl_FragColor=vec4(col,1.);
 }`
 
 // ─── Sun: corona atmosphere (r = 1.3, additive) ───────────────────────────────
-// Fresnel ≈ 0 at the center (transparent, shows sun through) and ≈ 1 at the
-// rim, where additive blending adds the orange-yellow halo.
+// Opacity halved (fr*.28 vs original fr*.60) for a softer atmospheric glow.
 const CORONA_FRAG = /* glsl */`
 varying vec3 vWp;
 varying vec3 vWn;
 void main(){
   vec3 vd=normalize(cameraPosition-vWp);
-  float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),1.5);
-  vec3 col=mix(vec3(1.,.38,.04),vec3(1.,.82,.24),fr);
-  gl_FragColor=vec4(col,fr*.60);
+  float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),1.8);
+  // Muted amber corona — not blazing yellow
+  vec3 col=mix(vec3(.72,.38,.10),vec3(.88,.72,.38),fr);
+  gl_FragColor=vec4(col,fr*.28);
 }`
 
-// ─── Moon: surface sphere (r = 1) ────────────────────────────────────────────
-// Three-layer noise: large maria, medium craters, fine regolith.
-// Lambertian shading from a fixed world-space light; the mesh rotates slowly
-// so the terminator moves across the surface over time.
+// ─── Moon: surface sphere ─────────────────────────────────────────────────────
+// Colors shifted toward the night-mode navy palette:
+//   mare: #3d4a57  highland: #6b7b8d (both blue-tinted, much less grey)
 const MOON_FRAG = /* glsl */`
 varying vec3 vWp;
 varying vec3 vWn;
@@ -150,30 +137,26 @@ ${FBM_GLSL}
 void main(){
   vec3 p=normalize(vWp);
 
-  // Large-scale maria / highland regions
   float n1=fbm(p*2.2)*.5+.5;
-  // Medium crater rims and basins
   float n2=fbm(p*7.5)*.5+.5;
-  // Fine regolith texture
   float n3=snoise(p*22.)*.5+.5;
-
   float terrain=clamp(n1*.55+n2*.30+n3*.15,0.,1.);
 
-  // #555555 (mare) to #888888 (highland)
-  vec3 mare=vec3(.333,.333,.333);
-  vec3 high=vec3(.533,.533,.533);
+  // Navy-blue tinted greys (matches night-mode background palette)
+  vec3 mare=vec3(.239,.290,.341);   // #3d4a57
+  vec3 high=vec3(.420,.482,.553);   // #6b7b8d
   vec3 col=mix(mare,high,smoothstep(.35,.65,terrain));
-  col*=.88+n3*.12;   // micro-roughness brightness variation
+  col*=.88+n3*.12;
 
-  // Lambertian shading (light from upper-right-front in world space)
+  // Lambertian shading — slight ambient boost for a less stark look
   vec3 L=normalize(vec3(.6,.45,1.));
   float NdL=max(0.,dot(normalize(vWn),L));
-  col*=.18+.82*NdL;  // ambient + diffuse
+  col*=.18+.80*NdL;
 
-  // Thin blue-white Fresnel limb glow (much subtler than sun)
+  // Blue-white Fresnel limb glow — a bit stronger to match cool palette
   vec3 vd=normalize(cameraPosition-vWp);
   float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),4.5);
-  col+=vec3(.65,.72,1.)*fr*.18;
+  col+=vec3(.55,.68,1.)*fr*.20;
 
   gl_FragColor=vec4(col,1.);
 }`
@@ -181,19 +164,14 @@ void main(){
 // ─── R3F meshes ───────────────────────────────────────────────────────────────
 
 function SunMesh() {
-  const sunRef    = useRef<THREE.ShaderMaterial>(null)
-  const coronaRef = useRef<THREE.ShaderMaterial>(null)
+  const sunRef = useRef<THREE.ShaderMaterial>(null)
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime()
-    if (sunRef.current)    sunRef.current.uniforms.uTime.value    = t
-    // Corona has no uTime; no update needed
-    void coronaRef  // kept for future use
+    if (sunRef.current) sunRef.current.uniforms.uTime.value = clock.getElapsedTime()
   })
 
   return (
     <group>
-      {/* Core sun sphere */}
       <mesh>
         <sphereGeometry args={[1, 64, 64]} />
         <shaderMaterial
@@ -204,11 +182,10 @@ function SunMesh() {
         />
       </mesh>
 
-      {/* Corona atmosphere — larger sphere, additive, no depth writes */}
+      {/* Corona — larger sphere, additive blending, halved opacity */}
       <mesh>
         <sphereGeometry args={[1.3, 32, 32]} />
         <shaderMaterial
-          ref={coronaRef}
           vertexShader={VERT}
           fragmentShader={CORONA_FRAG}
           uniforms={{}}
@@ -225,10 +202,7 @@ function MoonMesh() {
   const meshRef = useRef<THREE.Mesh>(null)
 
   useFrame((_, delta) => {
-    if (meshRef.current) {
-      // 0.02 rad/s rotation on Y axis
-      meshRef.current.rotation.y += 0.02 * delta
-    }
+    if (meshRef.current) meshRef.current.rotation.y += 0.02 * delta
   })
 
   return (
@@ -244,90 +218,93 @@ function MoonMesh() {
 }
 
 // ─── CelestialBody ────────────────────────────────────────────────────────────
-// Positioned at top:-size/2, left:-size/2 so only the bottom-right quarter
-// of the sphere peeks into the viewport from the top-left corner.
-// Two separate R3F canvases (one per mode) crossfade via CSS opacity.
-// Their WebGL contexts are completely independent of @shadergradient/react.
+// Crossfade strategy: "dip to transparent → switch → fade in"
+//   1. visible → false (canvas fades from 0.55 → 0 over 400ms CSS)
+//   2. 420ms later: renderedMode switches (Canvas remounts with key)
+//   3. renderedMode change triggers effect → visible → true (fades 0 → 0.55)
+// This avoids any simultaneous rendering of both canvases and gives a clean
+// 0.8s dissolve (400ms out + 400ms in) through a transparent midpoint.
 export default function CelestialBody({ mode }: { mode: Mode }) {
-  const isMobile = useIsMobile()
-  const size     = isMobile ? 120 : 200
-  const offset   = -(size / 2)
-
-  // Keep both canvases mounted during the 0.5s crossfade, then unmount the
-  // inactive one so it stops consuming GPU time.
-  const [sunMounted,  setSunMounted]  = useState(mode === 'pro')
-  const [moonMounted, setMoonMounted] = useState(mode === 'creative')
+  // The mode currently RENDERED — lags behind the prop during the dip
+  const [renderedMode, setRenderedMode] = useState<Mode>(mode)
+  // Controls overall opacity (0.55 when true, 0 when false)
+  const [visible, setVisible] = useState(true)
 
   useEffect(() => {
-    if (mode === 'pro') {
-      setSunMounted(true)
-      const t = setTimeout(() => setMoonMounted(false), 600)
-      return () => clearTimeout(t)
-    } else {
-      setMoonMounted(true)
-      const t = setTimeout(() => setSunMounted(false), 600)
-      return () => clearTimeout(t)
+    if (mode === renderedMode) {
+      // Modes match — ensure widget is visible (handles rapid-switch edge cases)
+      setVisible(true)
+      return
     }
-  }, [mode])
+    // Start fade-out
+    setVisible(false)
+    // Switch the rendered canvas after the CSS transition completes
+    const t = setTimeout(() => setRenderedMode(mode), 420)
+    return () => clearTimeout(t)
+  }, [mode, renderedMode])
+  // When renderedMode changes, the effect re-runs → mode === renderedMode → setVisible(true)
 
-  const canvasProps = {
-    camera: { position: [0, 0, 2.5] as [number, number, number], fov: 55 },
-    gl:    { alpha: true, antialias: true, powerPreference: 'low-power' as const },
-    // pointer-events: none on both the wrapper div AND the canvas element so
-    // R3F's own event delegation never intercepts the shark fin's document
-    // listener, and getBoundingClientRect calls from other components are unaffected.
-    style: {
-      background:    'transparent',
-      display:       'block',
-      width:         '100%',
-      height:        '100%',
-      pointerEvents: 'none' as const,
-    },
+  const canvasStyle = {
+    background:    'transparent',
+    display:       'block',
+    width:         '100%',
+    height:        '100%',
+    pointerEvents: 'none' as const,
   }
 
-  return (
-    <div
-      style={{
-        position:      'fixed',
-        top:           `${offset}px`,
-        left:          `${offset}px`,
-        width:         `${size}px`,
-        height:        `${size}px`,
-        pointerEvents: 'none',
-        zIndex:        3,
-      }}
-    >
-      {/* ── Sun canvas (DAY / pro) ────────────────────────────────────────── */}
-      {sunMounted && (
-        <div
-          style={{
-            position:   'absolute',
-            inset:      0,
-            opacity:    mode === 'pro' ? 1 : 0,
-            transition: 'opacity 0.5s ease',
-          }}
-        >
-          <Canvas {...canvasProps}>
-            <SunMesh />
-          </Canvas>
-        </div>
-      )}
+  // Bloom gradient colors (different per mode)
+  const bloomBg = renderedMode === 'pro'
+    ? 'radial-gradient(circle, rgba(205,133,63,0.05) 0%, transparent 65%)'
+    : 'radial-gradient(circle, rgba(148,177,222,0.03) 0%, transparent 65%)'
 
-      {/* ── Moon canvas (NIGHT / creative) ───────────────────────────────── */}
-      {moonMounted && (
-        <div
-          style={{
-            position:   'absolute',
-            inset:      0,
-            opacity:    mode === 'creative' ? 1 : 0,
-            transition: 'opacity 0.5s ease',
-          }}
+  return (
+    <>
+      {/* ── Ambient bloom ────────────────────────────────────────────────────
+          400px radial gradient centered on the top-left viewport corner —
+          the sphere's approximate world position. Tints the nearby page area
+          with warm amber (sun) or cool blue (moon) at very low opacity.
+          z-index 1 keeps it behind content (z-index 5) and the canvas (z-index 2). */}
+      <div
+        style={{
+          position:      'fixed',
+          top:           '-200px',
+          left:          '-200px',
+          width:         '400px',
+          height:        '400px',
+          background:    bloomBg,
+          pointerEvents: 'none',
+          zIndex:        1,
+          opacity:       visible ? 1 : 0,
+          transition:    'opacity 0.4s ease',
+        }}
+      />
+
+      {/* ── Celestial canvas ─────────────────────────────────────────────────
+          Overall opacity 0.55 — blends into the background atmosphere rather
+          than dominating. z-index 2: behind main content (5) and grain (100). */}
+      <div
+        style={{
+          position:      'fixed',
+          top:           `${OFFSET}px`,
+          left:          `${OFFSET}px`,
+          width:         `${SIZE}px`,
+          height:        `${SIZE}px`,
+          pointerEvents: 'none',
+          zIndex:        2,
+          opacity:       visible ? 0.55 : 0,
+          transition:    'opacity 0.4s ease',
+        }}
+      >
+        {/* key={renderedMode} forces a fresh Canvas (and WebGL context) on switch */}
+        <Canvas
+          key={renderedMode}
+          camera={{ position: [0, 0, 2.5] as [number, number, number], fov: 55 }}
+          gl={{ alpha: true, antialias: true, powerPreference: 'low-power' as const }}
+          style={canvasStyle}
         >
-          <Canvas {...canvasProps}>
-            <MoonMesh />
-          </Canvas>
-        </div>
-      )}
-    </div>
+          {renderedMode === 'pro' ? <SunMesh /> : <MoonMesh />}
+        </Canvas>
+      </div>
+    </>
   )
 }
