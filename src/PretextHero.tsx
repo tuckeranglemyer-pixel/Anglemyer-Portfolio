@@ -15,13 +15,12 @@ export interface PretextHeroProps {
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const FIN_EFFECTIVE_R = 22    // vertical reach of cursor exclusion (px)
-const ORB_EFFECTIVE_R = 20    // ambient orb vertical reach — same range, tiny push
-const MAX_GAP         = 8     // max horizontal push at cursor centre (px) — text nearly kisses cursor
-const FIN_Y_OFFSET    = 10    // shift so exclusion centres on fin body, not tip
-const DESKTOP_MIN_W   = 400   // mobile: skip animation entirely
-const LERP_IN         = 0.20  // cursor-tracking lerp (≈3 frames to 50%)
-const LERP_OUT        = 0.07  // exit → ambient lerp (~300ms visual return)
+const CHAR_RADIUS  = 30    // px — characters within this distance respond
+const CHAR_PUSH    = 24    // px — max radial push when orb is at full radius
+const FIN_Y_OFFSET = 10    // shift exclusion centre down slightly (fin body, not tip)
+const DESKTOP_MIN_W = 400  // below this width: skip animation, just draw text
+const LERP_IN      = 0.20  // orb lerp speed while cursor is in container
+const LERP_OUT     = 0.07  // orb lerp speed after cursor leaves (~300 ms settle)
 
 // ─── font helpers ─────────────────────────────────────────────────────────────
 function getFontSize(mode: Mode): number {
@@ -40,61 +39,26 @@ function getModeText(mode: Mode): string {
     : 'I go to shows alone and talk to strangers about four-on-the-floor kicks. I code AI agents at 2am and give campus tours in a blazer the next morning. I can explain deferred tax assets and why UK garage never got the American respect it deserved — same breath. Built a hackathon-winning AI engine with a two-person team against CS grad students from Brown and Northeastern. The range is the point.'
 }
 
-// ─── surgical exclusion zone ──────────────────────────────────────────────────
-// Radius (FIN_EFFECTIVE_R) controls the VERTICAL span of influence — how many
-// lines are touched at all. The HORIZONTAL push is decoupled and capped at
-// MAX_GAP = 8px, so text nearly kisses the cursor (≤ 8px clearance).
-//
-// Falloff: easeInQuad  strength = (1 − t)²
-//   t = 0 (cursor centre)  → strength = 1.00  → push = MAX_GAP (8 px)
-//   t = 0.5                → strength = 0.25  → push = 2 px  (barely perceptible)
-//   t = 1 (radius edge)    → strength = 0.00  → push = 0 px
-//
-// Compared with the previous easeOutQuad (1 − t²), the easeInQuad curve is
-// much steeper away from the centre — the text "knife-parts" around the cursor
-// instead of spreading a diffuse force-field.
-function getLineExclusion(
-  lineY:          number,
-  lineHeight:     number,
-  orb:            { x: number; y: number; r: number } | null,
-  containerWidth: number,
-): { xOffset: number; maxWidth: number } {
-  if (!orb || orb.r < 1) return { xOffset: 0, maxWidth: containerWidth }
-
-  const midY = lineY + lineHeight * 0.5
-  const dy   = Math.abs(orb.y - midY)
-  const t    = dy / orb.r
-
-  if (t >= 1) return { xOffset: 0, maxWidth: containerWidth }
-
-  // easeInQuad: steep concentration near the centre, near-zero at the fringe
-  const strength  = (1 - t) * (1 - t)
-  const chordHalf = MAX_GAP * strength   // ≤ 8 px always
-
-  const orbLeft  = orb.x - chordHalf
-  const orbRight = orb.x + chordHalf
-
-  if (orb.x <= containerWidth * 0.55) {
-    const xOff = Math.max(0, Math.min(orbRight, containerWidth * 0.72))
-    return { xOffset: xOff, maxWidth: Math.max(80, containerWidth - xOff) }
-  } else {
-    return { xOffset: 0, maxWidth: Math.max(80, orbLeft) }
-  }
-}
-
 // ─── PretextHero ──────────────────────────────────────────────────────────────
+// CHARACTER-LEVEL text flow:
+//   1. Layout all lines at natural width (no exclusion zone manipulation).
+//   2. For each character in each line, measure its x position with measureText.
+//   3. If the character centre falls within the animated orb radius, push it
+//      radially outward by up to CHAR_PUSH px (easeOutQuad falloff, scaled by
+//      orb.r so the effect ramps up smoothly on cursor entry).
+//
+// The result: individual glyphs part around the cursor like water molecules,
+// not whole lines jumping sideways.
 export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const preparedRef   = useRef<PreparedTextWithSegments | null>(null)
   const fontStringRef = useRef('')
 
-  // Single animated orb whose position and radius are lerped each rAF frame.
-  // It transitions smoothly between cursor-following (LERP_IN) and
-  // ambient Lissajous drift (LERP_OUT), acting as one continuous motion.
+  // Animated orb: lerps between cursor-following and ambient Lissajous drift.
+  // orb.r ramps from 0 on mount; scales the push so entry is always smooth.
   const animOrbRef = useRef<{ x: number; y: number; r: number } | null>(null)
 
-  // Raw cursor state — updated on mousemove, consumed by the rAF loop
   const mouseInHeroRef = useRef(false)
   const mousePosRef    = useRef<{ x: number; y: number } | null>(null)
 
@@ -107,10 +71,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   modeRef.current   = mode
   accentRef.current = accent
 
-  // ── draw ─────────────────────────────────────────────────────────────────
-  // Pure render: reads animOrbRef for the exclusion zone, never writes refs.
-  // DPR scaling: canvas pixel dimensions = CSS dimensions × devicePixelRatio,
-  // then ctx.scale(dpr, dpr) so all drawing uses CSS coordinates — sharp text.
+  // ── draw ──────────────────────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas    = canvasRef.current
     const container = containerRef.current
@@ -126,36 +87,26 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       const fontSize    = getFontSize(currentMode)
       const lineHeight  = fontSize * 1.7
 
-      // Mobile gets no orb; desktop gets the animated orb (may be null initially)
+      // Only apply character displacement on desktop
       const orb = cssWidth >= DESKTOP_MIN_W ? animOrbRef.current : null
 
-      // ── Lay out lines with per-line soft exclusion ───────────────────────
-      let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
-      let y = 0
-      const rendered: { text: string; x: number; y: number }[] = []
+      // ── Step 1: full layout — natural line breaks, no exclusion ───────────
+      let lc: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
+      let lineY = 0
+      const lines: { text: string; y: number }[] = []
       const MAX_LINES = 60
 
-      while (rendered.length < MAX_LINES) {
-        const { xOffset, maxWidth } = getLineExclusion(y, lineHeight, orb, cssWidth)
-
-        if (maxWidth < fontSize * 3) {
-          // Exclusion completely covers this band — slide past it
-          y += lineHeight
-          continue
-        }
-
-        const line = layoutNextLine(prepared, cursor, maxWidth)
+      while (lines.length < MAX_LINES) {
+        const line = layoutNextLine(prepared, lc, cssWidth)
         if (line === null) break
-
-        rendered.push({ text: line.text, x: xOffset, y })
-        cursor = line.end
-        y += lineHeight
+        lines.push({ text: line.text, y: lineY })
+        lc     = line.end
+        lineY += lineHeight
       }
 
-      const cssHeight = Math.max(y, lineHeight)
+      const cssHeight = Math.max(lineY, lineHeight)
 
-      // Only update canvas dimensions when they actually change — avoids
-      // resetting context state (font, fillStyle) unnecessarily every frame
+      // Resize canvas only when dimensions change — resizing resets context state
       const targetW = Math.round(cssWidth  * dpr)
       const targetH = Math.round(cssHeight * dpr)
       if (canvas.width !== targetW || canvas.height !== targetH) {
@@ -174,8 +125,37 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       ctx.fillStyle    = colorRef.current
       ctx.textBaseline = 'top'
 
-      for (const line of rendered) {
-        ctx.fillText(line.text, line.x, line.y)
+      // ── Step 2: draw each character with radial displacement ──────────────
+      // Characters directly under the orb centre are pushed the full CHAR_PUSH;
+      // the push falls off with easeOutQuad as distance approaches orb.r.
+      // Scaling push by (orb.r / CHAR_RADIUS) means the effect is gentle while
+      // the orb ramps up on entry and fades back to the ambient size on exit.
+      for (const { text, y } of lines) {
+        let charX = 0
+
+        for (const ch of text) {
+          const cw  = ctx.measureText(ch).width
+          const ccx = charX + cw * 0.5       // glyph visual centre x
+          const ccy = y     + fontSize * 0.5  // glyph visual centre y
+
+          let dx = 0
+          let dy = 0
+
+          if (orb && orb.r > 0.5) {
+            const dist = Math.hypot(ccx - orb.x, ccy - orb.y)
+            if (dist < orb.r && dist > 0.5) {
+              const t        = dist / orb.r
+              const strength = 1 - t * t                    // easeOutQuad falloff
+              const scale    = orb.r / CHAR_RADIUS           // smooth ramp-in/out
+              const push     = CHAR_PUSH * strength * scale
+              dx = ((ccx - orb.x) / dist) * push
+              dy = ((ccy - orb.y) / dist) * push
+            }
+          }
+
+          ctx.fillText(ch, charX + dx, y + dy)
+          charX += cw
+        }
       }
 
       ctx.restore()
@@ -184,7 +164,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     }
   }, [])
 
-  // ── prepare ───────────────────────────────────────────────────────────────
+  // ── prepare ──────────────────────────────────────────────────────────────
   const doPrepare = useCallback(
     async (targetMode: Mode) => {
       const container = containerRef.current
@@ -210,14 +190,13 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   useEffect(() => { doPrepare(mode) }, [mode, doPrepare])
 
   // ── Mouse tracking ────────────────────────────────────────────────────────
-  // Only updates refs — the unified rAF loop owns all drawing.
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const onMouseMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect()
-      mousePosRef.current   = {
+      mousePosRef.current    = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top + FIN_Y_OFFSET,
       }
@@ -229,21 +208,18 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       mousePosRef.current    = null
     }
 
-    container.addEventListener('mousemove', onMouseMove, { passive: true })
+    container.addEventListener('mousemove',  onMouseMove,  { passive: true })
     container.addEventListener('mouseleave', onMouseLeave)
     return () => {
-      container.removeEventListener('mousemove', onMouseMove)
+      container.removeEventListener('mousemove',  onMouseMove)
       container.removeEventListener('mouseleave', onMouseLeave)
     }
   }, [])
 
-  // ── Unified animation loop ────────────────────────────────────────────────
-  // Manages one animated orb that smoothly switches between two targets:
-  //   • In hero  → cursor position, r = FIN_EFFECTIVE_R, fast lerp (LERP_IN)
-  //   • Out/idle → ambient Lissajous, r = ORB_EFFECTIVE_R, slow lerp (LERP_OUT)
-  //
-  // This means "exit" animation = orb drifts from cursor back to ambient
-  // over ~300ms (at LERP_OUT = 0.07, 73% settled in 18 frames = 300ms).
+  // ── Unified animation loop ─────────────────────────────────────────────────
+  // Manages one orb that lerps between:
+  //   • cursor hover  → cursor position, r = CHAR_RADIUS, fast LERP_IN
+  //   • idle/ambient  → slow Lissajous figure-8, r = CHAR_RADIUS*0.4, slow LERP_OUT
   useEffect(() => {
     const container = containerRef.current
     if (!container || container.offsetWidth < DESKTOP_MIN_W) return
@@ -260,20 +236,18 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       const fontSize    = getFontSize(currentMode)
       const lineHeight  = fontSize * 1.7
 
-      // Ambient Lissajous — slow 2:1 figure-8, right-side drift through paragraph
+      // Slow Lissajous — drifts gently through the paragraph
       const elapsed = (now - startMs) / 10000 * Math.PI * 2
       const ambX    = cssWidth * 0.70 + Math.sin(2 * elapsed) * 28
       const ambY    = lineHeight * 4   + Math.sin(elapsed)    * lineHeight * 2
 
-      // Target: cursor or ambient
-      const mp      = mousePosRef.current
-      const inHero  = mouseInHeroRef.current && mp !== null
-      const targetX = inHero ? mp!.x          : ambX
-      const targetY = inHero ? mp!.y          : ambY
-      const targetR = inHero ? FIN_EFFECTIVE_R : ORB_EFFECTIVE_R
+      const mp     = mousePosRef.current
+      const inHero = mouseInHeroRef.current && mp !== null
 
-      // Initialise animated orb at the ambient position with r = 0 so it
-      // gently ramps up rather than snapping on the first frame
+      const targetX = inHero ? mp!.x             : ambX
+      const targetY = inHero ? mp!.y             : ambY
+      const targetR = inHero ? CHAR_RADIUS : CHAR_RADIUS * 0.4
+
       if (!animOrbRef.current) {
         animOrbRef.current = { x: ambX, y: ambY, r: 0 }
       }
@@ -318,10 +292,9 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     return () => ro.disconnect()
   }, [draw, doPrepare])
 
-  // Re-draw when color prop changes
   useEffect(() => { draw() }, [color, draw])
 
-  // ── Fallback ───────────────────────────────────────────────────────────────
+  // ── Fallback ──────────────────────────────────────────────────────────────
   if (fallback) {
     return (
       <p

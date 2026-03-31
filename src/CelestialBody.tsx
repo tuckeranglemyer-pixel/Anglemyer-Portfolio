@@ -291,7 +291,7 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
           height:        `${SIZE}px`,
           pointerEvents: 'none',
           zIndex:        2,
-          opacity:       visible ? 0.55 : 0,
+          opacity:       visible ? 0.35 : 0,
           transition:    'opacity 0.4s ease',
         }}
       >
