@@ -2,7 +2,6 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer } from '@react-three/postprocessing'
 import * as THREE from 'three'
-import InkEntry from './InkEntry'
 import MainContent from './MainContent'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
@@ -16,6 +15,7 @@ import {
 	WaterDisplacementEffect,
 	DEFAULT_WATER_DISPLACEMENT_SCALE,
 } from './WaterDisplacementEffect'
+import InkEntryScene from './InkEntryScene'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -413,11 +413,19 @@ function FullscreenGradientCanvas({
   visible,
   heroVisible,
   waterPostEnabled,
+  inkEntry,
 }: {
   mode: Mode
   visible: boolean
   heroVisible: boolean
   waterPostEnabled: boolean
+  inkEntry:
+    | {
+        visitors: Visitor[]
+        heroColor: string
+        onComplete: () => void
+      }
+    | null
 }) {
   return (
     <Canvas
@@ -438,6 +446,14 @@ function FullscreenGradientCanvas({
       <color attach="background" args={['#060e1e']} />
       <WebGLInteractionProvider visible={heroVisible}>
         <GradientBackgroundPlane mode={mode} />
+        {inkEntry && (
+          <InkEntryScene
+            active
+            visitors={inkEntry.visitors}
+            heroColor={inkEntry.heroColor}
+            onComplete={inkEntry.onComplete}
+          />
+        )}
         <HeroPlane mode={mode} visible={heroVisible} />
         <BioParagraphPlane mode={mode} visible={heroVisible} />
         <ProjectsPlane mode={mode} visible={heroVisible} />
@@ -527,7 +543,7 @@ export default function App() {
     return () => clearTimeout(t)
   }, [phase])
 
-  const gradientVisible = phase !== 'entry' && phase !== 'text-reveal'
+  const gradientVisible = phase !== 'text-reveal'
 
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
@@ -551,27 +567,29 @@ export default function App() {
         mode={mode}
         visible={gradientVisible}
         heroVisible={phase === 'main'}
-        waterPostEnabled={!isMobile && gradientVisible}
+        waterPostEnabled={!isMobile && gradientVisible && phase !== 'entry'}
+        inkEntry={
+          phase === 'entry' && visitorsReady
+            ? {
+                visitors,
+                heroColor,
+                onComplete: () => setPhase('text-reveal'),
+              }
+            : null
+        }
       />
 
-      {phase !== 'main' && (
+      {phase === 'entry' && !visitorsReady && (
         <div
+          aria-hidden
           style={{
-            position: 'fixed', inset: 0, zIndex: 10,
-            opacity:       phase === 'transition' ? 0 : 1,
-            transition:    phase === 'transition' ? 'opacity 1s ease-in-out' : undefined,
-            pointerEvents: phase === 'transition' ? 'none' : 'auto',
-            background:    visitorsReady ? undefined : '#000',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10,
+            background: '#000',
+            pointerEvents: 'none',
           }}
-        >
-          {visitorsReady && (
-            <InkEntry
-              onComplete={() => setPhase('text-reveal')}
-              visitors={visitors}
-              heroColor={heroColor}
-            />
-          )}
-        </div>
+        />
       )}
 
       {(phase === 'text-reveal' || phase === 'transition') && (
