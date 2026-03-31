@@ -70,10 +70,7 @@ void main(){
   gl_Position=projectionMatrix*viewMatrix*wp;
 }`
 
-// ─── Sun: core sphere ─────────────────────────────────────────────────────────
-// Palette shifted from vivid NASA-orange to muted warm amber:
-//   cool  #8b4513 (saddlebrown) → hot  #ffe4b5 (moccasin soft white)
-// Saturation reduced ~30% from original; Fresnel rim kept but toned down.
+// ─── Sun: core sphere — visible amber churn (uTime drives noise domain) ─────
 const SUN_FRAG = /* glsl */`
 uniform float uTime;
 varying vec3 vWp;
@@ -82,48 +79,48 @@ ${NOISE_GLSL}
 ${FBM_GLSL}
 void main(){
   vec3 p=normalize(vWp);
+  float t=uTime;
 
-  // Domain warp — slow churning convection cells
+  // Domain warp — noise coords drift with time so convection visibly churns
+  vec3 scroll=vec3(t*0.05,t*0.035,t*0.02);
   vec3 q=vec3(
-    fbm(p*2.5+vec3(0.,0.,uTime*.04)),
-    fbm(p*2.5+vec3(5.2,1.3,0.)+uTime*.04),
-    fbm(p*2.5+vec3(2.4,8.6,0.)+uTime*.04));
-  float heat=fbm(p*2.5+.9*q+uTime*.022);
+    fbm(p*2.5+vec3(0.,0.,0.)+scroll),
+    fbm(p*2.5+vec3(5.2,1.3,0.)+scroll*1.1),
+    fbm(p*2.5+vec3(2.4,8.6,0.)+scroll*0.9));
+  float heat=fbm(p*2.5+.9*q+scroll*0.5+t*0.03);
   heat=clamp(heat*.5+.5,0.,1.);
 
-  // Sunspots — low-freq, slow drift, softer than before
-  float spot=fbm(p*.85+vec3(uTime*.011));
+  float spot=fbm(p*.85+vec3(t*.018,t*.012,t*.015));
   spot=spot*.5+.5;
   float spotMask=(1.-smoothstep(.36,.44,spot))*(1.-smoothstep(.46,.54,heat));
 
-  // Muted palette: saddlebrown → warm mid → moccasin
-  vec3 cool=vec3(.545,.271,.075);   // #8b4513
-  vec3 mid =vec3(.756,.498,.333);   // desaturated warm orange
-  vec3 hot =vec3(1.00,.894,.710);   // #ffe4b5
-  vec3 col =heat<.5 ? mix(cool,mid,heat*2.) : mix(mid,hot,(heat-.5)*2.);
+  // Orange / amber surface (readable at 0.6 canvas opacity)
+  vec3 cool=vec3(.62,.28,.06);
+  vec3 mid =vec3(.92,.48,.12);
+  vec3 hot =vec3(1.0,.82,.38);
+  vec3 col=heat<.5 ? mix(cool,mid,heat*2.) : mix(mid,hot,(heat-.5)*2.);
 
-  // Softer sunspot umbra
-  col=mix(col,vec3(.18,.07,.02),spotMask*.50);
+  col=mix(col,vec3(.22,.08,.02),spotMask*.45);
 
-  // Fresnel rim glow — muted warm amber, not blazing orange
   vec3 vd=normalize(cameraPosition-vWp);
-  float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),2.5);
-  col+=vec3(.88,.52,.20)*fr*0.7;
+  float NdotV=max(0.,dot(normalize(vWn),vd));
+  float fr=pow(1.-NdotV,2.2);
+  col+=vec3(1.,.55,.12)*fr*1.1;
 
   gl_FragColor=vec4(col,1.);
 }`
 
-// ─── Sun: corona atmosphere (r = 1.3, additive) ───────────────────────────────
-// Opacity halved (fr*.28 vs original fr*.60) for a softer atmospheric glow.
+// ─── Sun: corona (r = 1.3) — brightest at limb via Fresnel (1 − N·V) ───────────
 const CORONA_FRAG = /* glsl */`
 varying vec3 vWp;
 varying vec3 vWn;
 void main(){
   vec3 vd=normalize(cameraPosition-vWp);
-  float fr=pow(max(0.,1.-dot(vd,normalize(vWn))),1.8);
-  // Muted amber corona — not blazing yellow
-  vec3 col=mix(vec3(.72,.38,.10),vec3(.88,.72,.38),fr);
-  gl_FragColor=vec4(col,fr*.28);
+  vec3 n=normalize(vWn);
+  float NdotV=max(0.,dot(n,vd));
+  float rim=pow(1.-NdotV,2.8);
+  vec3 col=mix(vec3(1.,.48,.12),vec3(1.,.82,.45),rim);
+  gl_FragColor=vec4(col,rim*0.62);
 }`
 
 // ─── Moon: surface sphere ─────────────────────────────────────────────────────
@@ -163,11 +160,22 @@ void main(){
 
 // ─── R3F meshes ───────────────────────────────────────────────────────────────
 
+/** Set true for one session to confirm uTime advances in the console */
+const DEBUG_LOG_SUN_UTIME = false
+
 function SunMesh() {
   const sunRef = useRef<THREE.ShaderMaterial>(null)
+  const lastLogRef = useRef(0)
 
   useFrame(({ clock }) => {
-    if (sunRef.current) sunRef.current.uniforms.uTime.value = clock.getElapsedTime()
+    const mat = sunRef.current
+    if (!mat) return
+    const t = clock.getElapsedTime()
+    mat.uniforms.uTime.value = t
+    if (DEBUG_LOG_SUN_UTIME && t - lastLogRef.current >= 0.5) {
+      lastLogRef.current = t
+      console.log('[CelestialBody] Sun uTime =', t.toFixed(3))
+    }
   })
 
   return (
@@ -218,16 +226,11 @@ function MoonMesh() {
 }
 
 // ─── CelestialBody ────────────────────────────────────────────────────────────
-// Crossfade strategy: "dip to transparent → switch → fade in"
-//   1. visible → false (canvas fades from 0.55 → 0 over 400ms CSS)
-//   2. 420ms later: renderedMode switches (Canvas remounts with key)
-//   3. renderedMode change triggers effect → visible → true (fades 0 → 0.55)
-// This avoids any simultaneous rendering of both canvases and gives a clean
-// 0.8s dissolve (400ms out + 400ms in) through a transparent midpoint.
+// Crossfade: opacity 0.6 → 0 over 0.4s → swap Canvas (key) → 0 → 0.6 over 0.4s
 export default function CelestialBody({ mode }: { mode: Mode }) {
   // The mode currently RENDERED — lags behind the prop during the dip
   const [renderedMode, setRenderedMode] = useState<Mode>(mode)
-  // Controls overall opacity (0.55 when true, 0 when false)
+  // When true, canvas + bloom use full opacity; false = fading out for swap
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
@@ -239,7 +242,7 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
     // Start fade-out
     setVisible(false)
     // Switch the rendered canvas after the CSS transition completes
-    const t = setTimeout(() => setRenderedMode(mode), 420)
+    const t = setTimeout(() => setRenderedMode(mode), 400)
     return () => clearTimeout(t)
   }, [mode, renderedMode])
   // When renderedMode changes, the effect re-runs → mode === renderedMode → setVisible(true)
@@ -252,34 +255,32 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
     pointerEvents: 'none' as const,
   }
 
-  // Bloom gradient colors (different per mode)
-  const bloomBg = renderedMode === 'pro'
-    ? 'radial-gradient(circle, rgba(205,133,63,0.05) 0%, transparent 65%)'
-    : 'radial-gradient(circle, rgba(148,177,222,0.03) 0%, transparent 65%)'
+  const ambientGlowBg =
+    renderedMode === 'pro'
+      ? 'radial-gradient(circle, rgba(255,180,60,0.08) 0%, transparent 70%)'
+      : 'radial-gradient(circle, rgba(150,180,220,0.04) 0%, transparent 70%)'
 
   return (
     <>
-      {/* ── Ambient bloom ────────────────────────────────────────────────────
-          400px radial gradient at top-left. z-index 3: above water ripple (2),
-          below main content (5). */}
+      {/* Large atmospheric glow behind the sphere (not the WebGL canvas) */}
       <div
+        aria-hidden
         style={{
-          position:      'fixed',
-          top:           '-200px',
-          left:          '-200px',
-          width:         '400px',
-          height:        '400px',
-          background:    bloomBg,
-          pointerEvents: 'none',
-          zIndex:        3,
-          opacity:       visible ? 1 : 0,
-          transition:    'opacity 0.4s ease',
+          position:       'fixed',
+          top:            '-60px',
+          left:           '-60px',
+          width:          '300px',
+          height:         '300px',
+          background:     ambientGlowBg,
+          pointerEvents:  'none',
+          zIndex:         3,
+          opacity:        visible ? 1 : 0,
+          transition:     'opacity 0.4s ease',
         }}
       />
 
       {/* ── Celestial canvas (SunMesh / MoonMesh via key=renderedMode) ───────────
-          Opacity 0.35. z-index 4 so the fullscreen water layer (z 2) does not
-          paint over the corner sphere. */}
+          Opacity 0.6 when visible. z-index 4 above water (2). */}
       <div
         style={{
           position:      'fixed',
@@ -289,7 +290,7 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
           height:        `${SIZE}px`,
           pointerEvents: 'none',
           zIndex:        4,
-          opacity:       visible ? 0.35 : 0,
+          opacity:       visible ? 0.6 : 0,
           transition:    'opacity 0.4s ease',
         }}
       >
