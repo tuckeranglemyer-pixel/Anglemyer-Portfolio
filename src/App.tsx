@@ -162,27 +162,45 @@ function TextRevealOverlay({ phase }: { phase: Phase }) {
   )
 }
 
-// ─── ColorPicker ─────────────────────────────────────────────────────────────
-function ColorPicker({ onSelect }: { onSelect: (color: string) => void }) {
-  const [visible, setVisible] = useState(false)
+// ─── ColorPicker (after main phase; above grain overlay z-index) ──────────────
+function ColorPicker({
+  onSelect,
+  isMobile,
+}: {
+  onSelect: (color: string) => void
+  isMobile: boolean
+}) {
+  const [entered, setEntered] = useState(false)
+  const [exiting, setExiting] = useState(false)
+
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 400)
+    const t = setTimeout(() => setEntered(true), 800)
     return () => clearTimeout(t)
   }, [])
+
+  const visible = entered && !exiting
+
+  const pick = (hex: string) => {
+    if (exiting) return
+    setExiting(true)
+    window.setTimeout(() => onSelect(hex), 500)
+  }
 
   return (
     <div
       data-webgl-hit-ignore
       style={{
         position: 'fixed',
-        bottom: '2.5rem',
+        bottom: isMobile ? '1.25rem' : '2.5rem',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 50,
+        zIndex: 110,
         textAlign: 'center',
+        maxWidth: 'min(100vw - 2rem, 520px)',
+        padding: '0 0.5rem',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.6s ease',
-        pointerEvents: visible ? 'auto' : 'none',
+        pointerEvents: entered && !exiting ? 'auto' : 'none',
       }}
     >
       <p
@@ -197,33 +215,44 @@ function ColorPicker({ onSelect }: { onSelect: (color: string) => void }) {
       >
         leave your mark
       </p>
-      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'nowrap',
+          gap: isMobile ? '0.5rem' : '0.75rem',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         {PALETTE.map(({ hex, name }) => (
           <button
             key={hex}
+            type="button"
             title={name}
-            onClick={() => onSelect(hex)}
+            onClick={() => pick(hex)}
             style={{
-              width: '1.75rem',
-              height: '1.75rem',
+              width: isMobile ? '1.5rem' : '1.75rem',
+              height: isMobile ? '1.5rem' : '1.75rem',
               borderRadius: '50%',
               background: hex,
               border: '2px solid rgba(255,255,255,0.15)',
               cursor: 'pointer',
               padding: 0,
+              flexShrink: 0,
               transition: 'transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
             }}
             onMouseEnter={e => {
               const el = e.currentTarget
-              el.style.transform    = 'scale(1.3)'
-              el.style.borderColor  = 'rgba(255,255,255,0.7)'
-              el.style.boxShadow    = `0 0 10px 2px ${hex}66`
+              el.style.transform = 'scale(1.3)'
+              el.style.borderColor = 'rgba(255,255,255,0.7)'
+              el.style.boxShadow = `0 0 10px 2px ${hex}66`
             }}
             onMouseLeave={e => {
               const el = e.currentTarget
-              el.style.transform    = 'scale(1)'
-              el.style.borderColor  = 'rgba(255,255,255,0.15)'
-              el.style.boxShadow    = 'none'
+              el.style.transform = 'scale(1)'
+              el.style.borderColor = 'rgba(255,255,255,0.15)'
+              el.style.boxShadow = 'none'
             }}
           />
         ))}
@@ -428,7 +457,13 @@ export default function App() {
   })
 
   const [hasChosen] = useState<boolean>(() => {
-    try { return !!localStorage.getItem('visitorDocId') } catch { return false }
+    try {
+      return !!(
+        localStorage.getItem('visitorDocId') || localStorage.getItem('visitorColor')
+      )
+    } catch {
+      return false
+    }
   })
 
   const [pickerDismissed, setPickerDismissed] = useState(false)
@@ -570,7 +605,7 @@ export default function App() {
         />
       </div>
 
-      {showPicker && <ColorPicker onSelect={handleColorSelect} />}
+      {showPicker && <ColorPicker onSelect={handleColorSelect} isMobile={isMobile} />}
 
       {phase === 'main' && visitorsReady && (
         <div
@@ -578,7 +613,7 @@ export default function App() {
             position:      'fixed',
             top:           '1.5rem',
             left:          '1.5rem',
-            zIndex:        50,
+            zIndex:        105,
             fontFamily:    '"Space Mono", monospace',
             fontSize:      '10px',
             opacity:       0.2,

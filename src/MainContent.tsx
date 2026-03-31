@@ -63,10 +63,12 @@ function ModeToggle({
   mode,
   accent,
   onToggle,
+  isMobile,
 }: {
   mode: Mode
   accent: string
   onToggle: () => void
+  isMobile: boolean
 }) {
   const isNight = mode === 'creative'
   return (
@@ -77,8 +79,10 @@ function ModeToggle({
       style={{
         position: 'fixed',
         top: '1.5rem',
-        right: '1.5rem',
-        zIndex: 60,
+        zIndex: 120,
+        ...(isMobile
+          ? { left: '50%', right: 'auto', transform: 'translateX(-50%)' }
+          : { right: '1.5rem', left: 'auto', transform: 'none' }),
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
@@ -168,7 +172,7 @@ const PROJECT_LINKS = {
 
 const SOCIAL = [
   { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b/' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
   { label: 'TikTok', href: 'https://www.tiktok.com/@untrackedmusic' },
 ] as const
 
@@ -204,7 +208,7 @@ export default function MainContent({
   const c = COPY[displayMode]
 
   const hPad = isMobile ? '24px' : '48px'
-  const vPad = isMobile ? '60px' : '80px'
+  const vPad = isMobile ? '24px' : '80px'
 
   const accentVar: CSSProperties & { '--accent-color': string } = {
     '--accent-color': accent,
@@ -212,7 +216,7 @@ export default function MainContent({
 
   return (
     <>
-      <ModeToggle mode={mode} accent={accent} onToggle={onToggleMode} />
+      <ModeToggle mode={mode} accent={accent} onToggle={onToggleMode} isMobile={isMobile} />
 
       <div
         style={{
@@ -239,7 +243,11 @@ export default function MainContent({
               <h1
                 style={{
                   fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
-                  fontSize: isPro ? 'clamp(2.75rem, 8vw, 4.25rem)' : 'clamp(2rem, 6vw, 3rem)',
+                  fontSize: isMobile
+                    ? 'clamp(2.5rem, 8vw, 5.5rem)'
+                    : isPro
+                      ? 'clamp(2.75rem, 8vw, 4.25rem)'
+                      : 'clamp(2rem, 6vw, 3rem)',
                   fontWeight: isPro ? 300 : 700,
                   fontStyle: isPro ? 'normal' : 'normal',
                   lineHeight: isPro ? 1.05 : 1.1,

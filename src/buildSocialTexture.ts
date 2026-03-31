@@ -15,7 +15,7 @@ export type SocialRegion = { id: SocialHitId; rect: CssRect; href: string }
 
 const LINKS: { id: SocialHitId; label: string; href: string }[] = [
   { id: 'github', label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
-  { id: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b/' },
+  { id: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
   { id: 'tiktok', label: 'TikTok', href: 'https://www.tiktok.com/@untrackedmusic' },
 ]
 
