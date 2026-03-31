@@ -89,7 +89,7 @@ function GrainOverlay() {
         inset:         0,
         zIndex:        100,
         pointerEvents: 'none',
-        opacity:       0.035,
+        opacity:       0.03,
         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C/svg%3E")`,
         backgroundRepeat: 'repeat',
         backgroundSize:   '200px 200px',
@@ -572,7 +572,7 @@ export default function App() {
 
       {showPicker && <ColorPicker onSelect={handleColorSelect} />}
 
-      {phase === 'main' && visitors.length > 0 && (
+      {phase === 'main' && visitorsReady && (
         <div
           style={{
             position:      'fixed',
@@ -581,8 +581,8 @@ export default function App() {
             zIndex:        50,
             fontFamily:    '"Space Mono", monospace',
             fontSize:      '10px',
-            letterSpacing: '0.15em',
-            color:         'rgba(255,255,255,0.2)',
+            opacity:       0.2,
+            color:         'rgba(255,255,255,1)',
             pointerEvents: 'none',
             userSelect:    'none',
           }}

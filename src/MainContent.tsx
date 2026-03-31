@@ -16,7 +16,7 @@ function useIsMobile(breakpoint = 768) {
 
 const FADE_MS = 600
 
-function Reveal({
+function ScrollReveal({
   children,
   delay = 0,
   active = true,
@@ -39,7 +39,7 @@ function Reveal({
           io.disconnect()
         }
       },
-      { threshold: 0.05, rootMargin: '0px 0px -20px 0px' },
+      { threshold: 0.1 },
     )
     io.observe(el)
     return () => io.disconnect()
@@ -206,11 +206,8 @@ export default function MainContent({
   const hPad = isMobile ? '24px' : '48px'
   const vPad = isMobile ? '60px' : '80px'
 
-  const linkStyle: CSSProperties = {
-    color: 'rgba(255,255,255,0.35)',
-    textDecoration: 'none',
-    borderBottom: '1px solid rgba(255,255,255,0.12)',
-    transition: 'color 0.6s ease, border-color 0.6s ease',
+  const accentVar: CSSProperties & { '--accent-color': string } = {
+    '--accent-color': accent,
   }
 
   return (
@@ -230,13 +227,14 @@ export default function MainContent({
           pointerEvents: 'auto',
         }}
       >
-        <Reveal delay={0} active={active}>
-          <div
-            style={{
-              opacity: layerOpacity,
-              transition: 'opacity 0.6s ease',
-            }}
-          >
+        <div
+          style={{
+            ...accentVar,
+            opacity: layerOpacity,
+            transition: 'opacity 0.6s ease',
+          }}
+        >
+          <ScrollReveal active={active}>
             <header style={{ marginBottom: '36px' }}>
               <h1
                 style={{
@@ -272,7 +270,9 @@ export default function MainContent({
                 {c.subtitle}
               </p>
             </header>
+          </ScrollReveal>
 
+          <ScrollReveal active={active}>
             <p
               style={{
                 fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
@@ -287,7 +287,9 @@ export default function MainContent({
             >
               {c.bio}
             </p>
+          </ScrollReveal>
 
+          <ScrollReveal active={active}>
             <section style={{ marginBottom: '48px' }}>
               <h2
                 style={{
@@ -305,19 +307,10 @@ export default function MainContent({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
                 <div>
                   <a
+                    className="main-project-title"
                     href={PROJECT_LINKS.untracked}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      fontFamily: '"Instrument Serif", Georgia, serif',
-                      fontSize: '28px',
-                      fontStyle: 'italic',
-                      color: 'rgba(255,255,255,0.9)',
-                      textDecoration: 'none',
-                      display: 'inline-block',
-                      marginBottom: '10px',
-                      transition: 'color 0.6s ease',
-                    }}
                   >
                     Untracked
                   </a>
@@ -338,19 +331,10 @@ export default function MainContent({
 
                 <div>
                   <a
+                    className="main-project-title"
                     href={PROJECT_LINKS.warRoom}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      fontFamily: '"Instrument Serif", Georgia, serif',
-                      fontSize: '28px',
-                      fontStyle: 'italic',
-                      color: 'rgba(255,255,255,0.9)',
-                      textDecoration: 'none',
-                      display: 'inline-block',
-                      marginBottom: '10px',
-                      transition: 'color 0.6s ease',
-                    }}
                   >
                     The War Room
                   </a>
@@ -370,7 +354,9 @@ export default function MainContent({
                 </div>
               </div>
             </section>
+          </ScrollReveal>
 
+          <ScrollReveal active={active}>
             <p
               style={{
                 fontFamily: '"Space Mono", monospace',
@@ -385,7 +371,9 @@ export default function MainContent({
             >
               {c.footer}
             </p>
+          </ScrollReveal>
 
+          <ScrollReveal active={active}>
             <div
               style={{
                 fontFamily: '"Space Mono", monospace',
@@ -398,18 +386,23 @@ export default function MainContent({
                 {SOCIAL.map((s, i) => (
                   <span key={s.href}>
                     {i > 0 && <span style={{ color: 'rgba(255,255,255,0.2)' }}>  </span>}
-                    <a href={s.href} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                    <a
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="main-social-link"
+                    >
                       {s.label}
                     </a>
                   </span>
                 ))}
               </div>
-              <a href="mailto:tucker@untrackedmusic.com" style={linkStyle}>
+              <a href="mailto:tucker@untrackedmusic.com" className="main-email-link">
                 tucker@untrackedmusic.com
               </a>
             </div>
-          </div>
-        </Reveal>
+          </ScrollReveal>
+        </div>
       </div>
     </>
   )

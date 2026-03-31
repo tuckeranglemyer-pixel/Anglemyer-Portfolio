@@ -72,3 +72,70 @@ body {
 .anglemyer-title--fade-out {
   animation: anglemyerTitleOut 1s ease-in-out forwards;
 }
+
+/* MainContent — project titles, email, social microinteractions */
+.main-project-title {
+  display: inline-block;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 28px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  margin-bottom: 10px;
+  transition:
+    transform 0.3s ease,
+    color 0.3s ease;
+  transform-origin: left center;
+}
+
+.main-project-title:hover {
+  transform: skewX(-2deg) scale(1.02);
+  color: var(--accent-color, #38bdf8);
+}
+
+.main-email-link {
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.main-email-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.35s ease;
+}
+
+.main-email-link:hover {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.main-email-link:hover::after {
+  transform: scaleX(1);
+}
+
+.main-social-link {
+  display: inline-block;
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.main-social-link:hover {
+  opacity: 0.88;
+  transform: translateY(-2px);
+  border-bottom-color: rgba(255, 255, 255, 0.22);
+}
