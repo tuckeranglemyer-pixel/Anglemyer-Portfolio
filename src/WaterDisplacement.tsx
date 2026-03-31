@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 
 const REST = 0.5
-const DAMPING = 0.97
+/** Slightly higher = ripples ring longer (~2–3 s feel at 60fps). */
+const DAMPING = 0.982
 /** Screen-space Gaussian radius (CSS px); half-res shader uses × HALF */
-const GAUSS_RADIUS_PX = 25
+const GAUSS_RADIUS_PX = 30
 const HALF = 0.5
 
 /** Set true to verify canvas mount (red tint over the page). */
@@ -59,7 +60,7 @@ void main() {
 `
 }
 
-/** Peaks: white @ 0.15 α, troughs: black @ 0.08 α — clearly visible on dark bg */
+/** Caustic-style: dFdx/dFdy edge + discrete Laplacian — thin highlights, subtle dark rims (caps 0.10 / 0.04). */
 const FS_COMPOSITE = /* glsl */ `#version 300 es
 precision highp float;
 uniform sampler2D u_height;
@@ -67,14 +68,27 @@ in vec2 v_tex;
 layout(location = 0) out vec4 fragColor;
 
 void main() {
+  ivec2 sz = textureSize(u_height, 0);
+  vec2 texel = vec2(1.0 / float(sz.x), 1.0 / float(sz.y));
+
   float h = texture(u_height, v_tex).r;
-  float dh = h - 0.5;
-  float peak = max(0.0, dh);
-  float trough = max(0.0, -dh);
-  float aW = 0.15 * clamp(peak * 120.0, 0.0, 1.0);
-  float aB = 0.08 * clamp(trough * 120.0, 0.0, 1.0);
-  vec4 col = vec4(1.0, 1.0, 1.0, aW);
-  col += vec4(0.0, 0.0, 0.0, aB);
+  float hL = texture(u_height, v_tex - vec2(texel.x, 0.0)).r;
+  float hR = texture(u_height, v_tex + vec2(texel.x, 0.0)).r;
+  float hD = texture(u_height, v_tex - vec2(0.0, texel.y)).r;
+  float hU = texture(u_height, v_tex + vec2(0.0, texel.y)).r;
+  float lap = hL + hR + hU + hD - 4.0 * h;
+
+  float dEdge = abs(dFdx(h) + dFdy(h)) * 40.0;
+  float aCaustic = dEdge * 0.12;
+
+  float aLapBright = max(0.0, -lap) * 90.0;
+  float aLapDark = max(0.0, lap) * 65.0;
+
+  float aLight = min(0.10, aCaustic + aLapBright);
+  float aDark = min(0.04, aLapDark);
+
+  vec4 col = vec4(1.0, 1.0, 1.0, aLight);
+  col += vec4(0.0, 0.0, 0.0, aDark);
   fragColor = col;
 }
 `
@@ -296,8 +310,7 @@ export default function WaterDisplacement() {
         y: (window.innerHeight - clientY) * HALF,
       }
 
-      // 2× prior base (0.027 / 0.042); scales slightly with cursor speed
-      const base = isTouch ? 0.084 : 0.054
+      const base = isTouch ? 0.1 : 0.08
       const velScale = Math.min(1, speed / 2600)
       bump = base * (0.35 + velScale * 0.65)
     }
@@ -325,7 +338,7 @@ export default function WaterDisplacement() {
 
     let raf = 0
     function tick() {
-      bump *= 0.94
+      bump *= 0.96
 
       gl.viewport(0, 0, bufW, bufH)
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb[spare])

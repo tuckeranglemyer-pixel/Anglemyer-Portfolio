@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
 import WaterDisplacement from './WaterDisplacement'
-import CelestialBody from './CelestialBody'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -432,6 +431,15 @@ export default function App() {
   }, [phase])
 
   // ── color selection ───────────────────────────────────────────────────────
+  /** Stable object so WaterBackground does not see a new style ref every render. */
+  const waterBgStyle = useMemo(
+    () => ({
+      opacity: phase === 'entry' || phase === 'text-reveal' ? 0 : 1,
+      transition: 'opacity 1s ease-in-out',
+    }),
+    [phase],
+  )
+
   const handleColorSelect = async (color: string) => {
     setShowPicker(false)
     try {
@@ -451,23 +459,13 @@ export default function App() {
 
   return (
     <>
-      {/* ── Layer 0: Water background (fixed, behind everything) ──────────────
-          Pre-loads invisibly during text-reveal so it's ready for the crossfade.
-          Fades in during transition alongside the main content. */}
-      {phase !== 'entry' && (
-        <WaterBackground
-          mode={mode}
-          style={{
-            opacity:    phase === 'text-reveal' ? 0 : 1,
-            transition: 'opacity 1s ease-in-out',
-          }}
-        />
-      )}
+      {/* ── Layer 0: ShaderGradient (single mount for app lifetime — no phase gate)
+          Opacity 0 during entry + text-reveal; visible from transition → main.
+          Avoids remounting ShaderGradientCanvas (R3F store / Clock churn). */}
+      <WaterBackground mode={mode} style={waterBgStyle} />
 
-      {/* ── Layer 1: Ink entry canvas (z-index 10) ────────────────────────────
-          Loading state shows a plain black screen while visitors are fetched.
-          Once ready, InkEntry mounts and the animation begins.
-          Fades to opacity 0 then unmounts during / after transition. */}
+      {/* ── Layer 1: Ink entry R3F canvas (z-index 10) — UNMOUNTED when phase === 'main'
+          (no lingering WebGL context). Loading: black screen until visitors ready. */}
       {phase !== 'main' && (
         <div
           style={{
@@ -552,11 +550,6 @@ export default function App() {
 
       {/* ── Layer 7b: WebGL water ripple (z-index 2, main only; above bg, below content) ── */}
       {phase === 'main' && <WaterDisplacement />}
-
-      {/* ── Layer 6b: Celestial body (z-index 3–4 bloom/canvas, above water) ────
-          Sun (pro) or Moon (creative). Mounted when phase === 'main', desktop only.
-          Opacity 0.35 in component. Hidden on mobile. */}
-      {phase === 'main' && !isMobile && <CelestialBody mode={mode} />}
 
       {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
           Static feTurbulence texture. Pointer-events none, opacity 0.035. */}

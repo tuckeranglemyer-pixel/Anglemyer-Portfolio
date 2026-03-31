@@ -213,7 +213,7 @@ function FixedSocialLinks({ isMobile, active }: { isMobile: boolean; active: boo
       aria-label="Social links"
       style={{
         position:       'fixed',
-        right:          '24px',
+        right:          'max(16px, env(safe-area-inset-right, 0px))',
         top:            '50%',
         transform:      'translateY(-50%)',
         zIndex:         50,
@@ -222,6 +222,9 @@ function FixedSocialLinks({ isMobile, active }: { isMobile: boolean; active: boo
         alignItems:     'flex-end',
         gap:            '32px',
         pointerEvents:  'auto',
+        maxWidth:       'min(200px, calc(100vw - 32px))',
+        overflow:       'hidden',
+        boxSizing:      'border-box',
       }}
     >
       {SOCIAL.map(({ letter, label, href }) => (
@@ -438,6 +441,9 @@ export default function MainContent({ mode, accent, active = false }: MainConten
     <div
       style={{
         maxWidth:      '600px',
+        width:         '100%',
+        boxSizing:     'border-box',
+        overflowX:     'hidden',
         paddingLeft:   hPad,
         paddingRight:  hPad,
         paddingTop:    vPad,

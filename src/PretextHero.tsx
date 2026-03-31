@@ -77,8 +77,9 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
 
     try {
       const dpr      = window.devicePixelRatio || 1
-      const cssWidth = container.offsetWidth
-      if (cssWidth <= 0) return
+      const rawW     = container.offsetWidth
+      const cssWidth = Math.max(100, rawW - 2 * MAX_DISPLACE)
+      if (rawW <= 0) return
 
       const currentMode = modeRef.current
       const fontSize    = getFontSize(currentMode)
@@ -204,8 +205,9 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       const prepared = preparedRef.current
       if (!cont || !prepared) { frame = requestAnimationFrame(tick); return }
 
-      const cssWidth = cont.offsetWidth
-      if (cssWidth < DESKTOP_MIN_W) {
+      const rawW = cont.offsetWidth
+      const cssWidth = Math.max(100, rawW - 2 * MAX_DISPLACE)
+      if (rawW < DESKTOP_MIN_W) {
         const zx = dxRef.current
         if (zx) zx.fill(0)
         draw()
@@ -327,7 +329,15 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        maxWidth: '100%',
+        overflow: 'hidden',
+      }}
+    >
       <canvas
         ref={canvasRef}
         style={{ display: 'block', background: 'transparent' }}

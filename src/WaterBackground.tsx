@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useRef, useMemo, memo, type CSSProperties } from 'react'
 import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 
 export type WaterMode = 'pro' | 'creative'
@@ -10,7 +10,7 @@ interface GradientState {
 }
 
 const PRESETS: Record<WaterMode, GradientState> = {
-  // NIGHT — dark cool navy, slow minimal movement
+  // NIGHT — dark cool navy (fixed hexes; ShaderGradient brightness dims env lift)
   pro: {
     color1: '#0a1628', color2: '#0d1f3c', color3: '#060e1e',
     uSpeed: 0.08, uStrength: 2.5, uFrequency: 3.0,
@@ -52,21 +52,33 @@ interface WaterBackgroundProps {
   mode?: WaterMode
 }
 
-export default function WaterBackground({
+/** ~30fps max during mode crossfade — enough for smooth colors, fewer React/R3F reconciliations. */
+const MODE_TRANSITION_PAINT_MS = 33
+
+function WaterBackgroundInner({
   style,
   mode = 'pro',
 }: WaterBackgroundProps) {
-  // Live gradient state — mutated each rAF tick during transitions
+  // Live gradient state — updated ~30fps during transitions (not every rAF)
   const [g, setG] = useState<GradientState>(PRESETS[mode])
 
-  // Ref always holds the latest rendered state so mid-transition switches
-  // interpolate from the current animated position, not the previous preset
+  // Ref always holds the latest animated state for the next transition start
   const currentRef = useRef<GradientState>(PRESETS[mode])
   const animRef    = useRef<number | null>(null)
+  const lastPaintRef = useRef(0)
 
   useEffect(() => {
-    const from   = currentRef.current   // wherever we are right now
+    const from   = currentRef.current
     const target = PRESETS[mode]
+    const unchanged =
+      from.color1 === target.color1 &&
+      from.color2 === target.color2 &&
+      from.color3 === target.color3 &&
+      from.uSpeed === target.uSpeed &&
+      from.uStrength === target.uStrength &&
+      from.uFrequency === target.uFrequency
+    if (unchanged) return
+
     const DURATION = 900
     let startTime: number | null = null
 
@@ -86,7 +98,14 @@ export default function WaterBackground({
       }
 
       currentRef.current = next
-      setG(next)
+      const done = t >= 1
+      const due =
+        done ||
+        now - lastPaintRef.current >= MODE_TRANSITION_PAINT_MS
+      if (due) {
+        lastPaintRef.current = now
+        setG(next)
+      }
 
       if (t < 1) animRef.current = requestAnimationFrame(tick)
     }
@@ -95,9 +114,21 @@ export default function WaterBackground({
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const canvasStyle = useMemo(
+    (): CSSProperties => ({
+      position: 'fixed',
+      inset: 0,
+      width: '100%',
+      height: '100%',
+      ...style,
+    }),
+    [style],
+  )
+
   return (
     <ShaderGradientCanvas
-      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', ...style }}
+      lazyLoad={false}
+      style={canvasStyle}
       pointerEvents="none"
     >
       <ShaderGradient
@@ -113,9 +144,11 @@ export default function WaterBackground({
         cDistance={5}
         lightType="3d"
         envPreset="city"
-        brightness={1.0}
+        brightness={0.65}
         grain="off"
       />
     </ShaderGradientCanvas>
   )
 }
+
+export default memo(WaterBackgroundInner)
