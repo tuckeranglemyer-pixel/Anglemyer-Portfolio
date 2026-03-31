@@ -281,7 +281,7 @@ function InkScene({
         ring2Mat.opacity = 0.28 * (1 - rp2)
       }
 
-      // Scene shake (ShaderGradient owns the camera; shake the objects instead)
+      // Scene shake (orthographic ink scene; shake the objects instead)
       const shakeDecay = Math.max(0, 1 - ringT.current / 0.2)
       const amp = 0.15 * shakeDecay * shakeDecay
       if (amp > 0.001) {

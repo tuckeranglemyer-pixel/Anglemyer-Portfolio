@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
 import InkEntry from './InkEntry'
-import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
-import WaterRipples from './WaterRipples'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
+import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -11,8 +12,8 @@ type Mode  = 'pro' | 'creative'
 
 // ─── accent colors ────────────────────────────────────────────────────────────
 const ACCENTS: Record<Mode, string> = {
-  pro:      '#38bdf8',  // sky blue
-  creative: '#fb923c',  // warm orange
+  pro:      '#38bdf8',
+  creative: '#fb923c',
 }
 
 // ─── useIsMobile ──────────────────────────────────────────────────────────────
@@ -29,7 +30,6 @@ function useIsMobile(breakpoint = 768) {
 }
 
 // ─── CursorDot ────────────────────────────────────────────────────────────────
-// Minimal 6px dot (desktop only); replaces shark fin. z-index above water ripples.
 function CursorDot() {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -69,7 +69,6 @@ function CursorDot() {
 }
 
 // ─── GrainOverlay ─────────────────────────────────────────────────────────────
-// Static feTurbulence SVG tiled as a fixed overlay. Renders once; no repaints.
 function GrainOverlay() {
   return (
     <div
@@ -89,12 +88,9 @@ function GrainOverlay() {
 }
 
 // ─── CursorGlow ───────────────────────────────────────────────────────────────
-// 200px radial gradient that follows the mouse. Position is updated imperatively
-// (no React re-renders on mousemove). Background transitions on mode change.
 function CursorGlow({ accent }: { accent: string }) {
   const ref = useRef<HTMLDivElement>(null)
 
-  // Wire up mouse tracking once — no deps, runs forever
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (!ref.current) return
@@ -119,7 +115,6 @@ function CursorGlow({ accent }: { accent: string }) {
         pointerEvents: 'none',
         zIndex:        2,
         willChange:    'transform',
-        // transform intentionally omitted — managed imperatively above
         transition:    'background 0.8s ease',
       }}
     />
@@ -127,8 +122,6 @@ function CursorGlow({ accent }: { accent: string }) {
 }
 
 // ─── ModeToggle ───────────────────────────────────────────────────────────────
-// Fixed pill. On desktop: top-right. On mobile: top-center.
-// Dot glow matches the current mode accent color.
 function ModeToggle({
   mode,
   accent,
@@ -176,7 +169,6 @@ function ModeToggle({
         DAY
       </span>
 
-      {/* sliding track */}
       <div
         style={{
           position: 'relative',
@@ -187,7 +179,6 @@ function ModeToggle({
           flexShrink: 0,
         }}
       >
-        {/* dot with accent glow */}
         <div
           style={{
             position:   'absolute',
@@ -212,7 +203,6 @@ function ModeToggle({
 
 const DEFAULT_HERO_COLOR = '#00d4ff'
 
-// ─── color palette ───────────────────────────────────────────────────────────
 const PALETTE: { hex: string; name: string }[] = [
   { hex: '#00d4ff', name: 'cyan'    },
   { hex: '#ff3aff', name: 'magenta' },
@@ -225,8 +215,6 @@ const PALETTE: { hex: string; name: string }[] = [
 ]
 
 // ─── TextReveal ───────────────────────────────────────────────────────────────
-// Mounts in text-reveal, fades in (easeOutCubic 0.8s).
-// When phase becomes 'transition', fades back out (1 s) while main content fades in.
 function TextReveal({ phase }: { phase: Phase }) {
   const [entered, setEntered] = useState(false)
   useEffect(() => {
@@ -268,8 +256,6 @@ function TextReveal({ phase }: { phase: Phase }) {
 }
 
 // ─── ColorPicker ─────────────────────────────────────────────────────────────
-// One-time prompt that fades in after the animation completes.
-// Eight curated swatches. On selection, saves to Firestore + localStorage.
 function ColorPicker({ onSelect }: { onSelect: (color: string) => void }) {
   const [visible, setVisible] = useState(false)
   useEffect(() => {
@@ -338,9 +324,78 @@ function ColorPicker({ onSelect }: { onSelect: (color: string) => void }) {
   )
 }
 
+// ─── R3F: fullscreen orthographic plane + custom gradient shader ─────────────
+function GradientBackgroundPlane({ mode }: { mode: Mode }) {
+  const matRef = useRef<THREE.ShaderMaterial>(null)
+  const modeSmoothed = useRef(0)
+  const modeRef = useRef(mode)
+  useLayoutEffect(() => {
+    modeRef.current = mode
+  }, [mode])
+  const { viewport } = useThree()
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uMode: { value: 0 },
+    }),
+    [],
+  )
+
+  useFrame((state, dt) => {
+    const mat = matRef.current
+    if (!mat) return
+    mat.uniforms.uTime.value = state.clock.elapsedTime
+    const target = modeRef.current === 'creative' ? 1 : 0
+    modeSmoothed.current += (target - modeSmoothed.current) * Math.min(1, dt * 5)
+    mat.uniforms.uMode.value = modeSmoothed.current
+  })
+
+  return (
+    <mesh scale={[viewport.width, viewport.height, 1]} renderOrder={-1}>
+      <planeGeometry args={[1, 1]} />
+      <shaderMaterial
+        ref={matRef}
+        uniforms={uniforms}
+        vertexShader={gradientVertexShader}
+        fragmentShader={gradientFragmentShader}
+        depthWrite={false}
+      />
+    </mesh>
+  )
+}
+
+function FullscreenGradientCanvas({
+  mode,
+  visible,
+}: {
+  mode: Mode
+  visible: boolean
+}) {
+  return (
+    <Canvas
+      orthographic
+      camera={{ position: [0, 0, 1], zoom: 1, near: 0.1, far: 10 }}
+      gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 0,
+        pointerEvents: 'none',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 1s ease-in-out',
+      }}
+    >
+      <color attach="background" args={['#060e1e']} />
+      <GradientBackgroundPlane mode={mode} />
+    </Canvas>
+  )
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  // ── initialise from localStorage ──────────────────────────────────────────
   const skipAnimation = (() => {
     try { return localStorage.getItem('hasSeenAnimation') === 'true' } catch { return false }
   })()
@@ -350,9 +405,7 @@ export default function App() {
   const accent   = ACCENTS[mode]
   const isMobile = useIsMobile()
 
-  // ── remove loading screen on first hydration ────────────────────────────
   useEffect(() => {
-    // Cancel the 200ms timer so the loader doesn't flash in
     if (typeof window !== 'undefined' && (window as Window & { _loaderTimer?: ReturnType<typeof setTimeout> })._loaderTimer) {
       clearTimeout((window as Window & { _loaderTimer?: ReturnType<typeof setTimeout> })._loaderTimer)
     }
@@ -362,31 +415,27 @@ export default function App() {
     el.style.opacity = '0'
     const t = setTimeout(() => el.remove(), 300)
     return () => clearTimeout(t)
-  }, []) // runs once after first render
+  }, [])
 
-  // Visitor data from Firestore
   const [visitors,      setVisitors]      = useState<Visitor[]>([])
-  const [visitorsReady, setVisitorsReady] = useState(skipAnimation) // skip wait if returning
+  const [visitorsReady, setVisitorsReady] = useState(skipAnimation)
 
-  // Hero drop color (from localStorage if returning visitor, else default)
   const [heroColor] = useState<string>(() => {
     try { return localStorage.getItem('visitorColor') || DEFAULT_HERO_COLOR } catch { return DEFAULT_HERO_COLOR }
   })
 
-  // Whether this visitor has already chosen a color
   const [hasChosen] = useState<boolean>(() => {
     try { return !!localStorage.getItem('visitorDocId') } catch { return false }
   })
 
-  const [showPicker, setShowPicker] = useState(false)
+  const [pickerDismissed, setPickerDismissed] = useState(false)
+  const showPicker = phase === 'main' && !hasChosen && !pickerDismissed
 
-  // ── fetch visitors on mount (only for animation path) ─────────────────────
   useEffect(() => {
-    if (visitorsReady) return // returning visitors skip the wait
+    if (visitorsReady) return
 
     let cancelled = false
 
-    // Give Firestore up to 2.5 s; if it doesn't respond, start without data
     const timeout = setTimeout(() => {
       if (!cancelled) setVisitorsReady(true)
     }, 2500)
@@ -409,12 +458,6 @@ export default function App() {
     return () => { cancelled = true; clearTimeout(timeout) }
   }, [visitorsReady])
 
-  // ── show color picker after animation reaches 'main' ──────────────────────
-  useEffect(() => {
-    if (phase === 'main' && !hasChosen) setShowPicker(true)
-  }, [phase, hasChosen])
-
-  // ── phase timers ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'text-reveal') return
     const t = setTimeout(() => setPhase('transition'), 800)
@@ -430,18 +473,10 @@ export default function App() {
     return () => clearTimeout(t)
   }, [phase])
 
-  // ── color selection ───────────────────────────────────────────────────────
-  /** Stable object so WaterBackground does not see a new style ref every render. */
-  const waterBgStyle = useMemo(
-    () => ({
-      opacity: phase === 'entry' || phase === 'text-reveal' ? 0 : 1,
-      transition: 'opacity 1s ease-in-out',
-    }),
-    [phase],
-  )
+  const gradientVisible = phase !== 'entry' && phase !== 'text-reveal'
 
   const handleColorSelect = async (color: string) => {
-    setShowPicker(false)
+    setPickerDismissed(true)
     try {
       const docId = await saveVisitor(color)
       try {
@@ -449,7 +484,6 @@ export default function App() {
         localStorage.setItem('visitorColor', color)
       } catch { /* storage blocked */ }
     } catch {
-      // Firebase unavailable — persist locally so picker doesn't re-appear
       try {
         localStorage.setItem('visitorDocId', 'local_' + Date.now())
         localStorage.setItem('visitorColor', color)
@@ -459,13 +493,8 @@ export default function App() {
 
   return (
     <>
-      {/* ── Layer 0: ShaderGradient (single mount for app lifetime — no phase gate)
-          Opacity 0 during entry + text-reveal; visible from transition → main.
-          Avoids remounting ShaderGradientCanvas (R3F store / Clock churn). */}
-      <WaterBackground mode={mode} style={waterBgStyle} />
+      <FullscreenGradientCanvas mode={mode} visible={gradientVisible} />
 
-      {/* ── Layer 1: Ink entry R3F canvas (z-index 10) — UNMOUNTED when phase === 'main'
-          (no lingering WebGL context). Loading: black screen until visitors ready. */}
       {phase !== 'main' && (
         <div
           style={{
@@ -486,14 +515,10 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Layer 2: ANGLEMYER text overlay (z-index 20) ──────────────────────
-          Fades IN over ink canvas during text-reveal, then OUT during transition. */}
       {(phase === 'text-reveal' || phase === 'transition') && (
         <TextReveal phase={phase} />
       )}
 
-      {/* ── Layer 3: Main content (z-index 5) ─────────────────────────────────
-          Invisible until transition, then fades in over 1 s. */}
       <div
         style={{
           position:      'relative',
@@ -507,12 +532,8 @@ export default function App() {
         <MainContent mode={mode} accent={accent} active={phase === 'main'} />
       </div>
 
-      {/* ── Layer 4: Color picker (z-index 40) ────────────────────────────────
-          One-time prompt for new visitors to leave their color mark. */}
       {showPicker && <ColorPicker onSelect={handleColorSelect} />}
 
-      {/* ── Layer 5: Mode toggle pill (z-index 50) ────────────────────────────
-          Desktop: top-right. Mobile: top-center. */}
       {phase === 'main' && (
         <ModeToggle
           mode={mode}
@@ -522,8 +543,6 @@ export default function App() {
         />
       )}
 
-      {/* ── Layer 6: Visitor count (z-index 50, top-left) ─────────────────────
-          Shows after animation; only rendered when there are prior visitors. */}
       {phase === 'main' && visitors.length > 0 && (
         <div
           style={{
@@ -543,19 +562,10 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Layer 7: Cursor glow (z-index 2, pointer-events none) ─────────────
-          Imperative position updates; only background transitions via React.
-          Hidden on touch devices (they have no cursor). */}
       {phase === 'main' && !isMobile && <CursorGlow accent={accent} />}
 
-      {/* ── Layer 7b: CPU water caustics + SVG displacement (desktop main only) ── */}
-      {phase === 'main' && !isMobile && <WaterRipples />}
-
-      {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
-          Static feTurbulence texture. Pointer-events none, opacity 0.035. */}
       <GrainOverlay />
 
-      {/* ── Layer 9: Minimal cursor dot (z-index 9999, desktop only) ───────── */}
       <CursorDot />
     </>
   )
