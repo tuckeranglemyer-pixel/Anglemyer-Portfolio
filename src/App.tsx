@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { EffectComposer } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import InkEntry from './InkEntry'
 import MainContent from './MainContent'
@@ -10,6 +11,11 @@ import BioParagraphPlane from './BioParagraphPlane'
 import ProjectsPlane from './ProjectsPlane'
 import SocialLinksPlane from './SocialLinksPlane'
 import WebGLInteractionProvider from './WebGLInteractionProvider'
+import { useWaterSim } from './useWaterSim'
+import {
+	WaterDisplacementEffect,
+	DEFAULT_WATER_DISPLACEMENT_SCALE,
+} from './WaterDisplacementEffect'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -331,6 +337,36 @@ function ColorPicker({ onSelect }: { onSelect: (color: string) => void }) {
   )
 }
 
+// ─── Water displacement post-FX (desktop only; see waterPostEnabled) ─────────
+function WaterSimPostFx({ enabled }: { enabled: boolean }) {
+	const { displacementMap, update } = useWaterSim()
+	const effect = useMemo(
+		() =>
+			new WaterDisplacementEffect({
+				displacementMap,
+				scale: DEFAULT_WATER_DISPLACEMENT_SCALE,
+			}),
+		[displacementMap],
+	)
+
+	useEffect(() => {
+		return () => {
+			effect.dispose()
+		}
+	}, [effect])
+
+	useFrame(() => {
+		if (enabled) update()
+	})
+
+	if (!enabled) return null
+	return (
+		<EffectComposer>
+			<primitive object={effect} dispose={null} />
+		</EffectComposer>
+	)
+}
+
 // ─── R3F: fullscreen orthographic plane + custom gradient shader ─────────────
 function GradientBackgroundPlane({ mode }: { mode: Mode }) {
   const matRef = useRef<THREE.ShaderMaterial>(null)
@@ -376,10 +412,12 @@ function FullscreenGradientCanvas({
   mode,
   visible,
   heroVisible,
+  waterPostEnabled,
 }: {
   mode: Mode
   visible: boolean
   heroVisible: boolean
+  waterPostEnabled: boolean
 }) {
   return (
     <Canvas
@@ -405,6 +443,7 @@ function FullscreenGradientCanvas({
         <ProjectsPlane mode={mode} visible={heroVisible} />
         <SocialLinksPlane visible={heroVisible} />
       </WebGLInteractionProvider>
+      <WaterSimPostFx enabled={waterPostEnabled} />
     </Canvas>
   )
 }
@@ -512,6 +551,7 @@ export default function App() {
         mode={mode}
         visible={gradientVisible}
         heroVisible={phase === 'main'}
+        waterPostEnabled={!isMobile && gradientVisible}
       />
 
       {phase !== 'main' && (
