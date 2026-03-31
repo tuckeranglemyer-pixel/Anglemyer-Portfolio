@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
-import WaterDisplacement from './WaterDisplacement'
-import WaterDisplacementFilterDefs from './WaterDisplacementFilterDefs'
+import WaterRipples from './WaterRipples'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -465,9 +464,6 @@ export default function App() {
           Avoids remounting ShaderGradientCanvas (R3F store / Clock churn). */}
       <WaterBackground mode={mode} style={waterBgStyle} />
 
-      {/* SVG defs for feDisplacementMap — water sim updates #water-fe-map each frame (desktop). */}
-      {!isMobile && <WaterDisplacementFilterDefs />}
-
       {/* ── Layer 1: Ink entry R3F canvas (z-index 10) — UNMOUNTED when phase === 'main'
           (no lingering WebGL context). Loading: black screen until visitors ready. */}
       {phase !== 'main' && (
@@ -508,12 +504,7 @@ export default function App() {
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
-        <MainContent
-          mode={mode}
-          accent={accent}
-          active={phase === 'main'}
-          displacementFilter={phase === 'main' && !isMobile}
-        />
+        <MainContent mode={mode} accent={accent} active={phase === 'main'} />
       </div>
 
       {/* ── Layer 4: Color picker (z-index 40) ────────────────────────────────
@@ -557,8 +548,8 @@ export default function App() {
           Hidden on touch devices (they have no cursor). */}
       {phase === 'main' && !isMobile && <CursorGlow accent={accent} />}
 
-      {/* ── Layer 7b: WebGL water sim (hidden) + SVG filter on MainContent — no mobile ── */}
-      {phase === 'main' && !isMobile && <WaterDisplacement />}
+      {/* ── Layer 7b: CPU water caustics + SVG displacement (desktop main only) ── */}
+      {phase === 'main' && !isMobile && <WaterRipples />}
 
       {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
           Static feTurbulence texture. Pointer-events none, opacity 0.035. */}

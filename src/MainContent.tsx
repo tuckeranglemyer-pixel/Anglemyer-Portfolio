@@ -416,15 +416,12 @@ interface MainContentProps {
   mode:    Mode
   accent:  string
   active?: boolean
-  /** Desktop only: SVG feDisplacementMap distorts this block from WebGL heightmap. */
-  displacementFilter?: boolean
 }
 
 export default function MainContent({
   mode,
   accent,
   active = false,
-  displacementFilter = false,
 }: MainContentProps) {
   const isMobile = useIsMobile()
 
@@ -446,16 +443,16 @@ export default function MainContent({
   return (
     <>
     <div
+      id="main-water-target"
       style={{
         maxWidth:      '600px',
         width:         '100%',
         boxSizing:     'border-box',
-        overflowX:     displacementFilter ? 'visible' : 'hidden',
+        overflowX:     isMobile ? 'hidden' : 'visible',
         paddingLeft:   `calc(${hPad} + env(safe-area-inset-left, 0px))`,
         paddingRight:  `calc(${hPad} + env(safe-area-inset-right, 0px))`,
         paddingTop:    vPad,
         paddingBottom: isMobile ? '140px' : '96px',
-        filter:        displacementFilter ? 'url(#water-distort)' : 'none',
       }}
     >
       <Reveal delay={0} active={active}>
