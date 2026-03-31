@@ -334,183 +334,77 @@ function EmailLink() {
 }
 
 // ─── HeroName ─────────────────────────────────────────────────────────────────
-// Hero title uses data-hero-name for layout hooks; water ripples are global (WaterDisplacement).
-// Letters within 70px of cursor sink with blur/rotate; spring back when fin leaves.
-// Tiny red particles spawn as letters sink; max 30; updated in rAF.
-const SPRING =
-  'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)'
-
-type BloodParticle = {
-  el: HTMLDivElement
-  x: number
-  y: number
-  vx: number
-  vy: number
-  born: number
-}
+// Letters near cursor sink; leaving h1 resets all spans unconditionally (no particles).
+const HERO_LETTER_TRANSITION = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
+const HERO_SINK_RADIUS_PX = 50
 
 function HeroName({ name, style }: { name: string; style: CSSProperties }) {
-  const h1Ref          = useRef<HTMLHeadingElement>(null)
-  const spanRefs       = useRef<(HTMLSpanElement | null)[]>([])
-  const cursorRef      = useRef({ x: -9999, y: -9999 })
-  const letterRotRef   = useRef<number[]>([])
-  const wasSunkRef     = useRef<boolean[]>([])
-  const particlesRef   = useRef<BloodParticle[]>([])
-  const particleHostRef = useRef<HTMLDivElement>(null)
+  const h1Ref    = useRef<HTMLHeadingElement>(null)
+  const spanRefs = useRef<(HTMLSpanElement | null)[]>([])
 
   const chars = Array.from(name)
 
   useEffect(() => {
-    letterRotRef.current = Array.from(name).map(() => (Math.random() - 0.5) * 24)
-    wasSunkRef.current   = Array.from(name).map(() => false)
-  }, [name])
+    const h1 = h1Ref.current
+    if (!h1) return
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      cursorRef.current = { x: e.clientX, y: e.clientY }
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [])
-
-  useEffect(() => {
-    let raf: number
-    let cancelled = false
-
-    function tick(now: number) {
-      if (cancelled) return
-      const host = particleHostRef.current
-      if (!host) {
-        raf = requestAnimationFrame(tick)
-        return
-      }
-
-      const h1 = h1Ref.current
-      const cx = cursorRef.current.x
-      const cy = cursorRef.current.y
-
-      let overName = false
-      if (h1) {
-        const r = h1.getBoundingClientRect()
-        overName = cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom
-      }
-
-      const bboxes = spanRefs.current.map(span => {
-        if (!span) return null
+    const applySink = (e: MouseEvent) => {
+      const cx = e.clientX
+      const cy = e.clientY
+      spanRefs.current.forEach(span => {
+        if (!span) return
         const r = span.getBoundingClientRect()
-        return { span, mx: r.left + r.width * 0.5, my: r.top + r.height * 0.5 }
-      })
-
-      const rot = letterRotRef.current
-      const was = wasSunkRef.current
-
-      bboxes.forEach((item, i) => {
-        if (!item) return
-        const { span, mx, my } = item
+        const mx = r.left + r.width * 0.5
+        const my = r.top + r.height * 0.5
         const dist = Math.hypot(cx - mx, cy - my)
-        const deg  = rot[i] ?? 0
-
-        const shouldSink = overName && dist < 70
-
-        if (shouldSink) {
-          span.style.transition = 'none'
-          span.style.transform  = 'translateY(45px) rotate(' + deg.toFixed(2) + 'deg)'
-          span.style.opacity    = '0'
-          span.style.filter     = 'blur(2px)'
-
-          if (!was[i]) {
-            was[i] = true
-            const nSpawn = 3 + (Math.random() < 0.5 ? 1 : 0)
-            const cap = 30 - particlesRef.current.length
-            const toAdd = Math.min(nSpawn, Math.max(0, cap))
-            for (let k = 0; k < toAdd; k++) {
-              const el = document.createElement('div')
-              el.style.cssText =
-                'position:fixed;width:3px;height:3px;border-radius:50%;' +
-                'background:#cc0000;opacity:0.5;pointer-events:none;z-index:9998;will-change:transform,opacity'
-              el.style.left = `${mx - 1.5}px`
-              el.style.top  = `${my - 1.5}px`
-              host.appendChild(el)
-              particlesRef.current.push({
-                el,
-                x: mx,
-                y: my,
-                vx: (Math.random() - 0.5) * 1.2,
-                vy: -6 - Math.random() * 4,
-                born: now,
-              })
-            }
-          }
+        if (dist < HERO_SINK_RADIUS_PX) {
+          span.style.transform = 'translateY(30px)'
+          span.style.opacity = '0.2'
+          span.style.filter = 'blur(1px)'
         } else {
-          was[i] = false
-          span.style.transition = SPRING
-          span.style.transform  = ''
-          span.style.opacity    = ''
-          span.style.filter     = ''
+          span.style.transform = 'none'
+          span.style.opacity = '1'
+          span.style.filter = 'none'
         }
       })
-
-      const life = 400
-      const parts = particlesRef.current
-      const g = 0.42
-      for (let p = parts.length - 1; p >= 0; p--) {
-        const pt = parts[p]
-        const age = now - pt.born
-        if (age >= life) {
-          pt.el.remove()
-          parts.splice(p, 1)
-          continue
-        }
-        pt.vy += g
-        pt.x += pt.vx
-        pt.y += pt.vy
-        const t = age / life
-        pt.el.style.left   = `${pt.x - 1.5}px`
-        pt.el.style.top    = `${pt.y - 1.5}px`
-        pt.el.style.opacity = String(0.5 * (1 - t))
-      }
-
-      raf = requestAnimationFrame(tick)
     }
 
-    raf = requestAnimationFrame(tick)
+    const resetAll = () => {
+      spanRefs.current.forEach(span => {
+        if (!span) return
+        span.style.transform = 'none'
+        span.style.opacity = '1'
+        span.style.filter = 'none'
+      })
+    }
+
+    h1.addEventListener('mousemove', applySink, { passive: true })
+    h1.addEventListener('mouseleave', resetAll)
     return () => {
-      cancelled = true
-      cancelAnimationFrame(raf)
+      h1.removeEventListener('mousemove', applySink)
+      h1.removeEventListener('mouseleave', resetAll)
     }
   }, [])
 
   return (
-    <>
-      <div
-        ref={particleHostRef}
-        aria-hidden
-        style={{
-          position:      'fixed',
-          inset:         0,
-          pointerEvents: 'none',
-          zIndex:        9998,
-        }}
-      />
-      <h1
-        ref={h1Ref}
-        data-hero-name=""
-        style={style}
-      >
-        {chars.map((char, i) => (
-          <span
-            key={i}
-            ref={el => { spanRefs.current[i] = el }}
-            style={{
-              display:    char === ' ' ? 'inline' : 'inline-block',
-              transition: SPRING,
-            }}
-          >
-            {char}
-          </span>
-        ))}
-      </h1>
-    </>
+    <h1
+      ref={h1Ref}
+      data-hero-name=""
+      style={style}
+    >
+      {chars.map((char, i) => (
+        <span
+          key={i}
+          ref={el => { spanRefs.current[i] = el }}
+          style={{
+            display:    char === ' ' ? 'inline' : 'inline-block',
+            transition: HERO_LETTER_TRANSITION,
+          }}
+        >
+          {char}
+        </span>
+      ))}
+    </h1>
   )
 }
 

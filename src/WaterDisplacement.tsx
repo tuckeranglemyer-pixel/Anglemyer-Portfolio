@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 const REST = 0.5
-const DAMPING = 0.985
+const DAMPING = 0.97
 const GAUSS_RADIUS_PX = 15
 const HALF = 0.5 // window dimensions × this for sim buffer size
 
@@ -68,23 +68,23 @@ void main() {
   float h = texture(u_height, uv).r;
   float hx = texture(u_height, uv + vec2(u_texel.x, 0.0)).r - h;
   float hy = texture(u_height, uv + vec2(0.0, u_texel.y)).r - h;
-  vec2 grad = vec2(hx, hy) * u_resolution * 0.05;
+  vec2 grad = vec2(hx, hy) * u_resolution * 0.08;
 
   float dh = h - 0.5;
   float peak = max(0.0, dh);
   float trough = max(0.0, -dh);
 
-  float aW = 0.08 * smoothstep(0.0, 0.035, peak);
-  float aB = 0.03 * smoothstep(0.0, 0.035, trough);
+  float aW = 0.12 * smoothstep(0.0, 0.06, peak);
+  float aB = 0.05 * smoothstep(0.0, 0.06, trough);
 
-  vec3 tint = vec3(grad.x * 0.12, grad.y * 0.1, 0.0);
+  vec3 tint = vec3(grad.x * 0.08, grad.y * 0.06, 0.0);
   float ga = length(vec2(hx, hy)) * u_resolution.x;
-  float refrA = min(0.04, ga * 0.00015);
+  float edgeA = min(0.08, ga * 0.00025);
 
   vec4 col = vec4(1.0, 1.0, 1.0, aW);
   col += vec4(0.0, 0.0, 0.0, aB);
-  col.rgb += tint * min(0.35, aW + aB + refrA);
-  col.a = min(0.85, col.a + refrA * 0.4);
+  col.rgb += tint * min(0.25, aW + aB + edgeA);
+  col.a = min(0.95, col.a + edgeA * 0.35);
 
   fragColor = col;
 }
@@ -120,12 +120,20 @@ function linkProgram(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShade
 function createFloatTex(gl: WebGL2RenderingContext, w: number, h: number): WebGLTexture {
   const t = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, t)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  // Neighbors for wave equation must be exact texels (not interpolated).
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null)
   return t
+}
+
+function setTexFilter(gl: WebGL2RenderingContext, tex: WebGLTexture, linear: boolean) {
+  const f = linear ? gl.LINEAR : gl.NEAREST
+  gl.bindTexture(gl.TEXTURE_2D, tex)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f)
 }
 
 // ─── WaterDisplacement ───────────────────────────────────────────────────────
@@ -207,20 +215,8 @@ export default function WaterDisplacement() {
     let lastX = 0
     let lastY = 0
     let lastT = performance.now()
-    let firstPointer = true
 
     function setPointer(clientX: number, clientY: number, isTouch: boolean) {
-      if (firstPointer) {
-        firstPointer = false
-        lastX = clientX
-        lastY = clientY
-        lastT = performance.now()
-        mousePx = {
-          x: clientX * HALF,
-          y: (window.innerHeight - clientY) * HALF,
-        }
-        return
-      }
       const now = performance.now()
       const dt = Math.max(1 / 120, (now - lastT) / 1000)
       const vx = (clientX - lastX) / dt
@@ -235,7 +231,8 @@ export default function WaterDisplacement() {
         y: (window.innerHeight - clientY) * HALF,
       }
 
-      const base = isTouch ? 0.014 : 0.009
+      // ~3× original base (0.009 / 0.014); scales slightly with speed
+      const base = isTouch ? 0.042 : 0.027
       const velScale = Math.min(1, speed / 2600)
       bump = base * (0.35 + velScale * 0.65)
     }
@@ -263,7 +260,7 @@ export default function WaterDisplacement() {
 
     let raf = 0
     function tick() {
-      bump *= 0.9
+      bump *= 0.94
 
       gl.viewport(0, 0, bufW, bufH)
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb[spare])
@@ -275,10 +272,10 @@ export default function WaterDisplacement() {
       gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
 
       gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, tex[curr])
+      setTexFilter(gl, tex[curr], false)
       gl.uniform1i(gl.getUniformLocation(simProgram, 'u_curr'), 0)
       gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, tex[prev])
+      setTexFilter(gl, tex[prev], false)
       gl.uniform1i(gl.getUniformLocation(simProgram, 'u_prev'), 1)
 
       gl.uniform2f(gl.getUniformLocation(simProgram, 'u_texel'), 1 / bufW, 1 / bufH)
@@ -313,7 +310,7 @@ export default function WaterDisplacement() {
       gl.vertexAttribPointer(aPosC, 2, gl.FLOAT, false, 0, 0)
 
       gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, tex[curr])
+      setTexFilter(gl, tex[curr], true)
       gl.uniform1i(gl.getUniformLocation(compProgram, 'u_height'), 0)
       gl.uniform2f(gl.getUniformLocation(compProgram, 'u_texel'), 1 / bufW, 1 / bufH)
       gl.uniform2f(gl.getUniformLocation(compProgram, 'u_resolution'), bufW, bufH)
