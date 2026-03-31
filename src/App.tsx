@@ -7,6 +7,9 @@ import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
 import HeroPlane from './HeroPlane'
 import BioParagraphPlane from './BioParagraphPlane'
+import ProjectsPlane from './ProjectsPlane'
+import SocialLinksPlane from './SocialLinksPlane'
+import WebGLInteractionProvider from './WebGLInteractionProvider'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -138,6 +141,7 @@ function ModeToggle({
   const isNight = mode === 'creative'
   return (
     <button
+      type="button"
       onClick={onToggle}
       aria-label={`Switch to ${isNight ? 'day' : 'night'} mode`}
       style={{
@@ -267,12 +271,13 @@ function ColorPicker({ onSelect }: { onSelect: (color: string) => void }) {
 
   return (
     <div
+      data-webgl-hit-ignore
       style={{
         position: 'fixed',
         bottom: '2.5rem',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 40,
+        zIndex: 50,
         textAlign: 'center',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.6s ease',
@@ -393,9 +398,13 @@ function FullscreenGradientCanvas({
       }}
     >
       <color attach="background" args={['#060e1e']} />
-      <GradientBackgroundPlane mode={mode} />
-      <HeroPlane mode={mode} visible={heroVisible} />
-      <BioParagraphPlane mode={mode} visible={heroVisible} />
+      <WebGLInteractionProvider visible={heroVisible}>
+        <GradientBackgroundPlane mode={mode} />
+        <HeroPlane mode={mode} visible={heroVisible} />
+        <BioParagraphPlane mode={mode} visible={heroVisible} />
+        <ProjectsPlane mode={mode} visible={heroVisible} />
+        <SocialLinksPlane visible={heroVisible} />
+      </WebGLInteractionProvider>
     </Canvas>
   )
 }
@@ -539,18 +548,30 @@ export default function App() {
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
-        <MainContent mode={mode} accent={accent} active={phase === 'main'} />
+        <MainContent mode={mode} active={phase === 'main'} />
       </div>
 
       {showPicker && <ColorPicker onSelect={handleColorSelect} />}
 
       {phase === 'main' && (
-        <ModeToggle
-          mode={mode}
-          accent={accent}
-          isMobile={isMobile}
-          onToggle={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
-        />
+        <div
+          data-webgl-hit-ignore
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ pointerEvents: 'auto' }}>
+            <ModeToggle
+              mode={mode}
+              accent={accent}
+              isMobile={isMobile}
+              onToggle={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
+            />
+          </div>
+        </div>
       )}
 
       {phase === 'main' && visitors.length > 0 && (

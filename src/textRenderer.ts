@@ -50,7 +50,7 @@ function fillTextLineWithSpacing(
   }
 }
 
-async function ensureFontsLoaded(): Promise<void> {
+export async function ensureFontsLoaded(): Promise<void> {
   if (typeof document === 'undefined') return
   const ready = document.fonts?.ready
   if (ready) await ready

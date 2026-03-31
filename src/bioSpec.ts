@@ -1,0 +1,19 @@
+export const MAX_WIDTH = 550
+export const GAP_BELOW_HERO_PX = 36
+export const GAP_BELOW_BIO_PX = 48
+
+export const BIO_PRO = {
+  text:
+    'Builder, founder, operator. Providence College double major in Accounting and Finance. Incoming PwC. Founded Untracked — an AI-powered music discovery platform for DJs. First place at the yconic New England Inter-Collegiate AI Hackathon. D1 athlete. Friars Club tour guide. Student Congress. The kind of person who debugs production on the bus home from giving a campus tour in a blazer.',
+  font: '400 18px "Instrument Serif"',
+  lineHeight: 31,
+  fontSizePx: 18,
+} as const
+
+export const BIO_CREATIVE = {
+  text:
+    'I go to shows alone and talk to strangers about four-on-the-floor kicks. I code AI agents at 2am and give campus tours in a blazer the next morning. I can explain deferred tax assets and why UK garage never got the American respect it deserved — same breath. Built a hackathon-winning AI engine with a two-person team against CS grad students from Brown and Northeastern. The range is the point.',
+  font: '400 16px "Space Mono"',
+  lineHeight: 27,
+  fontSizePx: 16,
+} as const
