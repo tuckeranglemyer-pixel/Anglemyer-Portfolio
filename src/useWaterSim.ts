@@ -15,18 +15,24 @@ function gridDimensions() {
   return { w, h, len: w * h }
 }
 
+/**
+ * Map CSS screen pixels to sim grid indices.
+ * X: left → right matches texture u = 0 → 1.
+ * Y: WebGL / DataTexture row 0 is at texture v = 0 (bottom of screen); screen Y grows
+ * downward, so we invert: top of screen → gy = h - 1, bottom → gy = 0.
+ */
 function screenToGrid(screenX: number, screenY: number, w: number, h: number) {
-  const gx = Math.floor((screenX / window.innerWidth) * w)
-  const gy = Math.floor((screenY / window.innerHeight) * h)
-  return {
-    gx: Math.max(0, Math.min(w - 1, gx)),
-    gy: Math.max(0, Math.min(h - 1, gy)),
-  }
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const gx = Math.min(w - 1, Math.max(0, Math.floor((screenX / W) * w)))
+  const gy = Math.min(h - 1, Math.max(0, Math.floor((1 - screenY / H) * h)))
+  return { gx, gy }
 }
 
 function createDataTexture(w: number, h: number): THREE.DataTexture {
   const data = new Uint8Array(w * h * 4)
   const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat, THREE.UnsignedByteType)
+  tex.flipY = false
   tex.needsUpdate = true
   tex.magFilter = THREE.LinearFilter
   tex.minFilter = THREE.LinearFilter
