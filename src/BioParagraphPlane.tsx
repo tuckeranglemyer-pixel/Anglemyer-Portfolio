@@ -90,9 +90,10 @@ function drawBioCanvas(
 interface BioParagraphPlaneProps {
   mode: HeroMode
   visible?: boolean
+  materialOpacity?: number
 }
 
-export default function BioParagraphPlane({ mode, visible = true }: BioParagraphPlaneProps) {
+export default function BioParagraphPlane({ mode, visible = true, materialOpacity = 1 }: BioParagraphPlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const textureRef = useRef<THREE.CanvasTexture | null>(null)
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
@@ -210,6 +211,14 @@ export default function BioParagraphPlane({ mode, visible = true }: BioParagraph
       textureRef.current = null
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh || !texture) return
+    const mat = mesh.material as THREE.MeshBasicMaterial
+    mat.transparent = true
+    mat.opacity = materialOpacity
+  }, [texture, materialOpacity])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current

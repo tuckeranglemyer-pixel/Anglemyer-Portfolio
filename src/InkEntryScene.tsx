@@ -51,6 +51,10 @@ function emissiveMaterial(hex: string, opacity = 1) {
 		opacity,
 		blending: THREE.AdditiveBlending,
 		depthWrite: false,
+		depthTest: true,
+		polygonOffset: true,
+		polygonOffsetFactor: -1,
+		polygonOffsetUnits: -1,
 		toneMapped: false,
 	})
 }
@@ -391,7 +395,7 @@ export default function InkEntryScene({
 	if (!active) return null
 
 	return (
-		<group renderOrder={1}>
+		<group renderOrder={0} position={[0, 0, 0]}>
 			<ambientLight intensity={0.45} />
 			<VisitorDrops list={vList} />
 			<HeroInkScene onComplete={onComplete} heroColor={heroColor} heroDelay={heroDelay} />

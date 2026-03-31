@@ -10,9 +10,11 @@ interface HeroPlaneProps {
   mode: HeroMode
   /** Hide the mesh without disposing the texture (e.g. before main phase). */
   visible?: boolean
+  /** Multiplied with texture alpha (0–1). */
+  materialOpacity?: number
 }
 
-export default function HeroPlane({ mode, visible = true }: HeroPlaneProps) {
+export default function HeroPlane({ mode, visible = true, materialOpacity = 1 }: HeroPlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const textureForUnmount = useRef<THREE.CanvasTexture | null>(null)
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null)
@@ -77,6 +79,14 @@ export default function HeroPlane({ mode, visible = true }: HeroPlaneProps) {
       cancelled = true
     }
   }, [mode])
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh || !texture) return
+    const mat = mesh.material as THREE.MeshBasicMaterial
+    mat.transparent = true
+    mat.opacity = materialOpacity
+  }, [texture, materialOpacity])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current

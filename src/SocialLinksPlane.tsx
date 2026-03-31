@@ -6,9 +6,10 @@ import { useRegisterWebGLInteraction } from './webglHitContext'
 
 interface SocialLinksPlaneProps {
   visible?: boolean
+  materialOpacity?: number
 }
 
-export default function SocialLinksPlane({ visible = true }: SocialLinksPlaneProps) {
+export default function SocialLinksPlane({ visible = true, materialOpacity = 1 }: SocialLinksPlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const textureRef = useRef<THREE.CanvasTexture | null>(null)
   const register = useRegisterWebGLInteraction()
@@ -60,6 +61,14 @@ export default function SocialLinksPlane({ visible = true }: SocialLinksPlanePro
       textureRef.current = null
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh || !texture) return
+    const mat = mesh.material as THREE.MeshBasicMaterial
+    mat.transparent = true
+    mat.opacity = materialOpacity
+  }, [texture, materialOpacity])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current

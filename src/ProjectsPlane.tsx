@@ -10,9 +10,10 @@ import { useRegisterWebGLInteraction } from './webglHitContext'
 interface ProjectsPlaneProps {
   mode: HeroMode
   visible?: boolean
+  materialOpacity?: number
 }
 
-export default function ProjectsPlane({ mode, visible = true }: ProjectsPlaneProps) {
+export default function ProjectsPlane({ mode, visible = true, materialOpacity = 1 }: ProjectsPlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const textureRef = useRef<THREE.CanvasTexture | null>(null)
   const register = useRegisterWebGLInteraction()
@@ -88,6 +89,14 @@ export default function ProjectsPlane({ mode, visible = true }: ProjectsPlanePro
       textureRef.current = null
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh || !texture) return
+    const mat = mesh.material as THREE.MeshBasicMaterial
+    mat.transparent = true
+    mat.opacity = materialOpacity
+  }, [texture, materialOpacity])
 
   useLayoutEffect(() => {
     const mesh = meshRef.current

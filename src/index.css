@@ -20,3 +20,55 @@ body {
   overflow-x: hidden;
   cursor: none;
 }
+
+/* ANGLEMYER entry title (App.tsx TextRevealOverlay) */
+.anglemyer-title-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.anglemyer-title-overlay h1 {
+  font-family: "Space Mono", monospace;
+  text-transform: uppercase;
+  color: white;
+  letter-spacing: 0.2em;
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  font-weight: 700;
+  margin: 0;
+  user-select: none;
+}
+
+@keyframes anglemyerTitleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes anglemyerTitleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.anglemyer-title--fade-in {
+  animation: anglemyerTitleIn 0.8s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+}
+
+.anglemyer-title--fade-out {
+  animation: anglemyerTitleOut 1s ease-in-out forwards;
+}

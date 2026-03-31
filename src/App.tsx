@@ -226,40 +226,16 @@ const PALETTE: { hex: string; name: string }[] = [
   { hex: '#ffd700', name: 'gold'    },
 ]
 
-// ─── TextReveal ───────────────────────────────────────────────────────────────
-function TextReveal({ phase }: { phase: Phase }) {
-  const [entered, setEntered] = useState(false)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setEntered(true))
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  const isVisible      = entered && phase === 'text-reveal'
-  const isTransitioning = phase === 'transition'
+// ─── ANGLEMYER title overlay (text-reveal → transition) ───────────────────────
+function TextRevealOverlay({ phase }: { phase: Phase }) {
+  if (phase !== 'text-reveal' && phase !== 'transition') return null
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 20,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        pointerEvents: 'none',
-      }}
-    >
+    <div className="anglemyer-title-overlay">
       <h1
-        style={{
-          fontFamily: '"Space Mono", monospace',
-          color: 'white',
-          letterSpacing: '0.2em',
-          fontSize: 'clamp(2.5rem, 7vw, 5.5rem)',
-          fontWeight: 700,
-          margin: 0,
-          userSelect: 'none',
-          opacity:   isTransitioning ? 0 : isVisible ? 1 : 0,
-          transform: isVisible || isTransitioning ? 'scale(1)' : 'scale(0.95)',
-          transition: isTransitioning
-            ? 'opacity 1s ease-in-out'
-            : 'opacity 0.8s cubic-bezier(0.215,0.61,0.355,1), transform 0.8s cubic-bezier(0.215,0.61,0.355,1)',
-        }}
+        className={
+          phase === 'transition' ? 'anglemyer-title--fade-out' : 'anglemyer-title--fade-in'
+        }
       >
         ANGLEMYER
       </h1>
@@ -410,13 +386,13 @@ function GradientBackgroundPlane({ mode }: { mode: Mode }) {
 
 function FullscreenGradientCanvas({
   mode,
-  visible,
   heroVisible,
   waterPostEnabled,
   inkEntry,
+  planesVisible,
+  planeOpacity,
 }: {
   mode: Mode
-  visible: boolean
   heroVisible: boolean
   waterPostEnabled: boolean
   inkEntry:
@@ -426,6 +402,8 @@ function FullscreenGradientCanvas({
         onComplete: () => void
       }
     | null
+  planesVisible: boolean
+  planeOpacity: number
 }) {
   return (
     <Canvas
@@ -439,8 +417,7 @@ function FullscreenGradientCanvas({
         height: '100%',
         zIndex: 0,
         pointerEvents: 'none',
-        opacity: visible ? 1 : 0,
-        transition: 'opacity 1s ease-in-out',
+        opacity: 1,
       }}
     >
       <color attach="background" args={['#060e1e']} />
@@ -454,10 +431,22 @@ function FullscreenGradientCanvas({
             onComplete={inkEntry.onComplete}
           />
         )}
-        <HeroPlane mode={mode} visible={heroVisible} />
-        <BioParagraphPlane mode={mode} visible={heroVisible} />
-        <ProjectsPlane mode={mode} visible={heroVisible} />
-        <SocialLinksPlane visible={heroVisible} />
+        <HeroPlane
+          mode={mode}
+          visible={planesVisible}
+          materialOpacity={planeOpacity}
+        />
+        <BioParagraphPlane
+          mode={mode}
+          visible={planesVisible}
+          materialOpacity={planeOpacity}
+        />
+        <ProjectsPlane
+          mode={mode}
+          visible={planesVisible}
+          materialOpacity={planeOpacity}
+        />
+        <SocialLinksPlane visible={planesVisible} materialOpacity={planeOpacity} />
       </WebGLInteractionProvider>
       <WaterSimPostFx enabled={waterPostEnabled} />
     </Canvas>
@@ -470,7 +459,9 @@ export default function App() {
     try { return localStorage.getItem('hasSeenAnimation') === 'true' } catch { return false }
   })()
 
-  const [phase, setPhase] = useState<Phase>(skipAnimation ? 'main' : 'entry')
+  const [phase, setPhase] = useState<Phase>(() => (skipAnimation ? 'main' : 'entry'))
+
+  const [transitionPlaneOpacity, setTransitionPlaneOpacity] = useState(0)
   const [mode,  setMode]  = useState<Mode>('pro')
   const accent   = ACCENTS[mode]
   const isMobile = useIsMobile()
@@ -543,7 +534,30 @@ export default function App() {
     return () => clearTimeout(t)
   }, [phase])
 
-  const gradientVisible = phase !== 'text-reveal'
+  useEffect(() => {
+    if (phase !== 'transition') return
+    let cancelled = false
+    let rafId = 0
+    const start = performance.now()
+    const tick = () => {
+      if (cancelled) return
+      const t = Math.min(1, (performance.now() - start) / 1000)
+      setTransitionPlaneOpacity(t)
+      if (t < 1) rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafId)
+    }
+  }, [phase])
+
+  const planeOpacity =
+    phase === 'main' ? 1 : phase === 'transition' ? transitionPlaneOpacity : 0
+
+  const planesVisible = phase === 'transition' || phase === 'main'
+  const waterPostEnabled =
+    !isMobile && (phase === 'transition' || phase === 'main')
 
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
@@ -565,9 +579,10 @@ export default function App() {
     <>
       <FullscreenGradientCanvas
         mode={mode}
-        visible={gradientVisible}
         heroVisible={phase === 'main'}
-        waterPostEnabled={!isMobile && gradientVisible && phase !== 'entry'}
+        waterPostEnabled={waterPostEnabled}
+        planesVisible={planesVisible}
+        planeOpacity={planeOpacity}
         inkEntry={
           phase === 'entry' && visitorsReady
             ? {
@@ -592,17 +607,14 @@ export default function App() {
         />
       )}
 
-      {(phase === 'text-reveal' || phase === 'transition') && (
-        <TextReveal phase={phase} />
-      )}
+      <TextRevealOverlay phase={phase} />
 
       <div
         style={{
           position:      'relative',
           zIndex:        5,
           minHeight:     '100vh',
-          opacity:       phase === 'main' || phase === 'transition' ? 1 : 0,
-          transition:    phase === 'transition' ? 'opacity 1s ease-in-out' : undefined,
+          opacity:       phase === 'main' ? 1 : 0,
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
