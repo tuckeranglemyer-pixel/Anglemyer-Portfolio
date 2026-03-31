@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode, type CSSProperties } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 
 type Mode = 'pro' | 'creative'
 
@@ -342,81 +342,6 @@ function EmailLink() {
   )
 }
 
-// ─── HeroName ─────────────────────────────────────────────────────────────────
-// Letters near cursor sink; leaving h1 resets all spans unconditionally (no particles).
-const HERO_LETTER_TRANSITION = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
-const HERO_SINK_RADIUS_PX = 50
-
-function HeroName({ name, style }: { name: string; style: CSSProperties }) {
-  const h1Ref    = useRef<HTMLHeadingElement>(null)
-  const spanRefs = useRef<(HTMLSpanElement | null)[]>([])
-
-  const chars = Array.from(name)
-
-  useEffect(() => {
-    const h1 = h1Ref.current
-    if (!h1) return
-
-    const applySink = (e: MouseEvent) => {
-      const cx = e.clientX
-      const cy = e.clientY
-      spanRefs.current.forEach(span => {
-        if (!span) return
-        const r = span.getBoundingClientRect()
-        const mx = r.left + r.width * 0.5
-        const my = r.top + r.height * 0.5
-        const dist = Math.hypot(cx - mx, cy - my)
-        if (dist < HERO_SINK_RADIUS_PX) {
-          span.style.transform = 'translateY(30px)'
-          span.style.opacity = '0.2'
-          span.style.filter = 'blur(1px)'
-        } else {
-          span.style.transform = 'none'
-          span.style.opacity = '1'
-          span.style.filter = 'none'
-        }
-      })
-    }
-
-    const resetAll = () => {
-      spanRefs.current.forEach(span => {
-        if (!span) return
-        span.style.transform = 'none'
-        span.style.opacity = '1'
-        span.style.filter = 'none'
-      })
-    }
-
-    h1.addEventListener('mousemove', applySink, { passive: true })
-    h1.addEventListener('mouseleave', resetAll)
-    return () => {
-      h1.removeEventListener('mousemove', applySink)
-      h1.removeEventListener('mouseleave', resetAll)
-    }
-  }, [])
-
-  return (
-    <h1
-      ref={h1Ref}
-      data-hero-name=""
-      style={style}
-    >
-      {chars.map((char, i) => (
-        <span
-          key={i}
-          ref={el => { spanRefs.current[i] = el }}
-          style={{
-            display:    char === ' ' ? 'inline' : 'inline-block',
-            transition: HERO_LETTER_TRANSITION,
-          }}
-        >
-          {char}
-        </span>
-      ))}
-    </h1>
-  )
-}
-
 // ─── MainContent ──────────────────────────────────────────────────────────────
 interface MainContentProps {
   mode:    Mode
@@ -436,8 +361,11 @@ export default function MainContent({
 
   useEffect(() => {
     if (mode === displayMode) return
-    setHeroOpacity(0)
-    const t = setTimeout(() => { setDisplayMode(mode); setHeroOpacity(1) }, 220)
+    queueMicrotask(() => setHeroOpacity(0))
+    const t = setTimeout(() => {
+      setDisplayMode(mode)
+      setHeroOpacity(1)
+    }, 220)
     return () => clearTimeout(t)
   }, [mode, displayMode])
 
@@ -468,17 +396,12 @@ export default function MainContent({
             marginBottom: '72px',
           }}
         >
-          <HeroName
-            name={isPro ? 'Tucker Anglemyer' : 'ANGLEMYER'}
+          {/* Reserve space for WebGL hero title (HeroPlane) */}
+          <div
+            aria-hidden
             style={{
-              fontFamily:    isPro ? '"Instrument Serif", serif' : '"Space Mono", monospace',
-              fontSize:      isMobile ? '48px' : (isPro ? '80px' : '72px'),
-              fontWeight:    isPro ? 400 : 700,
-              color:         isPro ? 'rgba(255,255,255,0.95)' : 'white',
-              letterSpacing: isPro ? '-0.02em' : '0.06em',
-              textTransform: isPro ? 'none' : 'uppercase',
-              lineHeight:    1.0,
-              margin:        '0 0 36px',
+              marginBottom: '36px',
+              minHeight: isMobile ? '48px' : (isPro ? '160px' : '88px'),
             }}
           />
 

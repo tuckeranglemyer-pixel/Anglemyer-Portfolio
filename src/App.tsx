@@ -5,6 +5,7 @@ import InkEntry from './InkEntry'
 import MainContent from './MainContent'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
+import HeroPlane from './HeroPlane'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -368,9 +369,11 @@ function GradientBackgroundPlane({ mode }: { mode: Mode }) {
 function FullscreenGradientCanvas({
   mode,
   visible,
+  heroVisible,
 }: {
   mode: Mode
   visible: boolean
+  heroVisible: boolean
 }) {
   return (
     <Canvas
@@ -390,6 +393,7 @@ function FullscreenGradientCanvas({
     >
       <color attach="background" args={['#060e1e']} />
       <GradientBackgroundPlane mode={mode} />
+      <HeroPlane mode={mode} visible={heroVisible} />
     </Canvas>
   )
 }
@@ -493,7 +497,11 @@ export default function App() {
 
   return (
     <>
-      <FullscreenGradientCanvas mode={mode} visible={gradientVisible} />
+      <FullscreenGradientCanvas
+        mode={mode}
+        visible={gradientVisible}
+        heroVisible={phase === 'main'}
+      />
 
       {phase !== 'main' && (
         <div
