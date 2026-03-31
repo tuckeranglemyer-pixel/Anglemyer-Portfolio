@@ -2,8 +2,12 @@ import { useEffect, useRef } from 'react'
 
 const REST = 0.5
 const DAMPING = 0.97
-const GAUSS_RADIUS_PX = 15
-const HALF = 0.5 // window dimensions × this for sim buffer size
+/** Screen-space Gaussian radius (CSS px); half-res shader uses × HALF */
+const GAUSS_RADIUS_PX = 25
+const HALF = 0.5
+
+/** Set true to verify canvas mount (red tint over the page). */
+const WATER_DEBUG_REDDEN = false
 
 // ─── GLSL (WebGL2 / GLSL 300 es) ─────────────────────────────────────────────
 
@@ -55,77 +59,105 @@ void main() {
 `
 }
 
+/** Peaks: white @ 0.15 α, troughs: black @ 0.08 α — clearly visible on dark bg */
 const FS_COMPOSITE = /* glsl */ `#version 300 es
 precision highp float;
 uniform sampler2D u_height;
-uniform vec2 u_texel;
-uniform vec2 u_resolution;
 in vec2 v_tex;
 layout(location = 0) out vec4 fragColor;
 
 void main() {
-  vec2 uv = v_tex;
-  float h = texture(u_height, uv).r;
-  float hx = texture(u_height, uv + vec2(u_texel.x, 0.0)).r - h;
-  float hy = texture(u_height, uv + vec2(0.0, u_texel.y)).r - h;
-  vec2 grad = vec2(hx, hy) * u_resolution * 0.08;
-
+  float h = texture(u_height, v_tex).r;
   float dh = h - 0.5;
   float peak = max(0.0, dh);
   float trough = max(0.0, -dh);
-
-  float aW = 0.12 * smoothstep(0.0, 0.06, peak);
-  float aB = 0.05 * smoothstep(0.0, 0.06, trough);
-
-  vec3 tint = vec3(grad.x * 0.08, grad.y * 0.06, 0.0);
-  float ga = length(vec2(hx, hy)) * u_resolution.x;
-  float edgeA = min(0.08, ga * 0.00025);
-
+  float aW = 0.15 * clamp(peak * 120.0, 0.0, 1.0);
+  float aB = 0.08 * clamp(trough * 120.0, 0.0, 1.0);
   vec4 col = vec4(1.0, 1.0, 1.0, aW);
   col += vec4(0.0, 0.0, 0.0, aB);
-  col.rgb += tint * min(0.25, aW + aB + edgeA);
-  col.a = min(0.95, col.a + edgeA * 0.35);
-
   fragColor = col;
 }
 `
 
 // ─── WebGL helpers ───────────────────────────────────────────────────────────
 
-function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
+function compile(gl: WebGL2RenderingContext, type: number, src: string, label: string): WebGLShader {
   const sh = gl.createShader(type)!
   gl.shaderSource(sh, src)
   gl.compileShader(sh)
+  const info = gl.getShaderInfoLog(sh)
+  if (info && info.trim()) {
+    console.warn(`[WaterDisplacement] ${label} shader info:\n`, info)
+  }
   if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    const err = gl.getShaderInfoLog(sh)
+    console.error(`[WaterDisplacement] ${label} compile FAILED:`, info)
     gl.deleteShader(sh)
-    throw new Error(`Shader compile: ${err}`)
+    throw new Error(`Shader compile (${label}): ${info || 'unknown'}`)
   }
   return sh
 }
 
-function linkProgram(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShader): WebGLProgram {
+function linkProgram(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShader, label: string): WebGLProgram {
   const p = gl.createProgram()!
   gl.attachShader(p, vs)
   gl.attachShader(p, fs)
   gl.linkProgram(p)
+  const info = gl.getProgramInfoLog(p)
+  if (info && info.trim()) {
+    console.warn(`[WaterDisplacement] ${label} program info:\n`, info)
+  }
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-    const err = gl.getProgramInfoLog(p)
+    console.error(`[WaterDisplacement] ${label} link FAILED:`, info)
     gl.deleteProgram(p)
-    throw new Error(`Program link: ${err}`)
+    throw new Error(`Program link (${label}): ${info || 'unknown'}`)
   }
   return p
 }
 
-function createFloatTex(gl: WebGL2RenderingContext, w: number, h: number): WebGLTexture {
+type RTFormat = { internal: number; type: number; name: string }
+
+function pickRenderTargetFormat(gl: WebGL2RenderingContext, w: number, h: number): RTFormat {
+  const candidates: RTFormat[] = [
+    { internal: gl.RGBA32F, type: gl.FLOAT, name: 'RGBA32F+FLOAT' },
+    { internal: gl.RGBA16F, type: gl.HALF_FLOAT, name: 'RGBA16F+HALF_FLOAT' },
+  ]
+  for (const fmt of candidates) {
+    const t = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, t)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texImage2D(gl.TEXTURE_2D, 0, fmt.internal, w, h, 0, gl.RGBA, fmt.type, null)
+    const testFb = gl.createFramebuffer()!
+    gl.bindFramebuffer(gl.FRAMEBUFFER, testFb)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0)
+    const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
+    gl.deleteFramebuffer(testFb)
+    gl.deleteTexture(t)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    if (st === gl.FRAMEBUFFER_COMPLETE) {
+      console.log(`[WaterDisplacement] render targets: ${fmt.name} (EXT_color_buffer_float may be required for 32F)`)
+      return fmt
+    }
+    console.warn(`[WaterDisplacement] ${fmt.name} incomplete (status ${st})`)
+  }
+  throw new Error('[WaterDisplacement] No float/half-float color buffer format worked')
+}
+
+function createTexWithFormat(
+  gl: WebGL2RenderingContext,
+  w: number,
+  h: number,
+  fmt: RTFormat,
+): WebGLTexture {
   const t = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, t)
-  // Neighbors for wave equation must be exact texels (not interpolated).
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null)
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt.internal, w, h, 0, gl.RGBA, fmt.type, null)
   return t
 }
 
@@ -137,7 +169,6 @@ function setTexFilter(gl: WebGL2RenderingContext, tex: WebGLTexture, linear: boo
 }
 
 // ─── WaterDisplacement ───────────────────────────────────────────────────────
-// Fullscreen WebGL water: ping-pong heightmaps (half res), wave equation, composite.
 
 export default function WaterDisplacement() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -146,36 +177,62 @@ export default function WaterDisplacement() {
     const surface = canvasRef.current
     if (!surface) return
 
-    const maybeGl = surface.getContext('webgl2', {
+    let maybeGl = surface.getContext('webgl2', {
       alpha: true,
       premultipliedAlpha: false,
       antialias: false,
       depth: false,
       stencil: false,
     })
-    if (!maybeGl) return
+    console.log('[WaterDisplacement] getContext("webgl2"):', maybeGl ? 'OK' : 'null')
+
+    if (!maybeGl) {
+      const gl1 = surface.getContext('webgl', {
+        alpha: true,
+        premultipliedAlpha: false,
+        antialias: false,
+      })
+      console.log('[WaterDisplacement] getContext("webgl") fallback:', gl1 ? 'OK (not used — need WebGL2)' : 'null')
+      if (!gl1) {
+        console.error('[WaterDisplacement] No WebGL context; ripples disabled')
+        return
+      }
+      console.error('[WaterDisplacement] WebGL2 required for float water sim; upgrade browser or GPU drivers')
+      return
+    }
+
     const gl: WebGL2RenderingContext = maybeGl as WebGL2RenderingContext
-    // Required on many browsers for RGBA32F render targets
     gl.getExtension('EXT_color_buffer_float')
+    gl.getExtension('OES_texture_float_linear')
 
-    const FS_SIM = buildSimFrag(REST)
-    const vs = compile(gl, gl.VERTEX_SHADER, VS_FULLSCREEN)
-    const fsSim = compile(gl, gl.FRAGMENT_SHADER, FS_SIM)
-    const fsComp = compile(gl, gl.FRAGMENT_SHADER, FS_COMPOSITE)
-    const simProgram = linkProgram(gl, vs, fsSim)
-    const vs2 = compile(gl, gl.VERTEX_SHADER, VS_FULLSCREEN)
-    const compProgram = linkProgram(gl, vs2, fsComp)
-    gl.deleteShader(vs)
-    gl.deleteShader(vs2)
-    gl.deleteShader(fsSim)
-    gl.deleteShader(fsComp)
+    let simProgram: WebGLProgram
+    let compProgram: WebGLProgram
+    let vbo: WebGLBuffer
 
-    const vbo = gl.createBuffer()!
+    try {
+      const FS_SIM = buildSimFrag(REST)
+      const vs = compile(gl, gl.VERTEX_SHADER, VS_FULLSCREEN, 'sim vs')
+      const fsSim = compile(gl, gl.FRAGMENT_SHADER, FS_SIM, 'sim fs')
+      const fsComp = compile(gl, gl.FRAGMENT_SHADER, FS_COMPOSITE, 'composite fs')
+      simProgram = linkProgram(gl, vs, fsSim, 'sim')
+      const vs2 = compile(gl, gl.VERTEX_SHADER, VS_FULLSCREEN, 'composite vs')
+      compProgram = linkProgram(gl, vs2, fsComp, 'composite')
+      gl.deleteShader(vs)
+      gl.deleteShader(vs2)
+      gl.deleteShader(fsSim)
+      gl.deleteShader(fsComp)
+    } catch (e) {
+      console.error('[WaterDisplacement] shader pipeline failed:', e)
+      return
+    }
+
+    vbo = gl.createBuffer()!
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW)
 
     let bufW = 0
     let bufH = 0
+    let formatUsed!: RTFormat
     const tex: [WebGLTexture, WebGLTexture, WebGLTexture] = [null!, null!, null!]
     const fb: [WebGLFramebuffer, WebGLFramebuffer, WebGLFramebuffer] = [null!, null!, null!]
     let curr = 0
@@ -189,17 +246,25 @@ export default function WaterDisplacement() {
       bufW = w
       bufH = h
 
+      try {
+        formatUsed = pickRenderTargetFormat(gl, w, h)
+      } catch (e) {
+        console.error('[WaterDisplacement] allocBuffers format check failed:', e)
+        return
+      }
+
       for (let i = 0; i < 3; i++) {
         if (tex[i]) gl.deleteTexture(tex[i])
         if (fb[i]) gl.deleteFramebuffer(fb[i])
-        tex[i] = createFloatTex(gl, w, h)
+        tex[i] = createTexWithFormat(gl, w, h, formatUsed)
         fb[i] = gl.createFramebuffer()!
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb[i])
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex[i], 0)
         gl.clearColor(REST, REST, REST, 1)
         gl.clear(gl.COLOR_BUFFER_BIT)
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-          console.warn('WaterDisplacement: float framebuffer incomplete; try EXT_color_buffer_float')
+        const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
+        if (st !== gl.FRAMEBUFFER_COMPLETE) {
+          console.error(`[WaterDisplacement] FBO ${i} incomplete after alloc:`, st)
         }
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -231,8 +296,8 @@ export default function WaterDisplacement() {
         y: (window.innerHeight - clientY) * HALF,
       }
 
-      // ~3× original base (0.009 / 0.014); scales slightly with speed
-      const base = isTouch ? 0.042 : 0.027
+      // 2× prior base (0.027 / 0.042); scales slightly with cursor speed
+      const base = isTouch ? 0.084 : 0.054
       const velScale = Math.min(1, speed / 2600)
       bump = base * (0.35 + velScale * 0.65)
     }
@@ -287,7 +352,6 @@ export default function WaterDisplacement() {
 
       gl.drawArrays(gl.TRIANGLES, 0, 6)
 
-      // New height in spare; previous timestep: old curr → prev; rotate indices
       const nextCurr = spare
       const nextPrev = curr
       const nextSpare = prev
@@ -312,8 +376,6 @@ export default function WaterDisplacement() {
       gl.activeTexture(gl.TEXTURE0)
       setTexFilter(gl, tex[curr], true)
       gl.uniform1i(gl.getUniformLocation(compProgram, 'u_height'), 0)
-      gl.uniform2f(gl.getUniformLocation(compProgram, 'u_texel'), 1 / bufW, 1 / bufH)
-      gl.uniform2f(gl.getUniformLocation(compProgram, 'u_resolution'), bufW, bufH)
 
       gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -350,6 +412,7 @@ export default function WaterDisplacement() {
         height: '100%',
         zIndex: 2,
         pointerEvents: 'none',
+        ...(WATER_DEBUG_REDDEN ? { backgroundColor: 'rgba(255,0,0,0.3)' } : {}),
       }}
     />
   )
