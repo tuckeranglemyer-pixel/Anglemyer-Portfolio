@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import PretextHero from './PretextHero'
 
 export type Mode = 'pro' | 'creative'
 
@@ -240,27 +241,7 @@ export default function MainContent({
         >
           <ScrollReveal active={active}>
             <header style={{ marginBottom: '36px' }}>
-              <h1
-                style={{
-                  fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
-                  fontSize: isMobile
-                    ? 'clamp(2.5rem, 8vw, 5.5rem)'
-                    : isPro
-                      ? 'clamp(2.75rem, 8vw, 4.25rem)'
-                      : 'clamp(2rem, 6vw, 3rem)',
-                  fontWeight: isPro ? 300 : 700,
-                  fontStyle: isPro ? 'normal' : 'normal',
-                  lineHeight: isPro ? 1.05 : 1.1,
-                  letterSpacing: isPro ? '-0.02em' : '0.28em',
-                  textTransform: isPro ? 'none' : 'uppercase',
-                  color: 'rgba(255,255,255,0.96)',
-                  margin: 0,
-                  transition:
-                    'font-size 0.6s ease, letter-spacing 0.6s ease, color 0.6s ease',
-                }}
-              >
-                {c.hero}
-              </h1>
+              <PretextHero mode={displayMode} active={active} isMobile={isMobile} />
 
               <p
                 style={{
