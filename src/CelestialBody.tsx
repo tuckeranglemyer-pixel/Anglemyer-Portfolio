@@ -29,7 +29,7 @@ float snoise(vec3 v){
   vec4 p=permute(permute(permute(
     i.z+vec4(0.,i1.z,i2.z,1.))+
     i.y+vec4(0.,i1.y,i2.y,1.))+
-    i.x+vec4(0.,i1.x,i2.x,1.)));
+    i.x+vec4(0.,i1.x,i2.x,1.));
   float n_=.142857142857;
   vec3 ns=n_*D.wyz-D.xzx;
   vec4 j=p-49.*floor(p*ns.z*ns.z);
