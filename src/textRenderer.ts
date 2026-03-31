@@ -72,7 +72,7 @@ function layoutTextLines(
 }
 
 /** Shared: fonts + prepare + line loop (same as {@link layoutNextLine} walk). */
-async function layoutLinesFromText(
+export async function layoutLinesFromText(
   text: string,
   font: string,
   maxWidth: number,

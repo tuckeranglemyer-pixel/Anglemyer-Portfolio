@@ -1,26 +1,10 @@
 import { useThree } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { HERO_CREATIVE, HERO_PRO, type HeroMode } from './heroSpecs'
 import { renderTextToTexture } from './textRenderer'
 
-export type HeroMode = 'pro' | 'creative'
-
-const HERO_PRO = {
-  text: 'Tucker Anglemyer',
-  font: '400 72px "Instrument Serif"',
-  maxWidth: 600,
-  lineHeight: 90,
-  color: '#ffffff',
-} as const
-
-const HERO_CREATIVE = {
-  text: 'ANGLEMYER',
-  font: '700 64px "Space Mono"',
-  maxWidth: 2000,
-  lineHeight: 72,
-  color: '#ffffff',
-  letterSpacingEm: 0.08,
-} as const
+export type { HeroMode }
 
 interface HeroPlaneProps {
   mode: HeroMode

@@ -6,6 +6,7 @@ import MainContent from './MainContent'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
 import HeroPlane from './HeroPlane'
+import BioParagraphPlane from './BioParagraphPlane'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -394,6 +395,7 @@ function FullscreenGradientCanvas({
       <color attach="background" args={['#060e1e']} />
       <GradientBackgroundPlane mode={mode} />
       <HeroPlane mode={mode} visible={heroVisible} />
+      <BioParagraphPlane mode={mode} visible={heroVisible} />
     </Canvas>
   )
 }

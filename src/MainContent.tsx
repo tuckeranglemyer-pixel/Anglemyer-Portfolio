@@ -2,13 +2,6 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 
 type Mode = 'pro' | 'creative'
 
-const HERO_COPY: Record<Mode, string> = {
-  pro:
-    'Builder, founder, operator. Providence College double major in Accounting and Finance. Incoming PwC. Founded Untracked — an AI-powered music discovery platform for DJs. First place at the yconic New England Inter-Collegiate AI Hackathon. D1 athlete. Friars Club tour guide. Student Congress. The kind of person who debugs production on the bus home from giving a campus tour in a blazer.',
-  creative:
-    'I go to shows alone and talk to strangers about four-on-the-floor kicks. I code AI agents at 2am and give campus tours in a blazer the next morning. I can explain deferred tax assets and why UK garage never got the American respect it deserved — same breath. Built a hackathon-winning AI engine with a two-person team against CS grad students from Brown and Northeastern. The range is the point.',
-}
-
 function useIsMobile(breakpoint = 768) {
   const [is, setIs] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < breakpoint,
@@ -396,27 +389,14 @@ export default function MainContent({
             marginBottom: '72px',
           }}
         >
-          {/* Reserve space for WebGL hero title (HeroPlane) */}
+          {/* Reserve space for WebGL hero + bio (HeroPlane, BioParagraphPlane) */}
           <div
             aria-hidden
             style={{
               marginBottom: '36px',
-              minHeight: isMobile ? '48px' : (isPro ? '160px' : '88px'),
+              minHeight: isMobile ? '280px' : (isPro ? '420px' : '320px'),
             }}
           />
-
-          <p
-            style={{
-              fontFamily: displayMode === 'pro' ? '"Instrument Serif", serif' : '"Space Mono", monospace',
-              fontSize:   displayMode === 'pro' ? '18px' : '16px',
-              fontWeight: 400,
-              color:      'rgba(255,255,255,0.45)',
-              lineHeight: 1.7,
-              margin:     0,
-            }}
-          >
-            {HERO_COPY[displayMode]}
-          </p>
         </div>
       </Reveal>
 
