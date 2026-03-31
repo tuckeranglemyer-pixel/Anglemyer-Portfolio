@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
-import SharkFinCursor from './SharkFinCursor'
+import WaterDisplacement from './WaterDisplacement'
 import CelestialBody from './CelestialBody'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
@@ -27,6 +27,46 @@ function useIsMobile(breakpoint = 768) {
     return () => window.removeEventListener('resize', update)
   }, [breakpoint])
   return is
+}
+
+// ─── CursorDot ────────────────────────────────────────────────────────────────
+// Minimal 6px dot (desktop only); replaces shark fin. z-index above water ripples.
+function CursorDot() {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+    if (isTouch) return
+    const el = ref.current
+    if (!el) return
+    const move = (e: MouseEvent) => {
+      el.style.transform = `translate(${e.clientX - 3}px, ${e.clientY - 3}px)`
+    }
+    window.addEventListener('mousemove', move, { passive: true })
+    return () => window.removeEventListener('mousemove', move)
+  }, [])
+  const isTouch =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(hover: none) and (pointer: coarse)').matches
+  if (isTouch) return null
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      style={{
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        width: '6px',
+        height: '6px',
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,0.5)',
+        pointerEvents: 'none',
+        zIndex: 9999,
+        transform: 'translate(-100px, -100px)',
+        willChange: 'transform',
+      }}
+    />
+  )
 }
 
 // ─── GrainOverlay ─────────────────────────────────────────────────────────────
@@ -516,13 +556,15 @@ export default function App() {
           Hidden on touch devices (they have no cursor). */}
       {phase === 'main' && !isMobile && <CursorGlow accent={accent} />}
 
+      {/* ── Layer 7b: WebGL water ripple (z-index 2, main only; above bg, below content) ── */}
+      {phase === 'main' && <WaterDisplacement />}
+
       {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
           Static feTurbulence texture. Pointer-events none, opacity 0.035. */}
       <GrainOverlay />
 
-      {/* ── Layer 9: Shark fin cursor (z-index 9999, desktop only) ───────────
-          Replaces default cursor. Touch devices receive null from component. */}
-      <SharkFinCursor accent={accent} />
+      {/* ── Layer 9: Minimal cursor dot (z-index 9999, desktop only) ───────── */}
+      <CursorDot />
     </>
   )
 }
