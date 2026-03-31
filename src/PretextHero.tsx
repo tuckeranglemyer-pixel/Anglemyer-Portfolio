@@ -15,11 +15,19 @@ export interface PretextHeroProps {
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const EXCLUSION_RADIUS_PX = 18 // sharp cutoff — only chars within this disk move
-const MAX_DISPLACE        = 8  // px — full radial push when inside the disk
-const DESKTOP_MIN_W       = 400
-const LERP_IN             = 0.4 // toward displaced position while cursor in container
-const LERP_OUT            = 0.2 // back to rest when cursor leaves
+const INNER_FULL_PX   = 10 // full horizontal push below this distance
+const OUTER_FALLOFF_PX = 22 // beyond this, no displacement; 10–22px linear falloff
+const MAX_DISPLACE    = 8  // px max horizontal push
+const DESKTOP_MIN_W   = 400
+const LERP_IN         = 0.4  // toward displaced position while cursor in container
+const LERP_OUT        = 0.35 // snap back when cursor leaves (was 0.2 — too drifty)
+
+/** Horizontal push magnitude from cursor distance (2D dist in px). */
+function pushMagnitudeAtDistance(dist: number): number {
+  if (dist <= 1e-4 || dist > OUTER_FALLOFF_PX) return 0
+  if (dist <= INNER_FULL_PX) return MAX_DISPLACE
+  return MAX_DISPLACE * (OUTER_FALLOFF_PX - dist) / (OUTER_FALLOFF_PX - INNER_FULL_PX)
+}
 
 // ─── font helpers ─────────────────────────────────────────────────────────────
 function getFontSize(mode: Mode): number {
@@ -39,7 +47,7 @@ function getModeText(mode: Mode): string {
 }
 
 // ─── PretextHero ──────────────────────────────────────────────────────────────
-// Tight disk at cursor (18px): full 8px radial push inside, zero outside — no falloff.
+// Horizontal parting only (dy=0): soft falloff 10px full → 0 by 22px; lerp to rest.
 export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const canvasRef     = useRef<HTMLCanvasElement>(null)
@@ -50,7 +58,6 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   const mousePosRef    = useRef<{ x: number; y: number } | null>(null)
 
   const dxRef = useRef<Float32Array | null>(null)
-  const dyRef = useRef<Float32Array | null>(null)
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const colorRef  = useRef(color)
@@ -118,15 +125,10 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
           const cw  = ctx.measureText(ch).width
 
           let dx = 0
-          let dy = 0
           const dxa = dxRef.current
-          const dya = dyRef.current
-          if (dxa && dya && charIdx < dxa.length) {
-            dx = dxa[charIdx]
-            dy = dya[charIdx]
-          }
+          if (dxa && charIdx < dxa.length) dx = dxa[charIdx]
 
-          ctx.fillText(ch, charX + dx, y + dy)
+          ctx.fillText(ch, charX + dx, y)
           charX += cw
           charIdx++
         }
@@ -154,7 +156,6 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
         if (!measureCanvasRef.current) measureCanvasRef.current = document.createElement('canvas')
         const n = text.length
         dxRef.current = new Float32Array(n)
-        dyRef.current = new Float32Array(n)
         draw()
       } catch (err) {
         console.warn('PretextHero prepare failed, using fallback', err)
@@ -206,11 +207,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       const cssWidth = cont.offsetWidth
       if (cssWidth < DESKTOP_MIN_W) {
         const zx = dxRef.current
-        const zy = dyRef.current
-        if (zx && zy) {
-          zx.fill(0)
-          zy.fill(0)
-        }
+        if (zx) zx.fill(0)
         draw()
         frame = requestAnimationFrame(tick)
         return
@@ -232,19 +229,14 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
 
       const totalChars = lines.reduce((s, l) => s + l.text.length, 0)
       let dxa = dxRef.current
-      let dya = dyRef.current
-      if (!dxa || !dya || dxa.length < totalChars) {
+      if (!dxa || dxa.length < totalChars) {
         const nx = new Float32Array(totalChars)
-        const ny = new Float32Array(totalChars)
-        if (dxa && dya) {
+        if (dxa) {
           const copy = Math.min(dxa.length, totalChars)
           nx.set(dxa.subarray(0, copy))
-          ny.set(dya.subarray(0, copy))
         }
         dxRef.current = nx
-        dyRef.current = ny
         dxa = nx
-        dya = ny
       }
 
       const mcv = measureCanvasRef.current
@@ -266,21 +258,19 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
           const ccy = y + fontSize * 0.5
 
           let tdx = 0
-          let tdy = 0
           if (inHero && mp) {
             const ox = ccx - mp.x
             const oy = ccy - mp.y
             const dist = Math.hypot(ox, oy)
-            if (dist <= EXCLUSION_RADIUS_PX && dist > 1e-4) {
-              const inv = 1 / dist
-              tdx = ox * inv * MAX_DISPLACE
-              tdy = oy * inv * MAX_DISPLACE
+            const push = pushMagnitudeAtDistance(dist)
+            if (push > 0 && dist > 1e-4) {
+              // Horizontal only: keeps baseline; direction from horizontal offset to cursor
+              tdx = (ox / dist) * push
             }
           }
 
           if (charIdx < dxa.length) {
             dxa[charIdx] += (tdx - dxa[charIdx]) * lerpF
-            dya[charIdx] += (tdy - dya[charIdx]) * lerpF
           }
           charX += cw
           charIdx++
@@ -299,24 +289,23 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     const container = containerRef.current
     if (!container) return
 
+    let debounce: ReturnType<typeof setTimeout> | null = null
     const ro = new ResizeObserver(entries => {
       const width = entries[0]?.contentRect.width ?? container.offsetWidth
       if (!width) return
-
-      const currentMode = modeRef.current
-      const fontSize    = getFontSize(currentMode)
-      const fontStr     = getFontString(currentMode, fontSize)
-
-      if (fontStr !== fontStringRef.current) {
-        doPrepare(currentMode)
-      } else {
-        draw()
-      }
+      if (debounce) clearTimeout(debounce)
+      debounce = setTimeout(() => {
+        debounce = null
+        void doPrepare(modeRef.current)
+      }, 120)
     })
 
     ro.observe(container)
-    return () => ro.disconnect()
-  }, [draw, doPrepare])
+    return () => {
+      if (debounce) clearTimeout(debounce)
+      ro.disconnect()
+    }
+  }, [doPrepare])
 
   useEffect(() => { draw() }, [color, draw])
 
