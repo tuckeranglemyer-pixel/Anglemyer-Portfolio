@@ -21,6 +21,16 @@ body {
   cursor: none;
 }
 
+a,
+button,
+input,
+textarea,
+select,
+label[for],
+[role="button"] {
+  cursor: none;
+}
+
 /* ANGLEMYER entry title (App.tsx TextRevealOverlay) */
 .anglemyer-title-overlay {
   position: fixed;

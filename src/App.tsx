@@ -16,6 +16,8 @@ import {
 	DEFAULT_WATER_DISPLACEMENT_SCALE,
 } from './WaterDisplacementEffect'
 import InkEntryScene from './InkEntryScene'
+import CustomCursor from './CustomCursor'
+import AmbientPad from './AmbientPad'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
@@ -38,45 +40,6 @@ function useIsMobile(breakpoint = 768) {
     return () => window.removeEventListener('resize', update)
   }, [breakpoint])
   return is
-}
-
-// ─── CursorDot ────────────────────────────────────────────────────────────────
-function CursorDot() {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches
-    if (isTouch) return
-    const el = ref.current
-    if (!el) return
-    const move = (e: MouseEvent) => {
-      el.style.transform = `translate(${e.clientX - 3}px, ${e.clientY - 3}px)`
-    }
-    window.addEventListener('mousemove', move, { passive: true })
-    return () => window.removeEventListener('mousemove', move)
-  }, [])
-  const isTouch =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(hover: none) and (pointer: coarse)').matches
-  if (isTouch) return null
-  return (
-    <div
-      ref={ref}
-      aria-hidden
-      style={{
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        width: '6px',
-        height: '6px',
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.5)',
-        pointerEvents: 'none',
-        zIndex: 9999,
-        transform: 'translate(-100px, -100px)',
-        willChange: 'transform',
-      }}
-    />
-  )
 }
 
 // ─── GrainOverlay ─────────────────────────────────────────────────────────────
@@ -630,7 +593,9 @@ export default function App() {
 
       <GrainOverlay />
 
-      <CursorDot />
+      <CustomCursor accent={accent} />
+
+      {phase === 'main' && <AmbientPad />}
     </>
   )
 }
