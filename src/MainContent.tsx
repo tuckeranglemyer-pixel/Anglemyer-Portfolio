@@ -443,14 +443,13 @@ export default function MainContent({
   return (
     <>
     <div
-      id="main-water-target"
       style={{
         maxWidth:      '600px',
         width:         '100%',
         boxSizing:     'border-box',
-        overflowX:     isMobile ? 'hidden' : 'visible',
-        paddingLeft:   `calc(${hPad} + env(safe-area-inset-left, 0px))`,
-        paddingRight:  `calc(${hPad} + env(safe-area-inset-right, 0px))`,
+        overflowX:     'hidden',
+        paddingLeft:   hPad,
+        paddingRight:  hPad,
         paddingTop:    vPad,
         paddingBottom: isMobile ? '140px' : '96px',
       }}

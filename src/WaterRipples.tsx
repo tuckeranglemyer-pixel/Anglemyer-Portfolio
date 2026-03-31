@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 const RES = 4
 const REST = 0.5
@@ -6,29 +6,12 @@ const WAVE_COEFF = 0.24
 const WAVE_DAMP = 0.965
 const BUMP_RADIUS_BUF = 6
 const BUMP_INTENSITY = 2.5
-const GRAD_ENCODE = 520
-const MAIN_TARGET_ID = 'main-water-target'
 
-function setNeutralFeImageHref() {
-  const fe = document.getElementById('water-fe-map')
-  if (!fe) return
-  const c = document.createElement('canvas')
-  c.width = c.height = 1
-  const ctx = c.getContext('2d')
-  if (!ctx) return
-  const d = ctx.createImageData(1, 1)
-  d.data[0] = d.data[1] = d.data[2] = 128
-  d.data[3] = 255
-  ctx.putImageData(d, 0, 0)
-  fe.setAttribute('href', c.toDataURL('image/png'))
-}
-
+/**
+ * CPU wave sim + fullscreen caustic overlay (Laplacian white lines). No SVG / WebGL.
+ */
 export default function WaterRipples() {
   const visibleRef = useRef<HTMLCanvasElement>(null)
-
-  useLayoutEffect(() => {
-    setNeutralFeImageHref()
-  }, [])
 
   useEffect(() => {
     if (!visibleRef.current?.getContext('2d')) return
@@ -41,14 +24,9 @@ export default function WaterRipples() {
 
     const causticScratch = document.createElement('canvas')
     const cctx = causticScratch.getContext('2d')
-    const dispCanvas = document.createElement('canvas')
-    const dctx = dispCanvas.getContext('2d')
-    let dispImageData: ImageData | null = null
 
     let mouseBufX = -1000
     let mouseBufY = -1000
-    let prevBlobUrl: string | null = null
-    let mapGen = 0
 
     function allocBuffers() {
       const w = Math.max(2, Math.floor(window.innerWidth / RES))
@@ -66,9 +44,6 @@ export default function WaterRipples() {
 
       causticScratch.width = w
       causticScratch.height = h
-      dispCanvas.width = w
-      dispCanvas.height = h
-      dispImageData = dctx ? dctx.createImageData(w, h) : null
     }
 
     function addGaussianBump(
@@ -94,27 +69,6 @@ export default function WaterRipples() {
           if (d2 > r2) continue
           const g = Math.exp(-d2 / (2 * sigma * sigma))
           buf[y * w + x] += intensity * g
-        }
-      }
-    }
-
-    function fillDisplacementImageData(heights: Float32Array, w: number, h: number, out: ImageData) {
-      const d = out.data
-      let p = 0
-      for (let gy = 0; gy < h; gy++) {
-        for (let gx = 0; gx < w; gx++) {
-          const hL = heights[gy * w + Math.max(0, gx - 1)]
-          const hR = heights[gy * w + Math.min(w - 1, gx + 1)]
-          const hU = heights[Math.max(0, gy - 1) * w + gx]
-          const hD = heights[Math.min(h - 1, gy + 1) * w + gx]
-          const dx = (hR - hL) * 0.5
-          const dy = (hU - hD) * 0.5
-          const encX = Math.max(-127, Math.min(127, Math.round(dx * GRAD_ENCODE)))
-          const encY = Math.max(-127, Math.min(127, Math.round(-dy * GRAD_ENCODE)))
-          d[p++] = 128 + encX
-          d[p++] = 128 + encY
-          d[p++] = 128
-          d[p++] = 255
         }
       }
     }
@@ -194,7 +148,6 @@ export default function WaterRipples() {
       curr = next
       next = tmp
 
-      // ── Part 2: caustic lines (quarter-res → fullscreen, smoothed) ──
       if (cctx && causticScratch.width === w && causticScratch.height === h) {
         const cimg = cctx.createImageData(w, h)
         cimg.data.fill(0)
@@ -222,27 +175,6 @@ export default function WaterRipples() {
         ctx2d.drawImage(causticScratch, 0, 0, w, h, 0, 0, vis.width, vis.height)
       }
 
-      // ── Part 3: displacement map blob + filter nudge ──
-      if (dctx && dispImageData && dispImageData.width === w && dispImageData.height === h) {
-        fillDisplacementImageData(curr, w, h, dispImageData)
-        dctx.putImageData(dispImageData, 0, 0)
-        const myGen = ++mapGen
-        dispCanvas.toBlob(blob => {
-          if (!blob || myGen !== mapGen) return
-          const fe = document.getElementById('water-fe-map')
-          const mainEl = document.getElementById(MAIN_TARGET_ID)
-          if (!fe || !mainEl) return
-          const old = prevBlobUrl
-          prevBlobUrl = URL.createObjectURL(blob)
-          fe.setAttribute('href', prevBlobUrl)
-          if (old) URL.revokeObjectURL(old)
-          mainEl.style.filter = 'none'
-          requestAnimationFrame(() => {
-            if (myGen === mapGen) mainEl.style.filter = 'url(#water-distort)'
-          })
-        }, 'image/png')
-      }
-
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -253,59 +185,20 @@ export default function WaterRipples() {
       window.removeEventListener('touchmove', onTouch)
       window.removeEventListener('touchstart', onTouch)
       window.removeEventListener('resize', resize)
-      if (prevBlobUrl) URL.revokeObjectURL(prevBlobUrl)
-      const mainEl = document.getElementById(MAIN_TARGET_ID)
-      if (mainEl) mainEl.style.filter = 'none'
-      setNeutralFeImageHref()
     }
   }, [])
 
   return (
-    <>
-      <svg
-        aria-hidden
-        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
-      >
-        <defs>
-          <filter
-            id="water-distort"
-            filterUnits="objectBoundingBox"
-            x="0"
-            y="0"
-            width="1"
-            height="1"
-            colorInterpolationFilters="sRGB"
-          >
-            <feImage
-              id="water-fe-map"
-              result="map"
-              x="0"
-              y="0"
-              width="1"
-              height="1"
-              preserveAspectRatio="none"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="map"
-              scale={12}
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
-        </defs>
-      </svg>
-      <canvas
-        ref={visibleRef}
-        aria-hidden
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 2,
-          pointerEvents: 'none',
-          background: 'transparent',
-        }}
-      />
-    </>
+    <canvas
+      ref={visibleRef}
+      aria-hidden
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2,
+        pointerEvents: 'none',
+        background: 'transparent',
+      }}
+    />
   )
 }
