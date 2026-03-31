@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react'
 
 const REST = 0.5
-/** Slightly higher = ripples ring longer (~2–3 s feel at 60fps). */
 const DAMPING = 0.982
-/** Screen-space Gaussian radius (CSS px); half-res shader uses × HALF */
 const GAUSS_RADIUS_PX = 30
 const HALF = 0.5
 
-/** Set true to verify canvas mount (red tint over the page). */
-const WATER_DEBUG_REDDEN = false
+/** Gradient map is 1/4 linear resolution (1/16 pixels) for perf; filter upscales. */
+const GRAD_DIV = 4
+/** Maps height field gradient to 8-bit deviation from 128 (pairs with feDisplacementMap scale). */
+const GRAD_ENCODE = 520
 
-// ─── GLSL (WebGL2 / GLSL 300 es) ─────────────────────────────────────────────
+const WATER_DEBUG_REDDEN = false
 
 const VS_FULLSCREEN = /* glsl */ `#version 300 es
 in vec2 a_pos;
@@ -60,49 +60,12 @@ void main() {
 `
 }
 
-/** Caustic-style: dFdx/dFdy edge + discrete Laplacian — thin highlights, subtle dark rims (caps 0.10 / 0.04). */
-const FS_COMPOSITE = /* glsl */ `#version 300 es
-precision highp float;
-uniform sampler2D u_height;
-in vec2 v_tex;
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-  ivec2 sz = textureSize(u_height, 0);
-  vec2 texel = vec2(1.0 / float(sz.x), 1.0 / float(sz.y));
-
-  float h = texture(u_height, v_tex).r;
-  float hL = texture(u_height, v_tex - vec2(texel.x, 0.0)).r;
-  float hR = texture(u_height, v_tex + vec2(texel.x, 0.0)).r;
-  float hD = texture(u_height, v_tex - vec2(0.0, texel.y)).r;
-  float hU = texture(u_height, v_tex + vec2(0.0, texel.y)).r;
-  float lap = hL + hR + hU + hD - 4.0 * h;
-
-  float dEdge = abs(dFdx(h) + dFdy(h)) * 40.0;
-  float aCaustic = dEdge * 0.12;
-
-  float aLapBright = max(0.0, -lap) * 90.0;
-  float aLapDark = max(0.0, lap) * 65.0;
-
-  float aLight = min(0.10, aCaustic + aLapBright);
-  float aDark = min(0.04, aLapDark);
-
-  vec4 col = vec4(1.0, 1.0, 1.0, aLight);
-  col += vec4(0.0, 0.0, 0.0, aDark);
-  fragColor = col;
-}
-`
-
-// ─── WebGL helpers ───────────────────────────────────────────────────────────
-
 function compile(gl: WebGL2RenderingContext, type: number, src: string, label: string): WebGLShader {
   const sh = gl.createShader(type)!
   gl.shaderSource(sh, src)
   gl.compileShader(sh)
   const info = gl.getShaderInfoLog(sh)
-  if (info && info.trim()) {
-    console.warn(`[WaterDisplacement] ${label} shader info:\n`, info)
-  }
+  if (info && info.trim()) console.warn(`[WaterDisplacement] ${label} shader info:\n`, info)
   if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
     console.error(`[WaterDisplacement] ${label} compile FAILED:`, info)
     gl.deleteShader(sh)
@@ -117,9 +80,7 @@ function linkProgram(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShade
   gl.attachShader(p, fs)
   gl.linkProgram(p)
   const info = gl.getProgramInfoLog(p)
-  if (info && info.trim()) {
-    console.warn(`[WaterDisplacement] ${label} program info:\n`, info)
-  }
+  if (info && info.trim()) console.warn(`[WaterDisplacement] ${label} program info:\n`, info)
   if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
     console.error(`[WaterDisplacement] ${label} link FAILED:`, info)
     gl.deleteProgram(p)
@@ -151,7 +112,7 @@ function pickRenderTargetFormat(gl: WebGL2RenderingContext, w: number, h: number
     gl.deleteTexture(t)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     if (st === gl.FRAMEBUFFER_COMPLETE) {
-      console.log(`[WaterDisplacement] render targets: ${fmt.name} (EXT_color_buffer_float may be required for 32F)`)
+      console.log(`[WaterDisplacement] render targets: ${fmt.name}`)
       return fmt
     }
     console.warn(`[WaterDisplacement] ${fmt.name} incomplete (status ${st})`)
@@ -182,12 +143,68 @@ function setTexFilter(gl: WebGL2RenderingContext, tex: WebGLTexture, linear: boo
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f)
 }
 
-// ─── WaterDisplacement ───────────────────────────────────────────────────────
+function sampleH(buf: Float32Array, bufW: number, bufH: number, gx: number, gy: number): number {
+  const xi = Math.max(0, Math.min(bufW - 1, gx | 0))
+  const yi = Math.max(0, Math.min(bufH - 1, gy | 0))
+  return buf[(yi * bufW + xi) * 4]
+}
+
+function setNeutralFeImage() {
+  const fe = document.getElementById('water-fe-map')
+  if (!fe) return
+  const c = document.createElement('canvas')
+  c.width = c.height = 1
+  const ctx = c.getContext('2d')
+  if (!ctx) return
+  const d = ctx.createImageData(1, 1)
+  d.data[0] = d.data[1] = d.data[2] = 128
+  d.data[3] = 255
+  ctx.putImageData(d, 0, 0)
+  fe.setAttribute('href', c.toDataURL('image/png'))
+}
+
+/** Encode heightmap gradients into R/G for feDisplacementMap (128 = no displacement). */
+function fillGradientImageData(
+  floatBuf: Float32Array,
+  bufW: number,
+  bufH: number,
+  gradW: number,
+  gradH: number,
+  out: ImageData,
+) {
+  const d = out.data
+  let p = 0
+  for (let gy = 0; gy < gradH; gy++) {
+    for (let gx = 0; gx < gradW; gx++) {
+      const u = (gx + 0.5) / gradW
+      const v = (gy + 0.5) / gradH
+      const glX = u * bufW - 0.5
+      const glY = (1.0 - v) * bufH - 0.5
+
+      const hL = sampleH(floatBuf, bufW, bufH, glX - 1, glY)
+      const hR = sampleH(floatBuf, bufW, bufH, glX + 1, glY)
+      const hD = sampleH(floatBuf, bufW, bufH, glX, glY - 1)
+      const hU = sampleH(floatBuf, bufW, bufH, glX, glY + 1)
+      const dx = (hR - hL) * 0.5
+      const dy = (hU - hD) * 0.5
+
+      const encX = Math.max(-127, Math.min(127, Math.round(dx * GRAD_ENCODE)))
+      const encY = Math.max(-127, Math.min(127, Math.round(-dy * GRAD_ENCODE)))
+
+      d[p++] = 128 + encX
+      d[p++] = 128 + encY
+      d[p++] = 128
+      d[p++] = 255
+    }
+  }
+}
 
 export default function WaterDisplacement() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return
+
     const surface = canvasRef.current
     if (!surface) return
 
@@ -198,43 +215,25 @@ export default function WaterDisplacement() {
       depth: false,
       stencil: false,
     })
-    console.log('[WaterDisplacement] getContext("webgl2"):', maybeGl ? 'OK' : 'null')
-
     if (!maybeGl) {
-      const gl1 = surface.getContext('webgl', {
-        alpha: true,
-        premultipliedAlpha: false,
-        antialias: false,
-      })
-      console.log('[WaterDisplacement] getContext("webgl") fallback:', gl1 ? 'OK (not used — need WebGL2)' : 'null')
-      if (!gl1) {
-        console.error('[WaterDisplacement] No WebGL context; ripples disabled')
-        return
-      }
-      console.error('[WaterDisplacement] WebGL2 required for float water sim; upgrade browser or GPU drivers')
+      console.error('[WaterDisplacement] WebGL2 required for water sim')
       return
     }
 
-    const gl: WebGL2RenderingContext = maybeGl as WebGL2RenderingContext
+    const gl = maybeGl as WebGL2RenderingContext
     gl.getExtension('EXT_color_buffer_float')
     gl.getExtension('OES_texture_float_linear')
 
     let simProgram: WebGLProgram
-    let compProgram: WebGLProgram
     let vbo: WebGLBuffer
 
     try {
       const FS_SIM = buildSimFrag(REST)
       const vs = compile(gl, gl.VERTEX_SHADER, VS_FULLSCREEN, 'sim vs')
       const fsSim = compile(gl, gl.FRAGMENT_SHADER, FS_SIM, 'sim fs')
-      const fsComp = compile(gl, gl.FRAGMENT_SHADER, FS_COMPOSITE, 'composite fs')
       simProgram = linkProgram(gl, vs, fsSim, 'sim')
-      const vs2 = compile(gl, gl.VERTEX_SHADER, VS_FULLSCREEN, 'composite vs')
-      compProgram = linkProgram(gl, vs2, fsComp, 'composite')
       gl.deleteShader(vs)
-      gl.deleteShader(vs2)
       gl.deleteShader(fsSim)
-      gl.deleteShader(fsComp)
     } catch (e) {
       console.error('[WaterDisplacement] shader pipeline failed:', e)
       return
@@ -246,12 +245,17 @@ export default function WaterDisplacement() {
 
     let bufW = 0
     let bufH = 0
-    let formatUsed!: RTFormat
     const tex: [WebGLTexture, WebGLTexture, WebGLTexture] = [null!, null!, null!]
     const fb: [WebGLFramebuffer, WebGLFramebuffer, WebGLFramebuffer] = [null!, null!, null!]
     let curr = 0
     let prev = 1
     let spare = 2
+
+    let floatBuf = new Float32Array(0)
+
+    const gradCanvas = document.createElement('canvas')
+    const gctx = gradCanvas.getContext('2d')
+    let imageData: ImageData | null = null
 
     function allocBuffers() {
       const w = Math.max(2, Math.floor(window.innerWidth * HALF))
@@ -260,17 +264,12 @@ export default function WaterDisplacement() {
       bufW = w
       bufH = h
 
-      try {
-        formatUsed = pickRenderTargetFormat(gl, w, h)
-      } catch (e) {
-        console.error('[WaterDisplacement] allocBuffers format check failed:', e)
-        return
-      }
+      const fmt = pickRenderTargetFormat(gl, w, h)
 
       for (let i = 0; i < 3; i++) {
         if (tex[i]) gl.deleteTexture(tex[i])
         if (fb[i]) gl.deleteFramebuffer(fb[i])
-        tex[i] = createTexWithFormat(gl, w, h, formatUsed)
+        tex[i] = createTexWithFormat(gl, w, h, fmt)
         fb[i] = gl.createFramebuffer()!
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb[i])
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex[i], 0)
@@ -278,13 +277,15 @@ export default function WaterDisplacement() {
         gl.clear(gl.COLOR_BUFFER_BIT)
         const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
         if (st !== gl.FRAMEBUFFER_COMPLETE) {
-          console.error(`[WaterDisplacement] FBO ${i} incomplete after alloc:`, st)
+          console.error(`[WaterDisplacement] FBO ${i} incomplete:`, st)
         }
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       curr = 0
       prev = 1
       spare = 2
+
+      floatBuf = new Float32Array(bufW * bufH * 4)
     }
 
     allocBuffers()
@@ -329,12 +330,12 @@ export default function WaterDisplacement() {
     const onResize = () => {
       if (!canvasRef.current) return
       allocBuffers()
-      canvasRef.current.width = window.innerWidth
-      canvasRef.current.height = window.innerHeight
+      canvasRef.current.width = 2
+      canvasRef.current.height = 2
     }
     window.addEventListener('resize', onResize, { passive: true })
-    surface.width = window.innerWidth
-    surface.height = window.innerHeight
+    surface.width = 2
+    surface.height = 2
 
     let raf = 0
     function tick() {
@@ -372,27 +373,27 @@ export default function WaterDisplacement() {
       prev = nextPrev
       spare = nextSpare
 
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb[curr])
+      gl.readPixels(0, 0, bufW, bufH, gl.RGBA, gl.FLOAT, floatBuf)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-      gl.viewport(0, 0, window.innerWidth, window.innerHeight)
-      gl.clearColor(0, 0, 0, 0)
-      gl.clear(gl.COLOR_BUFFER_BIT)
 
-      gl.enable(gl.BLEND)
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+      const gradW = Math.max(2, Math.floor(window.innerWidth / GRAD_DIV))
+      const gradH = Math.max(2, Math.floor(window.innerHeight / GRAD_DIV))
 
-      gl.useProgram(compProgram)
-      gl.bindBuffer(gl.ARRAY_BUFFER, vbo)
-      const aPosC = gl.getAttribLocation(compProgram, 'a_pos')
-      gl.enableVertexAttribArray(aPosC)
-      gl.vertexAttribPointer(aPosC, 2, gl.FLOAT, false, 0, 0)
-
-      gl.activeTexture(gl.TEXTURE0)
-      setTexFilter(gl, tex[curr], true)
-      gl.uniform1i(gl.getUniformLocation(compProgram, 'u_height'), 0)
-
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-      gl.disable(gl.BLEND)
+      if (gctx && gradW > 0 && gradH > 0) {
+        if (gradCanvas.width !== gradW || gradCanvas.height !== gradH) {
+          gradCanvas.width = gradW
+          gradCanvas.height = gradH
+          imageData = gctx.createImageData(gradW, gradH)
+        }
+        if (imageData) {
+          fillGradientImageData(floatBuf, bufW, bufH, gradW, gradH, imageData)
+          gctx.putImageData(imageData, 0, 0)
+          const url = gradCanvas.toDataURL('image/png')
+          const fe = document.getElementById('water-fe-map')
+          if (fe) fe.setAttribute('href', url)
+        }
+      }
 
       raf = requestAnimationFrame(tick)
     }
@@ -410,7 +411,7 @@ export default function WaterDisplacement() {
       }
       gl.deleteBuffer(vbo)
       gl.deleteProgram(simProgram)
-      gl.deleteProgram(compProgram)
+      setNeutralFeImage()
     }
   }, [])
 
@@ -420,12 +421,12 @@ export default function WaterDisplacement() {
       aria-hidden
       style={{
         position: 'fixed',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 2,
+        width: 1,
+        height: 1,
+        opacity: 0,
         pointerEvents: 'none',
-        ...(WATER_DEBUG_REDDEN ? { backgroundColor: 'rgba(255,0,0,0.3)' } : {}),
+        zIndex: 0,
+        ...(WATER_DEBUG_REDDEN ? { opacity: 0.3, width: '100%', height: '100%', zIndex: 2 } : {}),
       }}
     />
   )

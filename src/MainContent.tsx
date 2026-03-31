@@ -416,9 +416,16 @@ interface MainContentProps {
   mode:    Mode
   accent:  string
   active?: boolean
+  /** Desktop only: SVG feDisplacementMap distorts this block from WebGL heightmap. */
+  displacementFilter?: boolean
 }
 
-export default function MainContent({ mode, accent, active = false }: MainContentProps) {
+export default function MainContent({
+  mode,
+  accent,
+  active = false,
+  displacementFilter = false,
+}: MainContentProps) {
   const isMobile = useIsMobile()
 
   const [displayMode, setDisplayMode] = useState<Mode>(mode)
@@ -448,6 +455,7 @@ export default function MainContent({ mode, accent, active = false }: MainConten
         paddingRight:  hPad,
         paddingTop:    vPad,
         paddingBottom: isMobile ? '140px' : '96px',
+        filter:        displacementFilter ? 'url(#water-distort)' : 'none',
       }}
     >
       <Reveal delay={0} active={active}>

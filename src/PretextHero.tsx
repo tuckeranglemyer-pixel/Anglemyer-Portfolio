@@ -15,18 +15,23 @@ export interface PretextHeroProps {
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const INNER_FULL_PX   = 10 // full horizontal push below this distance
-const OUTER_FALLOFF_PX = 22 // beyond this, no displacement; 10–22px linear falloff
-const MAX_DISPLACE    = 8  // px max horizontal push
-const DESKTOP_MIN_W   = 400
-const LERP_IN         = 0.4  // toward displaced position while cursor in container
-const LERP_OUT        = 0.35 // snap back when cursor leaves (was 0.2 — too drifty)
+/** Match water ripple influence: 0 displacement at edge; full push at cursor center. */
+const RADIUS_PX = 45
+const MAX_DISPLACE = 16 // px max horizontal push at cursor center
+const DESKTOP_MIN_W = 400
+const LERP_IN = 0.4 // toward displaced position while cursor in container
+const LERP_OUT = 0.35 // snap back when cursor leaves
 
-/** Horizontal push magnitude from cursor distance (2D dist in px). */
+/** easeOutQuad on [0,1]: slow finish — used for falloff from center to RADIUS_PX. */
+function easeOutQuad(t: number): number {
+  return 1 - (1 - t) * (1 - t)
+}
+
+/** Horizontal push magnitude from 2D distance (px): easeOutQuad falloff, 0 beyond RADIUS_PX. */
 function pushMagnitudeAtDistance(dist: number): number {
-  if (dist <= 1e-4 || dist > OUTER_FALLOFF_PX) return 0
-  if (dist <= INNER_FULL_PX) return MAX_DISPLACE
-  return MAX_DISPLACE * (OUTER_FALLOFF_PX - dist) / (OUTER_FALLOFF_PX - INNER_FULL_PX)
+  if (dist <= 1e-4 || dist > RADIUS_PX) return 0
+  const t = dist / RADIUS_PX // 0 at center → 1 at edge
+  return MAX_DISPLACE * easeOutQuad(1 - t)
 }
 
 // ─── font helpers ─────────────────────────────────────────────────────────────
@@ -47,7 +52,7 @@ function getModeText(mode: Mode): string {
 }
 
 // ─── PretextHero ──────────────────────────────────────────────────────────────
-// Horizontal parting only (dy=0): soft falloff 10px full → 0 by 22px; lerp to rest.
+// Horizontal parting only (dy=0): easeOutQuad falloff 16px @ center → 0 @ 45px; lerp in/out.
 export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const canvasRef     = useRef<HTMLCanvasElement>(null)
