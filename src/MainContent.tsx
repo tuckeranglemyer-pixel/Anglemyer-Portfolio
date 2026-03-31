@@ -56,46 +56,43 @@ function Reveal({
 }
 
 // ─── ProjectBlock ─────────────────────────────────────────────────────────────
-interface LinkDef { label: string; href: string }
-
 function ProjectBlock({
   title,
   titleHref,
-  link,
+  description,
   delay = 0,
   active,
   accent,
 }: {
-  title:      string
-  titleHref?: string
-  link?:      LinkDef
-  delay?:     number
-  active?:    boolean
-  accent:     string
+  title:       string
+  titleHref?:  string
+  description: string
+  delay?:      number
+  active?:     boolean
+  accent:      string
 }) {
   const [hovered, setHovered] = useState(false)
 
   return (
     <Reveal delay={delay} active={active}>
-      <div style={{ marginBottom: '2rem' }}>
-        {/* Title — skews and shifts to accent on hover; optionally a link */}
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          paddingLeft:    '20px',
+          borderLeft:     hovered ? `1px solid ${accent}` : '1px solid rgba(255,255,255,0.06)',
+          boxShadow:      hovered ? `-2px 0 16px -4px ${accent}66` : 'none',
+          transition:   'border-color 0.3s ease, box-shadow 0.3s ease',
+        }}
+      >
         <h2
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
           style={{
-            fontFamily:    '"Instrument Serif", serif',
-            fontStyle:     'italic',
-            fontSize:      '24px',
-            fontWeight:    400,
-            margin:        link ? '0 0 10px' : '0',
-            letterSpacing: '-0.01em',
-            lineHeight:    1.15,
-            display:       'inline-block',
-            cursor:        titleHref ? 'pointer' : 'default',
-            color:         hovered ? accent : 'rgba(255,255,255,0.85)',
-            transform:     hovered ? 'skewX(-2deg) scale(1.02)' : 'skewX(0deg) scale(1)',
-            transformOrigin: 'left center',
-            transition:    'transform 0.3s ease, color 0.3s ease',
+            margin:         0,
+            paddingBottom:  '4px',
+            position:       'relative',
+            display:        'inline-block',
+            transform:      hovered ? 'translateX(8px)' : 'translateX(0)',
+            transition:   'transform 0.3s ease',
           }}
         >
           {titleHref ? (
@@ -103,40 +100,196 @@ function ProjectBlock({
               href={titleHref}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: 'inherit', textDecoration: 'none' }}
+              style={{
+                fontFamily:    '"Instrument Serif", serif',
+                fontStyle:     'italic',
+                fontSize:      '32px',
+                fontWeight:    400,
+                letterSpacing: '-0.01em',
+                lineHeight:    1.15,
+                color:         hovered ? accent : 'rgba(255,255,255,0.9)',
+                textDecoration: 'none',
+                display:       'inline-block',
+                position:      'relative',
+                paddingBottom: '3px',
+                transition:    'color 0.3s ease',
+              }}
             >
               {title}
+              <span
+                aria-hidden
+                style={{
+                  position:   'absolute',
+                  bottom:     0,
+                  left:       0,
+                  height:     '1px',
+                  width:      hovered ? '100%' : '0%',
+                  background: accent,
+                  transition: 'width 0.3s ease',
+                }}
+              />
             </a>
-          ) : title}
-        </h2>
-
-        {link && (
-          <div>
-            <a
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
+          ) : (
+            <span
               style={{
-                display:        'inline-flex',
-                alignItems:     'center',
-                gap:            '7px',
-                fontFamily:     '"Space Mono", monospace',
-                fontSize:       '11px',
-                letterSpacing:  '0.12em',
-                color:          'rgba(255,255,255,0.4)',
-                textDecoration: 'none',
-                transition:     'color 0.2s ease',
+                fontFamily:    '"Instrument Serif", serif',
+                fontStyle:     'italic',
+                fontSize:      '32px',
+                color:         'rgba(255,255,255,0.9)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.88)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
             >
-              <span style={{ fontSize: '15px', lineHeight: 1 }}>→</span>
-              {link.label}
-            </a>
-          </div>
-        )}
+              {title}
+            </span>
+          )}
+        </h2>
+        <p
+          style={{
+            margin:         '10px 0 0',
+            fontFamily:     '"Space Mono", monospace',
+            fontSize:       '12px',
+            lineHeight:     1.45,
+            color:            'rgba(255,255,255,0.35)',
+            maxWidth:       '520px',
+          }}
+        >
+          {description}
+        </p>
       </div>
     </Reveal>
+  )
+}
+
+// ─── FixedSocialLinks ─────────────────────────────────────────────────────────
+const SOCIAL: { letter: string; label: string; href: string }[] = [
+  { letter: 'G', label: 'GitHub',   href: 'https://github.com/tuckeranglemyer-pixel' },
+  { letter: 'L', label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b/' },
+  { letter: 'T', label: 'TikTok',   href: 'https://www.tiktok.com/@untrackedmusic' },
+]
+
+function FixedSocialLinks({ isMobile, active }: { isMobile: boolean; active: boolean }) {
+  if (!active) return null
+
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          position:       'fixed',
+          left:           0,
+          right:          0,
+          bottom:         0,
+          zIndex:         50,
+          display:        'flex',
+          justifyContent: 'center',
+          alignItems:     'center',
+          flexWrap:       'wrap',
+          gap:            '20px 28px',
+          padding:        '16px 16px calc(20px + env(safe-area-inset-bottom, 0px))',
+          pointerEvents:  'auto',
+        }}
+      >
+        {SOCIAL.map(({ label, href }) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontFamily:     '"Space Mono", monospace',
+              fontSize:       '11px',
+              letterSpacing:  '0.08em',
+              color:            'rgba(255,255,255,0.35)',
+              textDecoration: 'none',
+            }}
+          >
+            {label}
+          </a>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <nav
+      aria-label="Social links"
+      style={{
+        position:       'fixed',
+        right:          '24px',
+        top:            '50%',
+        transform:      'translateY(-50%)',
+        zIndex:         50,
+        display:        'flex',
+        flexDirection:  'column',
+        alignItems:     'flex-end',
+        gap:            '32px',
+        pointerEvents:  'auto',
+      }}
+    >
+      {SOCIAL.map(({ letter, label, href }) => (
+        <SocialLinkDesktop key={label} letter={letter} label={label} href={href} />
+      ))}
+    </nav>
+  )
+}
+
+function SocialLinkDesktop({
+  letter,
+  label,
+  href,
+}: {
+  letter: string
+  label:  string
+  href:   string
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display:        'flex',
+        flexDirection:  'row',
+        alignItems:     'center',
+        justifyContent: 'flex-end',
+        gap:            '10px',
+        textDecoration: 'none',
+        outline:        'none',
+      }}
+    >
+      <span
+        style={{
+          fontFamily:     '"Space Mono", monospace',
+          fontSize:       '11px',
+          letterSpacing:  '0.12em',
+          color:            'rgba(255,255,255,0.75)',
+          opacity:        hovered ? 1 : 0,
+          transform:      hovered ? 'translateX(0)' : 'translateX(6px)',
+          transition:     'opacity 0.3s ease, transform 0.3s ease',
+          whiteSpace:     'nowrap',
+          pointerEvents:  'none',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily:     '"Space Mono", monospace',
+          fontSize:       '11px',
+          color:            hovered ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.2)',
+          display:        'inline-block',
+          transform:      hovered ? 'rotate(0deg)' : 'rotate(90deg)',
+          transformOrigin: 'center center',
+          transition:     'transform 0.3s ease, color 0.3s ease',
+          width:          '14px',
+          textAlign:      'center',
+        }}
+      >
+        {letter}
+      </span>
+    </a>
   )
 }
 
@@ -387,13 +540,14 @@ export default function MainContent({ mode, accent, active = false }: MainConten
   const vPad = isMobile ? '60px' : '80px'
 
   return (
+    <>
     <div
       style={{
         maxWidth:      '600px',
         paddingLeft:   hPad,
         paddingRight:  hPad,
         paddingTop:    vPad,
-        paddingBottom: '96px',
+        paddingBottom: isMobile ? '140px' : '96px',
       }}
     >
       <Reveal delay={0} active={active}>
@@ -426,54 +580,39 @@ export default function MainContent({ mode, accent, active = false }: MainConten
         </div>
       </Reveal>
 
-      <ProjectBlock
-        title="Untracked"
-        titleHref="https://untrackedmusic.com"
-        delay={80}
-        active={active}
-        accent={accent}
-      />
+      <div
+        style={{
+          display:        'flex',
+          flexDirection:  'column',
+          gap:            '48px',
+          marginBottom:   '48px',
+        }}
+      >
+        <ProjectBlock
+          title="Untracked"
+          titleHref="https://untrackedmusic.com"
+          description="AI-powered music discovery for DJs"
+          delay={80}
+          active={active}
+          accent={accent}
+        />
 
-      <ProjectBlock
-        title="The War Room"
-        titleHref="https://frontend-pi-seven-13.vercel.app/"
-        delay={160}
-        active={active}
-        accent={accent}
-      />
-
-      <Reveal delay={240} active={active}>
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '1.25rem' }}>
-          {[
-            { label: 'GitHub',   href: 'https://github.com/tuckeranglemyer-pixel' },
-            { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b/' },
-            { label: 'TikTok',  href: 'https://www.tiktok.com/@untrackedmusic' },
-          ].map(({ label, href }) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                fontFamily:     '"Space Mono", monospace',
-                fontSize:       '11px',
-                letterSpacing:  '0.1em',
-                color:          'rgba(255,255,255,0.25)',
-                textDecoration: 'none',
-                transition:     'color 0.2s ease',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
-            >
-              {label}
-            </a>
-          ))}
-        </div>
-      </Reveal>
+        <ProjectBlock
+          title="The War Room"
+          titleHref="https://frontend-pi-seven-13.vercel.app/"
+          description="4th place, yconic AI Hackathon - multi-agent product analysis utilizing Nvidia DGX Spark"
+          delay={160}
+          active={active}
+          accent={accent}
+        />
+      </div>
 
       <Reveal delay={300} active={active}>
         <EmailLink />
       </Reveal>
     </div>
+
+    <FixedSocialLinks isMobile={isMobile} active={active} />
+    </>
   )
 }

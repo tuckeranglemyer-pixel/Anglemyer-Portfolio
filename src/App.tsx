@@ -545,12 +545,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Layer 6b: Celestial body (z-index 2, top-left corner peek) ─────────
-          Sun (pro) or Moon (creative). Only the bottom-right quarter is visible
-          due to the negative top/left offset. Crossfades on mode switch.
-          Hidden on mobile — no WebGL canvas, no cursor, clean content only. */}
-      {phase === 'main' && !isMobile && <CelestialBody mode={mode} />}
-
       {/* ── Layer 7: Cursor glow (z-index 2, pointer-events none) ─────────────
           Imperative position updates; only background transitions via React.
           Hidden on touch devices (they have no cursor). */}
@@ -558,6 +552,11 @@ export default function App() {
 
       {/* ── Layer 7b: WebGL water ripple (z-index 2, main only; above bg, below content) ── */}
       {phase === 'main' && <WaterDisplacement />}
+
+      {/* ── Layer 6b: Celestial body (z-index 3–4 bloom/canvas, above water) ────
+          Sun (pro) or Moon (creative). Mounted when phase === 'main', desktop only.
+          Opacity 0.35 in component. Hidden on mobile. */}
+      {phase === 'main' && !isMobile && <CelestialBody mode={mode} />}
 
       {/* ── Layer 8: Grain overlay (z-index 100, always present) ─────────────
           Static feTurbulence texture. Pointer-events none, opacity 0.035. */}

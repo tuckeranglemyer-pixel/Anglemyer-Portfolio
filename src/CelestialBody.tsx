@@ -260,10 +260,8 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
   return (
     <>
       {/* ── Ambient bloom ────────────────────────────────────────────────────
-          400px radial gradient centered on the top-left viewport corner —
-          the sphere's approximate world position. Tints the nearby page area
-          with warm amber (sun) or cool blue (moon) at very low opacity.
-          z-index 1 keeps it behind content (z-index 5) and the canvas (z-index 2). */}
+          400px radial gradient at top-left. z-index 3: above water ripple (2),
+          below main content (5). */}
       <div
         style={{
           position:      'fixed',
@@ -273,15 +271,15 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
           height:        '400px',
           background:    bloomBg,
           pointerEvents: 'none',
-          zIndex:        1,
+          zIndex:        3,
           opacity:       visible ? 1 : 0,
           transition:    'opacity 0.4s ease',
         }}
       />
 
-      {/* ── Celestial canvas ─────────────────────────────────────────────────
-          Overall opacity 0.55 — blends into the background atmosphere rather
-          than dominating. z-index 2: behind main content (5) and grain (100). */}
+      {/* ── Celestial canvas (SunMesh / MoonMesh via key=renderedMode) ───────────
+          Opacity 0.35. z-index 4 so the fullscreen water layer (z 2) does not
+          paint over the corner sphere. */}
       <div
         style={{
           position:      'fixed',
@@ -290,7 +288,7 @@ export default function CelestialBody({ mode }: { mode: Mode }) {
           width:         `${SIZE}px`,
           height:        `${SIZE}px`,
           pointerEvents: 'none',
-          zIndex:        2,
+          zIndex:        4,
           opacity:       visible ? 0.35 : 0,
           transition:    'opacity 0.4s ease',
         }}
