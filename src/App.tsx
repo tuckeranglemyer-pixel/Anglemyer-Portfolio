@@ -3,6 +3,7 @@ import InkEntry from './InkEntry'
 import WaterBackground from './WaterBackground'
 import MainContent from './MainContent'
 import SharkFinCursor from './SharkFinCursor'
+import CelestialBody from './CelestialBody'
 import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -503,6 +504,12 @@ export default function App() {
           {visitors.length} visitors
         </div>
       )}
+
+      {/* ── Layer 6b: Celestial body (z-index 3, top-left corner peek) ─────────
+          Sun (pro) or Moon (creative). Only the bottom-right quarter is visible
+          due to the negative top/left offset. Crossfades on mode switch.
+          Hidden on mobile — no WebGL canvas, no cursor, clean content only. */}
+      {phase === 'main' && !isMobile && <CelestialBody mode={mode} />}
 
       {/* ── Layer 7: Cursor glow (z-index 2, pointer-events none) ─────────────
           Imperative position updates; only background transitions via React.

@@ -9,37 +9,40 @@ import {
 type Mode = 'pro' | 'creative'
 
 export interface PretextHeroProps {
-  text?:   string
-  font?:   string
-  color:   string
-  accent:  string
-  mode:    Mode
+  color:  string
+  accent: string
+  mode:   Mode
 }
 
 // ─── orb type ─────────────────────────────────────────────────────────────────
 type Orb = { x: number; y: number; r: number }
 
 // ─── constants ────────────────────────────────────────────────────────────────
-// Floating ambient orb — large, gentle drift
-const ORB_EFFECTIVE_R = 44   // ORB_RADIUS(30) + ORB_GAP(14)
-// Fin cursor — narrow, dramatic slice
-const FIN_EFFECTIVE_R = 18   // FIN_RADIUS(10) + FIN_GAP(8)
-// Y offset to center exclusion in fin body rather than at the sharp tip
+// Ambient floating orb — large, gentle drift
+const ORB_EFFECTIVE_R = 55
+// Fin cursor — 55px radius spans ~3–4 lines at 18px/1.7 line-height, very obvious
+const FIN_EFFECTIVE_R = 55
+// Y offset so exclusion centers on the fin body, not the sharp tip
 const FIN_Y_OFFSET    = 10
+// Minimum container width to run the orb/fin effect (desktop only)
+const DESKTOP_MIN_W   = 400
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-function getFontSize(mode: Mode, containerWidth: number): number {
-  return containerWidth < 600 ? 48 : mode === 'pro' ? 80 : 72
+// Body-paragraph sizes — same on all screen widths
+function getFontSize(mode: Mode, _containerWidth?: number): number {
+  return mode === 'pro' ? 18 : 16
 }
 
 function getFontString(mode: Mode, fontSize: number): string {
   return mode === 'pro'
     ? `400 ${fontSize}px "Instrument Serif"`
-    : `700 ${fontSize}px "Space Mono"`
+    : `400 ${fontSize}px "Space Mono"`
 }
 
 function getModeText(mode: Mode): string {
-  return mode === 'pro' ? 'Tucker Anglemyer' : 'ANGLEMYER'
+  return mode === 'pro'
+    ? 'Builder, founder, operator. Providence College double major in Accounting and Finance. Incoming PwC. Founded Untracked — an AI-powered music discovery platform for DJs. First place at the yconic New England Inter-Collegiate AI Hackathon. D1 athlete. Friars Club tour guide. Student Congress. The kind of person who debugs production on the bus home from giving a campus tour in a blazer.'
+    : 'I go to shows alone and talk to strangers about four-on-the-floor kicks. I code AI agents at 2am and give campus tours in a blazer the next morning. I can explain deferred tax assets and why UK garage never got the American respect it deserved — same breath. Built a hackathon-winning AI engine with a two-person team against CS grad students from Brown and Northeastern. The range is the point.'
 }
 
 // ─── exclusion zone ───────────────────────────────────────────────────────────
@@ -75,15 +78,15 @@ function getLineExclusion(
 
 // ─── PretextHero ──────────────────────────────────────────────────────────────
 export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
-  const containerRef    = useRef<HTMLDivElement>(null)
-  const canvasRef       = useRef<HTMLCanvasElement>(null)
-  const preparedRef     = useRef<PreparedTextWithSegments | null>(null)
-  const fontStringRef   = useRef('')
+  const containerRef   = useRef<HTMLDivElement>(null)
+  const canvasRef      = useRef<HTMLCanvasElement>(null)
+  const preparedRef    = useRef<PreparedTextWithSegments | null>(null)
+  const fontStringRef  = useRef('')
   // Ambient floating orb — drives text flow when fin is not in the hero
-  const orbPosRef       = useRef<Orb | null>(null)
+  const orbPosRef      = useRef<Orb | null>(null)
   // Fin cursor position — overrides orbPosRef when mouse is in the hero
-  const mouseInHeroRef  = useRef(false)
-  const mousePosRef     = useRef<Orb | null>(null)
+  const mouseInHeroRef = useRef(false)
+  const mousePosRef    = useRef<Orb | null>(null)
 
   const colorRef  = useRef(color)
   const accentRef = useRef(accent)  // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -108,10 +111,10 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
 
       const currentMode = modeRef.current
       const fontSize    = getFontSize(currentMode, cssWidth)
-      const lineHeight  = fontSize * 1.1
+      const lineHeight  = fontSize * 1.7
 
       // Fin cursor takes priority over floating orb when mouse is in hero
-      const orb: Orb | null = cssWidth >= 600
+      const orb: Orb | null = cssWidth >= DESKTOP_MIN_W
         ? (mouseInHeroRef.current && mousePosRef.current
             ? mousePosRef.current
             : orbPosRef.current)
@@ -121,12 +124,12 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       let cursor: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 }
       let y                    = 0
       const rendered: { text: string; x: number; y: number }[] = []
-      const MAX_LINES = 24
+      const MAX_LINES = 60
 
       while (rendered.length < MAX_LINES) {
         const { xOffset, maxWidth } = getLineExclusion(y, lineHeight, orb, cssWidth)
 
-        if (maxWidth < fontSize * 0.5) {
+        if (maxWidth < fontSize * 2) {
           // Exclusion zone completely blocks this band — skip the slot
           y += lineHeight
           continue
@@ -155,13 +158,6 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       ctx.font         = fontStringRef.current
       ctx.fillStyle    = colorRef.current
       ctx.textBaseline = 'top'
-
-      // Letter-spacing (Chrome 99+ / Firefox 104+; no-op elsewhere)
-      const lsPx = currentMode === 'pro' ? fontSize * -0.02 : fontSize * 0.08
-      if ('letterSpacing' in ctx) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(ctx as any).letterSpacing = `${lsPx}px`
-      }
 
       for (const line of rendered) {
         ctx.fillText(line.text, line.x, line.y)
@@ -232,11 +228,10 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
     }
   }, [draw])
 
-  // ── Ambient floating orb — Lissajous figure-8, desktop only ──────────────
-  // Invisible (no orb div). Just keeps text gently drifting when cursor is away.
+  // ── Ambient floating orb — drifts through the paragraph, desktop only ─────
   useEffect(() => {
     const container = containerRef.current
-    if (!container || container.offsetWidth < 600) return
+    if (!container || container.offsetWidth < DESKTOP_MIN_W) return
 
     const startMs = performance.now()
     let frame: number
@@ -246,7 +241,7 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
       if (!cont) { frame = requestAnimationFrame(animate); return }
 
       const cssWidth = cont.offsetWidth
-      if (cssWidth < 600) {
+      if (cssWidth < DESKTOP_MIN_W) {
         orbPosRef.current = null
         frame = requestAnimationFrame(animate)
         return
@@ -254,12 +249,12 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
 
       const currentMode = modeRef.current
       const fontSize    = getFontSize(currentMode, cssWidth)
-      const lineHeight  = fontSize * 1.1
+      const lineHeight  = fontSize * 1.7
 
-      // Figure-8 (2:1 Lissajous)
+      // Figure-8 (2:1 Lissajous) — floats through ~lines 2–8 of the paragraph
       const t    = (now - startMs) / 8000 * Math.PI * 2
       const orbX = cssWidth * 0.72 + Math.sin(2 * t) * 40
-      const orbY = lineHeight * 0.5 + Math.sin(t) * lineHeight * 0.32
+      const orbY = lineHeight * 5 + Math.sin(t) * lineHeight * 3
 
       orbPosRef.current = { x: orbX, y: orbY, r: ORB_EFFECTIVE_R }
 
@@ -302,29 +297,24 @@ export default function PretextHero({ color, accent, mode }: PretextHeroProps) {
 
   // ── Fallback ───────────────────────────────────────────────────────────────
   if (fallback) {
-    const fontSize = getFontSize(mode, typeof window !== 'undefined' ? window.innerWidth : 1024)
     return (
-      <span
+      <p
         style={{
-          fontFamily:    mode === 'pro' ? '"Instrument Serif", serif' : '"Space Mono", monospace',
-          fontSize:      `${fontSize}px`,
-          fontWeight:    mode === 'pro' ? 400 : 700,
+          fontFamily:  mode === 'pro' ? '"Instrument Serif", serif' : '"Space Mono", monospace',
+          fontSize:    mode === 'pro' ? '18px' : '16px',
+          fontWeight:  400,
           color,
-          letterSpacing: mode === 'pro' ? '-0.02em' : '0.08em',
-          textTransform: mode === 'creative' ? 'uppercase' : 'none',
-          display:       'block',
-          lineHeight:    1.0,
-          margin:        0,
+          lineHeight:  1.7,
+          margin:      0,
         }}
       >
         {getModeText(mode)}
-      </span>
+      </p>
     )
   }
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      {/* Canvas — the text surface. Orb div removed; fin cursor is the effect driver. */}
       <canvas
         ref={canvasRef}
         style={{ display: 'block', background: 'transparent' }}

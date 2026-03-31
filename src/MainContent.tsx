@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import PretextHero from './PretextHero'
 
 type Mode = 'pro' | 'creative'
@@ -60,14 +60,12 @@ interface LinkDef { label: string; href: string }
 
 function ProjectBlock({
   title,
-  description,
   link,
   delay = 0,
   active,
   accent,
 }: {
   title: string
-  description: string
   link?: LinkDef
   delay?: number
   active?: boolean
@@ -77,7 +75,7 @@ function ProjectBlock({
 
   return (
     <Reveal delay={delay} active={active}>
-      <div style={{ marginBottom: '3.5rem' }}>
+      <div style={{ marginBottom: '2rem' }}>
         {/* Title — skews and shifts to accent on hover */}
         <h2
           onMouseEnter={() => setHovered(true)}
@@ -85,14 +83,14 @@ function ProjectBlock({
           style={{
             fontFamily:    '"Instrument Serif", serif',
             fontStyle:     'italic',
-            fontSize:      '28px',
+            fontSize:      '24px',
             fontWeight:    400,
-            margin:        '0 0 14px',
+            margin:        link ? '0 0 10px' : '0',
             letterSpacing: '-0.01em',
             lineHeight:    1.15,
             display:       'inline-block',
             cursor:        'default',
-            color:         hovered ? accent : 'rgba(255,255,255,0.95)',
+            color:         hovered ? accent : 'rgba(255,255,255,0.85)',
             transform:     hovered ? 'skewX(-2deg) scale(1.02)' : 'skewX(0deg) scale(1)',
             transformOrigin: 'left center',
             transition:    'transform 0.3s ease, color 0.3s ease',
@@ -101,41 +99,30 @@ function ProjectBlock({
           {title}
         </h2>
 
-        <p
-          style={{
-            fontFamily:    '"Space Mono", monospace',
-            fontSize:      '13px',
-            lineHeight:    1.85,
-            color:         'rgba(255,255,255,0.4)',
-            margin:        '0 0 16px',
-            letterSpacing: '0.02em',
-          }}
-        >
-          {description}
-        </p>
-
         {link && (
-          <a
-            href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display:        'inline-flex',
-              alignItems:     'center',
-              gap:            '7px',
-              fontFamily:     '"Space Mono", monospace',
-              fontSize:       '11px',
-              letterSpacing:  '0.12em',
-              color:          'rgba(255,255,255,0.4)',
-              textDecoration: 'none',
-              transition:     'color 0.2s ease',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.88)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
-          >
-            <span style={{ fontSize: '15px', lineHeight: 1 }}>→</span>
-            {link.label}
-          </a>
+          <div>
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display:        'inline-flex',
+                alignItems:     'center',
+                gap:            '7px',
+                fontFamily:     '"Space Mono", monospace',
+                fontSize:       '11px',
+                letterSpacing:  '0.12em',
+                color:          'rgba(255,255,255,0.4)',
+                textDecoration: 'none',
+                transition:     'color 0.2s ease',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.88)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
+            >
+              <span style={{ fontSize: '15px', lineHeight: 1 }}>→</span>
+              {link.label}
+            </a>
+          </div>
         )}
       </div>
     </Reveal>
@@ -179,6 +166,78 @@ function EmailLink() {
         }}
       />
     </a>
+  )
+}
+
+// ─── HeroName ─────────────────────────────────────────────────────────────────
+// Renders the hero h1 with every character in its own inline-block <span>.
+// On mousemove, characters within 60px of the cursor sink down and blur via
+// direct DOM style writes — no React state. CSS transition springs them back.
+function HeroName({ name, style }: { name: string; style: CSSProperties }) {
+  const spanRefs = useRef<(HTMLSpanElement | null)[]>([])
+  const rafRef   = useRef(0)
+  const chars    = Array.from(name)
+
+  const onMouseMove = useCallback((e: React.MouseEvent<HTMLHeadingElement>) => {
+    const cx = e.clientX
+    const cy = e.clientY
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      // Batch reads first, then writes to avoid forced reflows
+      const data = spanRefs.current.map(span => {
+        if (!span) return null
+        const r = span.getBoundingClientRect()
+        return { span, mx: r.left + r.width / 2, my: r.top + r.height / 2 }
+      })
+      data.forEach(item => {
+        if (!item) return
+        const { span, mx, my } = item
+        const dist = Math.sqrt((cx - mx) ** 2 + (cy - my) ** 2)
+        const t    = Math.max(0, 1 - dist / 60)
+        if (t > 0) {
+          span.style.transform = `translateY(${(8 + t * 7).toFixed(1)}px)`
+          span.style.opacity   = (1 - t * 0.7).toFixed(3)
+          span.style.filter    = `blur(${t.toFixed(2)}px)`
+        } else {
+          span.style.transform = ''
+          span.style.opacity   = ''
+          span.style.filter    = ''
+        }
+      })
+    })
+  }, [])
+
+  const onMouseLeave = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
+    spanRefs.current.forEach(span => {
+      if (!span) return
+      span.style.transform = ''
+      span.style.opacity   = ''
+      span.style.filter    = ''
+    })
+  }, [])
+
+  return (
+    <h1
+      data-hero-name=""
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      style={style}
+    >
+      {chars.map((char, i) => (
+        <span
+          key={i}
+          ref={el => { spanRefs.current[i] = el }}
+          style={{
+            // inline-block enables transform; spaces stay inline so word-wrap works
+            display:    char === ' ' ? 'inline' : 'inline-block',
+            transition: 'transform 0.4s ease-out, opacity 0.4s ease-out, filter 0.4s ease-out',
+          }}
+        >
+          {char}
+        </span>
+      ))}
+    </h1>
   )
 }
 
@@ -227,35 +286,33 @@ export default function MainContent({ mode, accent, active = false }: MainConten
             marginBottom: '72px',
           }}
         >
-          <div style={{ margin: '0 0 22px' }}>
-            <PretextHero
-              mode={displayMode}
-              color={isPro ? 'rgba(255,255,255,0.95)' : 'white'}
-              accent={accent}
-            />
-          </div>
-
-          <p
+          {/* Hero name — per-character spans, fin-sink effect on hover */}
+          <HeroName
+            name={isPro ? 'Tucker Anglemyer' : 'ANGLEMYER'}
             style={{
-              fontFamily:    '"Space Mono", monospace',
-              fontSize:      '12px',
-              letterSpacing: '0.2em',
-              color:         'rgba(255,255,255,0.3)',
-              margin:        0,
-              lineHeight:    1.65,
+              fontFamily:    isPro ? '"Instrument Serif", serif' : '"Space Mono", monospace',
+              fontSize:      isMobile ? '48px' : (isPro ? '80px' : '72px'),
+              fontWeight:    isPro ? 400 : 700,
+              color:         isPro ? 'rgba(255,255,255,0.95)' : 'white',
+              letterSpacing: isPro ? '-0.02em' : '0.06em',
+              textTransform: isPro ? 'none' : 'uppercase',
+              lineHeight:    1.0,
+              margin:        '0 0 36px',
             }}
-          >
-            {isPro
-              ? 'Providence College\u2009·\u2009Accounting & Finance\u2009·\u2009Incoming PwC\u2009·\u2009Founder, Untracked'
-              : 'Founder by day\u2009·\u2009Underground house by night\u2009·\u2009AI agents at 2am\u2009·\u2009The range is the point'}
-          </p>
+          />
+
+          {/* Pretext bio — cursor-reactive paragraph */}
+          <PretextHero
+            mode={displayMode}
+            color="rgba(255,255,255,0.45)"
+            accent={accent}
+          />
         </div>
       </Reveal>
 
       {/* ── Projects ─────────────────────────────────────────────────────────── */}
       <ProjectBlock
         title="Untracked"
-        description="AI-powered music discovery for DJs. React, FastAPI, pgvector embeddings, MERT audio analysis. 800+ enriched tracks. Building the infrastructure underground music deserves."
         link={{ label: 'untrackedmusic.com', href: 'https://untrackedmusic.com' }}
         delay={80}
         active={active}
@@ -264,7 +321,6 @@ export default function MainContent({ mode, accent, active = false }: MainConten
 
       <ProjectBlock
         title="The War Room"
-        description="Multi-agent adversarial AI product analysis engine. 1st place, yconic New England AI Hackathon. Built in 24 hours with a two-person team."
         delay={160}
         active={active}
         accent={accent}
