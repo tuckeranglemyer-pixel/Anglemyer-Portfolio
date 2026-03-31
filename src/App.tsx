@@ -126,90 +126,9 @@ function CursorGlow({ accent }: { accent: string }) {
         pointerEvents: 'none',
         zIndex:        2,
         willChange:    'transform',
-        transition:    'background 0.8s ease',
+        transition:    'background 0.6s ease',
       }}
     />
-  )
-}
-
-// ─── ModeToggle ───────────────────────────────────────────────────────────────
-function ModeToggle({
-  mode,
-  accent,
-  isMobile,
-  onToggle,
-}: {
-  mode:     Mode
-  accent:   string
-  isMobile: boolean
-  onToggle: () => void
-}) {
-  const isNight = mode === 'creative'
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={`Switch to ${isNight ? 'day' : 'night'} mode`}
-      style={{
-        position:  'fixed',
-        top:       '1.5rem',
-        zIndex:    50,
-        ...(isMobile
-          ? { left: '50%', transform: 'translateX(-50%)' }
-          : { right: '1.5rem' }),
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '5px 10px',
-        borderRadius: '999px',
-        border: '1px solid rgba(255,255,255,0.12)',
-        background: 'rgba(0,0,0,0.28)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        cursor: 'pointer',
-        fontFamily: '"Space Mono", monospace',
-        fontSize: '10px',
-        letterSpacing: '0.25em',
-        textTransform: 'uppercase',
-        color: 'rgba(255,255,255,0.7)',
-        outline: 'none',
-        WebkitFontSmoothing: 'antialiased',
-        userSelect: 'none',
-      }}
-    >
-      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 0.35 : 1 }}>
-        DAY
-      </span>
-
-      <div
-        style={{
-          position: 'relative',
-          width: '22px',
-          height: '10px',
-          borderRadius: '999px',
-          background: 'rgba(255,255,255,0.08)',
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            position:   'absolute',
-            top:        '1px',
-            left:       isNight ? '11px' : '1px',
-            width:      '8px',
-            height:     '8px',
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.9)',
-            boxShadow:  `0 0 6px 2px ${accent}55`,
-            transition: `left 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.7s ease`,
-          }}
-        />
-      </div>
-
-      <span style={{ transition: 'opacity 0.35s', opacity: isNight ? 1 : 0.35 }}>
-        NIGHT
-      </span>
-    </button>
   )
 }
 
@@ -346,8 +265,12 @@ function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 // ─── R3F: fullscreen orthographic plane + custom gradient shader ─────────────
 function GradientBackgroundPlane({ mode }: { mode: Mode }) {
   const matRef = useRef<THREE.ShaderMaterial>(null)
-  const modeSmoothed = useRef(0)
   const modeRef = useRef(mode)
+  const prevModeRef = useRef(mode)
+  const transitionStartRef = useRef<number | null>(null)
+  const modeFromRef = useRef(0)
+  const uModeSmoothed = useRef(0)
+
   useLayoutEffect(() => {
     modeRef.current = mode
   }, [mode])
@@ -361,13 +284,29 @@ function GradientBackgroundPlane({ mode }: { mode: Mode }) {
     [],
   )
 
-  useFrame((state, dt) => {
+  useFrame((state) => {
     const mat = matRef.current
     if (!mat) return
     mat.uniforms.uTime.value = state.clock.elapsedTime
+
+    if (prevModeRef.current !== modeRef.current) {
+      transitionStartRef.current = state.clock.elapsedTime
+      modeFromRef.current = uModeSmoothed.current
+      prevModeRef.current = modeRef.current
+    }
+
     const target = modeRef.current === 'creative' ? 1 : 0
-    modeSmoothed.current += (target - modeSmoothed.current) * Math.min(1, dt * 5)
-    mat.uniforms.uMode.value = modeSmoothed.current
+
+    if (transitionStartRef.current !== null) {
+      const t = Math.min(1, (state.clock.elapsedTime - transitionStartRef.current) / 0.6)
+      const eased = t * t * (3 - 2 * t)
+      uModeSmoothed.current = THREE.MathUtils.lerp(modeFromRef.current, target, eased)
+      mat.uniforms.uMode.value = uModeSmoothed.current
+      if (t >= 1) transitionStartRef.current = null
+    } else {
+      uModeSmoothed.current = target
+      mat.uniforms.uMode.value = uModeSmoothed.current
+    }
   })
 
   return (
@@ -391,6 +330,7 @@ function FullscreenGradientCanvas({
   inkEntry,
   planesVisible,
   planeOpacity,
+  webGLTextVisible,
 }: {
   mode: Mode
   heroVisible: boolean
@@ -404,7 +344,9 @@ function FullscreenGradientCanvas({
     | null
   planesVisible: boolean
   planeOpacity: number
+  webGLTextVisible: boolean
 }) {
+  const showTextPlanes = planesVisible && webGLTextVisible
   return (
     <Canvas
       orthographic
@@ -433,20 +375,20 @@ function FullscreenGradientCanvas({
         )}
         <HeroPlane
           mode={mode}
-          visible={planesVisible}
+          visible={showTextPlanes}
           materialOpacity={planeOpacity}
         />
         <BioParagraphPlane
           mode={mode}
-          visible={planesVisible}
+          visible={showTextPlanes}
           materialOpacity={planeOpacity}
         />
         <ProjectsPlane
           mode={mode}
-          visible={planesVisible}
+          visible={showTextPlanes}
           materialOpacity={planeOpacity}
         />
-        <SocialLinksPlane visible={planesVisible} materialOpacity={planeOpacity} />
+        <SocialLinksPlane visible={showTextPlanes} materialOpacity={planeOpacity} />
       </WebGLInteractionProvider>
       <WaterSimPostFx enabled={waterPostEnabled} />
     </Canvas>
@@ -556,6 +498,7 @@ export default function App() {
     phase === 'main' ? 1 : phase === 'transition' ? transitionPlaneOpacity : 0
 
   const planesVisible = phase === 'transition' || phase === 'main'
+  const webGLTextVisible = phase !== 'main'
   const waterPostEnabled =
     !isMobile && (phase === 'transition' || phase === 'main')
 
@@ -583,6 +526,7 @@ export default function App() {
         waterPostEnabled={waterPostEnabled}
         planesVisible={planesVisible}
         planeOpacity={planeOpacity}
+        webGLTextVisible={webGLTextVisible}
         inkEntry={
           phase === 'entry' && visitorsReady
             ? {
@@ -618,31 +562,15 @@ export default function App() {
           pointerEvents: phase === 'main' ? 'auto' : 'none',
         }}
       >
-        <MainContent mode={mode} active={phase === 'main'} />
+        <MainContent
+          mode={mode}
+          active={phase === 'main'}
+          accent={accent}
+          onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
+        />
       </div>
 
       {showPicker && <ColorPicker onSelect={handleColorSelect} />}
-
-      {phase === 'main' && (
-        <div
-          data-webgl-hit-ignore
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 50,
-            pointerEvents: 'none',
-          }}
-        >
-          <div style={{ pointerEvents: 'auto' }}>
-            <ModeToggle
-              mode={mode}
-              accent={accent}
-              isMobile={isMobile}
-              onToggle={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
-            />
-          </div>
-        </div>
-      )}
 
       {phase === 'main' && visitors.length > 0 && (
         <div

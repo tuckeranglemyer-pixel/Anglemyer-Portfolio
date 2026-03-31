@@ -1,6 +1,6 @@
 /**
  * Fullscreen orthographic background: animated gradient + 3D simplex noise.
- * uMode: 0 = pro (navy), 1 = creative (warm dark); lerped in fragment shader.
+ * uMode: 0 = pro (cool blue), 1 = creative (warm amber); lerped in fragment shader.
  */
 
 export const gradientVertexShader = /* glsl */ `
@@ -88,13 +88,13 @@ void main() {
   vec2 uv = vUv;
   float t = uTime * 0.12;
 
-  vec3 pro1 = vec3(0.039215686, 0.08627451, 0.156862745);
-  vec3 pro2 = vec3(0.050980392, 0.121568627, 0.235294118);
-  vec3 pro3 = vec3(0.023529412, 0.054901961, 0.117647059);
+  vec3 pro1 = vec3(0.02, 0.06, 0.12);
+  vec3 pro2 = vec3(0.06, 0.16, 0.34);
+  vec3 pro3 = vec3(0.03, 0.09, 0.20);
 
-  vec3 cre1 = vec3(0.101960784, 0.039215686, 0.039215686);
-  vec3 cre2 = vec3(0.121568627, 0.062745098, 0.019607843);
-  vec3 cre3 = vec3(0.054901961, 0.039215686, 0.117647059);
+  vec3 cre1 = vec3(0.12, 0.05, 0.02);
+  vec3 cre2 = vec3(0.28, 0.14, 0.06);
+  vec3 cre3 = vec3(0.10, 0.06, 0.12);
 
   vec3 c1 = mix(pro1, cre1, uMode);
   vec3 c2 = mix(pro2, cre2, uMode);

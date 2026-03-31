@@ -39,7 +39,7 @@ export default function ProjectsPlane({ mode, visible = true, materialOpacity = 
     let cancelled = false
 
     const run = async () => {
-      const { texture: tex, cssW, cssH, regions } = await buildProjectsTexture()
+      const { texture: tex, cssW, cssH, regions } = await buildProjectsTexture(mode)
       if (cancelled) {
         tex.dispose()
         return
@@ -59,7 +59,7 @@ export default function ProjectsPlane({ mode, visible = true, materialOpacity = 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     let cancelled = false

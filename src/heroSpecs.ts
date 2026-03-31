@@ -14,5 +14,5 @@ export const HERO_CREATIVE = {
   maxWidth: 2000,
   lineHeight: 72,
   color: '#ffffff',
-  letterSpacingEm: 0.08,
+  letterSpacingEm: 0.14,
 } as const

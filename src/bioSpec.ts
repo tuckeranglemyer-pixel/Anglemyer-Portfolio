@@ -12,7 +12,7 @@ export const BIO_PRO = {
 
 export const BIO_CREATIVE = {
   text:
-    'I go to shows alone and talk to strangers about four-on-the-floor kicks. I code AI agents at 2am and give campus tours in a blazer the next morning. I can explain deferred tax assets and why UK garage never got the American respect it deserved — same breath. Built a hackathon-winning AI engine with a two-person team against CS grad students from Brown and Northeastern. The range is the point.',
+    'I go to shows alone and talk to strangers about 4/4 kicks. I code agents at 2am and give campus tours in a blazer. I can explain deferred tax assets and why UK garage never got American respect — same breath.',
   font: '400 16px "Space Mono"',
   lineHeight: 27,
   fontSizePx: 16,

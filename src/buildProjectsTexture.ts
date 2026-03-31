@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ensureFontsLoaded, layoutLinesFromText } from './textRenderer'
+import type { HeroMode } from './heroSpecs'
 
 const TITLE_FONT = 'italic 400 28px "Instrument Serif"'
 const DESC_FONT = '400 12px "Space Mono"'
@@ -10,8 +11,19 @@ const BLOCK_GAP = 48
 const DESC_LINE_HEIGHT = 18
 const TITLE_LINE = 34
 
-const UNT_DESC = 'AI-powered music discovery for DJs'
-const WAR_DESC = '4th place, yconic AI Hackathon — multi-agent product analysis'
+const UNT_DESC: Record<HeroMode, string> = {
+  pro:
+    'AI-powered music discovery for DJs. React, FastAPI, pgvector embeddings, MERT audio analysis. 800+ enriched tracks.',
+  creative:
+    'The infrastructure underground music deserves. Building the tool I wish existed when I started digging for tracks.',
+}
+
+const WAR_DESC: Record<HeroMode, string> = {
+  pro:
+    'Multi-agent adversarial AI product analysis engine. 1st place, yconic New England AI Hackathon. Built in 24 hours.',
+  creative:
+    'Two people. 24 hours. First place. Competing with CS masters students while holding a conversation about cutting edge AI.',
+}
 
 export type ProjectHitId = 'untracked' | 'warRoom'
 
@@ -19,7 +31,7 @@ export type CssRect = { left: number; top: number; right: number; bottom: number
 
 export type ProjectRegion = { id: ProjectHitId; rect: CssRect; href: string }
 
-export async function buildProjectsTexture(): Promise<{
+export async function buildProjectsTexture(mode: HeroMode): Promise<{
   texture: THREE.CanvasTexture
   cssW: number
   cssH: number
@@ -28,8 +40,8 @@ export async function buildProjectsTexture(): Promise<{
   await ensureFontsLoaded()
 
   const [d1, d2] = await Promise.all([
-    layoutLinesFromText(UNT_DESC, DESC_FONT, MAX_WIDTH),
-    layoutLinesFromText(WAR_DESC, DESC_FONT, MAX_WIDTH),
+    layoutLinesFromText(UNT_DESC[mode], DESC_FONT, MAX_WIDTH),
+    layoutLinesFromText(WAR_DESC[mode], DESC_FONT, MAX_WIDTH),
   ])
 
   let y = 0
