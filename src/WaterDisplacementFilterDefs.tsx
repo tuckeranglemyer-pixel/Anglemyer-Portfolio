@@ -2,7 +2,7 @@ import { useLayoutEffect } from 'react'
 
 /**
  * SVG filter for MainContent: feDisplacementMap reads R/G as X/Y offset (128 = neutral).
- * feImage href is updated each frame by WaterDisplacement (hidden WebGL sim).
+ * feImage href is updated each frame by WaterDisplacement (CPU wave sim).
  */
 export default function WaterDisplacementFilterDefs() {
   useLayoutEffect(() => {
@@ -46,7 +46,7 @@ export default function WaterDisplacementFilterDefs() {
           <feDisplacementMap
             in="SourceGraphic"
             in2="map"
-            scale={15}
+            scale={10}
             xChannelSelector="R"
             yChannelSelector="G"
           />
