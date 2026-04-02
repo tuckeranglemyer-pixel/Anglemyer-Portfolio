@@ -224,7 +224,7 @@ function ColorPicker({
   )
 }
 
-// ─── Water displacement post-FX (desktop only; see waterPostEnabled) ─────────
+// ─── Water displacement post-FX (phase-gated; mobile may revisit with touch check) ─────────
 function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 	const { displacementMap, update } = useWaterSim()
 	const effect = useMemo(
@@ -497,8 +497,7 @@ export default function App() {
 
   const planesVisible = phase === 'transition' || phase === 'main'
   const webGLTextVisible = phase !== 'main'
-  const waterPostEnabled =
-    !isMobile && (phase === 'transition' || phase === 'main')
+  const waterPostEnabled = phase === 'transition' || phase === 'main'
 
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
