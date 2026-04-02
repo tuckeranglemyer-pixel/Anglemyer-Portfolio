@@ -83,6 +83,77 @@ label[for],
   animation: anglemyerTitleOut 1s ease-in-out forwards;
 }
 
+/* Pretext hero — dominant viewport type + hidden cycle layer (future identity crossfade) */
+.pretext-hero {
+  position: relative;
+  width: 100%;
+  margin-bottom: 48px;
+}
+
+.hero-cycle-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hero-cycle-h1 {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  margin: 0;
+  line-height: 0.95;
+  background: #fff;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-cycle-h1--pro {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(3rem, 9vw, 7rem);
+  letter-spacing: -0.03em;
+  text-transform: none;
+}
+
+.hero-cycle-h1--cre {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: clamp(4rem, 14vw, 11rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pretext-hero-canvas {
+  z-index: 1;
+}
+
+.pretext-hero-fallback--pro,
+.pretext-hero-fallback--cre {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.pretext-hero-fallback--pro {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(3rem, 9vw, 7rem);
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+.pretext-hero-fallback--cre {
+  font-family: "Space Mono", monospace;
+  font-weight: 700;
+  font-size: clamp(4rem, 14vw, 11rem);
+  letter-spacing: 0.08em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
 /* MainContent — project titles, email, social microinteractions */
 .main-project-title {
   display: inline-block;

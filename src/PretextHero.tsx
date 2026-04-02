@@ -9,22 +9,52 @@ import { ensureFontsLoaded } from './textRenderer'
 
 export type HeroMode = 'pro' | 'creative'
 
-const PRO = {
-  text: 'Tucker Anglemyer',
-  font: '400 80px "Instrument Serif", Georgia, serif',
-  lineHeight: 96,
-} as const
+const PRO_TEXT = 'Tucker Anglemyer'
+const CRE_TEXT = 'ANGLEMYER'
 
-const CRE = {
-  text: 'ANGLEMYER',
-  font: '700 80px "Space Mono", monospace',
-  lineHeight: 88,
-  letterSpacingEm: 0.12,
-} as const
+const LINE_HEIGHT_RATIO = 0.95
+const PRO_LETTER_SPACING_EM = -0.03
+const CRE_LETTER_SPACING_EM = 0.08
+
+function rootRemPx(): number {
+  if (typeof document === 'undefined') return 16
+  const fs = getComputedStyle(document.documentElement).fontSize
+  return parseFloat(fs) || 16
+}
+
+/** Matches CSS `clamp(minRem, vw%, maxRem)` using viewport width. */
+function clampHeroFontPx(minRem: number, vwPercent: number, maxRem: number): number {
+  if (typeof window === 'undefined') {
+    return minRem * rootRemPx()
+  }
+  const root = rootRemPx()
+  const minPx = minRem * root
+  const maxPx = maxRem * root
+  const preferred = (vwPercent / 100) * window.innerWidth
+  return Math.min(maxPx, Math.max(minPx, preferred))
+}
 
 function parseFontSizePx(font: string): number {
   const m = font.match(/(\d+(?:\.\d+)?)\s*px/)
   return m ? parseFloat(m[1]) : 16
+}
+
+function proSpec(fontPx: number) {
+  return {
+    text: PRO_TEXT,
+    font: `400 ${fontPx}px "Instrument Serif", Georgia, serif`,
+    lineHeight: fontPx * LINE_HEIGHT_RATIO,
+    letterSpacingEm: PRO_LETTER_SPACING_EM,
+  } as const
+}
+
+function creSpec(fontPx: number) {
+  return {
+    text: CRE_TEXT,
+    font: `700 ${fontPx}px "Space Mono", monospace`,
+    lineHeight: fontPx * LINE_HEIGHT_RATIO,
+    letterSpacingEm: CRE_LETTER_SPACING_EM,
+  } as const
 }
 
 type LinesResult = ReturnType<typeof layoutWithLines>
@@ -41,7 +71,7 @@ interface PretextHeroProps {
  * line-breaking; it returns line strings for rendering while `layout()` alone only exposes
  * aggregate line count / height.
  */
-export default function PretextHero({ mode, active, isMobile }: PretextHeroProps) {
+export default function PretextHero({ mode, active, isMobile: _isMobile }: PretextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const proCanvasRef = useRef<HTMLCanvasElement>(null)
   const creCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -50,6 +80,11 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
   const preparedCre = useRef<PreparedTextWithSegments | null>(null)
   const proLinesRef = useRef<LinesResult | null>(null)
   const creLinesRef = useRef<LinesResult | null>(null)
+
+  const [metrics, setMetrics] = useState(() => ({
+    pro: clampHeroFontPx(3, 9, 7),
+    cre: clampHeroFontPx(4, 14, 11),
+  }))
 
   const [maxWidth, setMaxWidth] = useState(600)
   const [boxHeight, setBoxHeight] = useState(120)
@@ -66,23 +101,16 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
     return () => cancelAnimationFrame(id)
   }, [mode])
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        await ensureFontsLoaded()
-        if (cancelled) return
-        preparedPro.current = prepareWithSegments(PRO.text, PRO.font)
-        preparedCre.current = prepareWithSegments(CRE.text, CRE.font)
-        setPretextReady(true)
-        setUseFallback(false)
-      } catch {
-        if (!cancelled) setUseFallback(true)
-      }
-    })().catch(() => setUseFallback(true))
-    return () => {
-      cancelled = true
+  useLayoutEffect(() => {
+    const update = () => {
+      setMetrics({
+        pro: clampHeroFontPx(3, 9, 7),
+        cre: clampHeroFontPx(4, 14, 11),
+      })
     }
+    update()
+    window.addEventListener('resize', update, { passive: true })
+    return () => window.removeEventListener('resize', update)
   }, [])
 
   const recomputeLayout = useCallback((w: number) => {
@@ -90,12 +118,43 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
     const pc = preparedCre.current
     if (!pw || !pc) return
     const mw = Math.max(120, w)
-    proLinesRef.current = layoutWithLines(pw, mw, PRO.lineHeight)
-    creLinesRef.current = layoutWithLines(pc, mw, CRE.lineHeight)
-    const hPro = layout(pw, mw, PRO.lineHeight).height
-    const hCre = layout(pc, mw, CRE.lineHeight).height
+    const P = proSpec(metrics.pro)
+    const C = creSpec(metrics.cre)
+    proLinesRef.current = layoutWithLines(pw, mw, P.lineHeight)
+    creLinesRef.current = layoutWithLines(pc, mw, C.lineHeight)
+    const hPro = layout(pw, mw, P.lineHeight).height
+    const hCre = layout(pc, mw, C.lineHeight).height
     setBoxHeight(Math.max(hPro, hCre, 1))
-  }, [])
+  }, [metrics.pro, metrics.cre])
+
+  useEffect(() => {
+    let cancelled = false
+    const p = proSpec(metrics.pro)
+    const c = creSpec(metrics.cre)
+    ;(async () => {
+      try {
+        await ensureFontsLoaded()
+        if (cancelled) return
+        preparedPro.current = prepareWithSegments(p.text, p.font)
+        preparedCre.current = prepareWithSegments(c.text, c.font)
+        setPretextReady(true)
+        setUseFallback(false)
+        queueMicrotask(() => {
+          if (cancelled) return
+          const el = containerRef.current
+          if (!el) return
+          const w = el.getBoundingClientRect().width
+          setMaxWidth(w)
+          recomputeLayout(w)
+        })
+      } catch {
+        if (!cancelled) setUseFallback(true)
+      }
+    })().catch(() => setUseFallback(true))
+    return () => {
+      cancelled = true
+    }
+  }, [metrics.pro, metrics.cre, recomputeLayout])
 
   useLayoutEffect(() => {
     const el = containerRef.current
@@ -114,7 +173,7 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
     setMaxWidth(w)
     recomputeLayout(w)
     return () => ro.disconnect()
-  }, [recomputeLayout, useFallback, pretextReady])
+  }, [recomputeLayout, useFallback, pretextReady, metrics.pro, metrics.cre])
 
   const drawCanvas = useCallback(
     (canvas: HTMLCanvasElement | null, which: 'pro' | 'creative', time: number) => {
@@ -122,8 +181,8 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
       const lp = which === 'pro' ? proLinesRef.current : creLinesRef.current
       if (!lp || lp.lines.length === 0) return
 
-      const spec = which === 'pro' ? PRO : CRE
-      const letterSpacingEm = which === 'creative' ? CRE.letterSpacingEm : 0
+      const spec = which === 'pro' ? proSpec(metrics.pro) : creSpec(metrics.cre)
+      const letterSpacingEm = spec.letterSpacingEm
       const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
       const cssW = Math.max(1, maxWidth)
       const cssH = Math.max(1, boxHeight)
@@ -145,45 +204,29 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
       const fontSizePx = parseFontSizePx(spec.font)
       const mx = mouseRef.current.x
       const my = mouseRef.current.y
+      const gap = letterSpacingEm * fontSizePx
 
       for (let li = 0; li < lp.lines.length; li++) {
         const line = lp.lines[li]!.text
         let x = 0
         const y = li * spec.lineHeight
 
-        if (letterSpacingEm > 0) {
-          const gap = letterSpacingEm * fontSizePx
-          for (let i = 0; i < line.length; i++) {
-            const ch = line[i]!
-            const cw = ctx.measureText(ch).width
-            const cx = x + cw * 0.5
-            const cy = y + fontSizePx * 0.5
-            const dist = Math.hypot(mx - cx, my - cy)
-            const dy =
-              hoverRef.current && active
-                ? Math.sin(dist * 0.045 + time * 0.003) * (3.8 * Math.exp(-dist / 105))
-                : 0
-            ctx.fillText(ch, x, y + dy)
-            x += cw + (i < line.length - 1 ? gap : 0)
-          }
-        } else {
-          for (let i = 0; i < line.length; i++) {
-            const ch = line[i]!
-            const cw = ctx.measureText(ch).width
-            const cx = x + cw * 0.5
-            const cy = y + fontSizePx * 0.5
-            const dist = Math.hypot(mx - cx, my - cy)
-            const dy =
-              hoverRef.current && active
-                ? Math.sin(dist * 0.045 + time * 0.003) * (3.8 * Math.exp(-dist / 105))
-                : 0
-            ctx.fillText(ch, x, y + dy)
-            x += cw
-          }
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i]!
+          const cw = ctx.measureText(ch).width
+          const cx = x + cw * 0.5
+          const cy = y + fontSizePx * 0.5
+          const dist = Math.hypot(mx - cx, my - cy)
+          const dy =
+            hoverRef.current && active
+              ? Math.sin(dist * 0.045 + time * 0.003) * (3.8 * Math.exp(-dist / 105))
+              : 0
+          ctx.fillText(ch, x, y + dy)
+          x += cw + (i < line.length - 1 ? gap : 0)
         }
       }
     },
-    [maxWidth, boxHeight, active],
+    [maxWidth, boxHeight, active, metrics.pro, metrics.cre],
   )
 
   const tick = useCallback(() => {
@@ -238,30 +281,20 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
   if (useFallback) {
     const isProFb = mode === 'pro'
     return (
-      <h1
-        style={{
-          fontFamily: isProFb ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
-          fontSize: isMobile
-            ? isProFb
-              ? 'clamp(2.5rem, 8vw, 5.5rem)'
-              : 'clamp(2rem, 6vw, 3rem)'
-            : '80px',
-          fontWeight: isProFb ? 300 : 700,
-          lineHeight: isProFb ? 1.05 : 1.1,
-          letterSpacing: isProFb ? '-0.02em' : '0.28em',
-          textTransform: isProFb ? 'none' : 'uppercase',
-          color: 'rgba(255,255,255,0.92)',
-          margin: 0,
-        }}
-      >
-        {isProFb ? PRO.text : CRE.text}
-      </h1>
+      <div className="pretext-hero">
+        <h1
+          className={isProFb ? 'pretext-hero-fallback--pro' : 'pretext-hero-fallback--cre'}
+        >
+          {isProFb ? PRO_TEXT : CRE_TEXT}
+        </h1>
+      </div>
     )
   }
 
   return (
     <div
       ref={containerRef}
+      className="pretext-hero"
       onMouseMove={active ? onMouseMove : undefined}
       onMouseEnter={active ? onMouseEnter : undefined}
       onMouseLeave={active ? onMouseLeave : undefined}
@@ -269,11 +302,16 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
         position: 'relative',
         width: '100%',
         minHeight: boxHeight,
-        margin: 0,
       }}
     >
+      <div className="hero-cycle-layer" aria-hidden>
+        <h1 className="hero-cycle-h1 hero-cycle-h1--pro">{PRO_TEXT}</h1>
+        <h1 className="hero-cycle-h1 hero-cycle-h1--cre">{CRE_TEXT}</h1>
+      </div>
+
       <canvas
         ref={proCanvasRef}
+        className="pretext-hero-canvas"
         aria-hidden
         style={{
           position: 'absolute',
@@ -287,6 +325,7 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
       />
       <canvas
         ref={creCanvasRef}
+        className="pretext-hero-canvas"
         aria-hidden
         style={{
           position: 'absolute',
@@ -311,7 +350,7 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
           border: 0,
         }}
       >
-        {mode === 'pro' ? PRO.text : CRE.text}
+        {mode === 'pro' ? PRO_TEXT : CRE_TEXT}
       </h1>
     </div>
   )
