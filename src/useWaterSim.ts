@@ -4,7 +4,7 @@ import * as THREE from 'three'
 const DAMP = 0.965
 const C = 0.24
 const RIPPLE_SIGMA = 2.5
-const RIPPLE_INTENSITY = 2.5
+const RIPPLE_INTENSITY = 5
 const RIPPLE_RADIUS = 6
 const GRAD_SCALE = 200
 const MID = 128
