@@ -110,17 +110,11 @@ const PALETTE: { hex: string; name: string }[] = [
 
 // ─── ANGLEMYER title overlay (text-reveal → transition) ───────────────────────
 function TextRevealOverlay({ phase }: { phase: Phase }) {
-  if (phase !== 'text-reveal' && phase !== 'transition') return null
+  if (phase !== 'transition') return null
 
   return (
     <div className="anglemyer-title-overlay">
-      <h1
-        className={
-          phase === 'transition' ? 'anglemyer-title--fade-out' : 'anglemyer-title--fade-in'
-        }
-      >
-        ANGLEMYER
-      </h1>
+      <h1 className="anglemyer-title--fade-out">ANGLEMYER</h1>
     </div>
   )
 }
@@ -555,13 +549,15 @@ export default function App() {
           position:      'relative',
           zIndex:        5,
           minHeight:     '100vh',
-          opacity:       phase === 'main' ? 1 : 0,
-          pointerEvents: phase === 'main' ? 'auto' : 'none',
+          opacity:       phase === 'main' || phase === 'text-reveal' ? 1 : 0,
+          pointerEvents:
+            phase === 'main' || phase === 'text-reveal' ? 'auto' : 'none',
         }}
       >
         <MainContent
+          phase={phase}
           mode={mode}
-          active={phase === 'main'}
+          active={phase === 'main' || phase === 'text-reveal'}
           accent={accent}
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
         />

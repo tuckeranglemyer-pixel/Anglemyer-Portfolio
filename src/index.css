@@ -31,47 +31,47 @@ label[for],
   cursor: none;
 }
 
-/* ANGLEMYER entry title (App.tsx TextRevealOverlay) */
+/* ANGLEMYER transition title (App.tsx TextRevealOverlay) */
 .anglemyer-title-overlay {
   position: fixed;
   inset: 0;
   z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   pointer-events: none;
 }
 
 .anglemyer-title-overlay h1 {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
   font-family: "Space Mono", monospace;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.92);
   letter-spacing: 0.2em;
   font-size: 80px;
   font-weight: 700;
-  margin: 0;
   user-select: none;
 }
 
 @keyframes anglemyerTitleIn {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translate(-50%, -50%) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
 @keyframes anglemyerTitleOut {
   from {
     opacity: 1;
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
   to {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translate(-50%, -50%) scale(0.95);
   }
 }
 
@@ -92,6 +92,40 @@ label[for],
   margin-bottom: 16px;
   padding-right: 0;
   box-sizing: border-box;
+}
+
+/* Pretext hero — text-reveal: fixed viewport shell + absolute center box (no page-level flex) */
+.pretext-hero-text-reveal-root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  pointer-events: auto;
+}
+
+.pretext-hero-viewport-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.pretext-hero--text-reveal-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(92vw, 960px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: pretextHeroTextRevealIn 0.6s ease forwards;
+}
+
+@keyframes pretextHeroTextRevealIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.92;
+  }
 }
 
 /* Pretext hero — dominant viewport type + hidden cycle layer (future identity crossfade) */

@@ -59,10 +59,13 @@ function creSpec(fontPx: number) {
 
 type LinesResult = ReturnType<typeof layoutWithLines>
 
+export type HeroLayoutMode = 'main' | 'text-reveal'
+
 interface PretextHeroProps {
   mode: HeroMode
   active: boolean
   isMobile: boolean
+  heroLayout?: HeroLayoutMode
 }
 
 /**
@@ -71,7 +74,12 @@ interface PretextHeroProps {
  * line-breaking; it returns line strings for rendering while `layout()` alone only exposes
  * aggregate line count / height.
  */
-export default function PretextHero({ mode, active, isMobile: _isMobile }: PretextHeroProps) {
+export default function PretextHero({
+  mode,
+  active,
+  isMobile: _isMobile,
+  heroLayout = 'main',
+}: PretextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const proCanvasRef = useRef<HTMLCanvasElement>(null)
   const creCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -198,7 +206,8 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
       ctx.scale(dpr, dpr)
       ctx.clearRect(0, 0, cssW, cssH)
       ctx.font = spec.font
-      ctx.fillStyle = 'rgba(255,255,255,0.92)'
+      ctx.fillStyle =
+        heroLayout === 'text-reveal' ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.92)'
       ctx.textBaseline = 'top'
 
       const fontSizePx = parseFontSizePx(spec.font)
@@ -226,7 +235,7 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
         }
       }
     },
-    [maxWidth, boxHeight, active, metrics.pro, metrics.cre],
+    [maxWidth, boxHeight, active, metrics.pro, metrics.cre, heroLayout],
   )
 
   const tick = useCallback(() => {
@@ -280,7 +289,7 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
 
   if (useFallback) {
     const isProFb = mode === 'pro'
-    return (
+    const inner = (
       <div className="pretext-hero">
         <h1
           className={isProFb ? 'pretext-hero-fallback--pro' : 'pretext-hero-fallback--cre'}
@@ -289,9 +298,17 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
         </h1>
       </div>
     )
+    if (heroLayout === 'text-reveal') {
+      return (
+        <div className="pretext-hero-viewport-shell">
+          <div className="pretext-hero--text-reveal-box">{inner}</div>
+        </div>
+      )
+    }
+    return inner
   }
 
-  return (
+  const heroInner = (
     <div
       ref={containerRef}
       className="pretext-hero"
@@ -354,4 +371,14 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
       </h1>
     </div>
   )
+
+  if (heroLayout === 'text-reveal') {
+    return (
+      <div className="pretext-hero-viewport-shell">
+        <div className="pretext-hero--text-reveal-box">{heroInner}</div>
+      </div>
+    )
+  }
+
+  return heroInner
 }

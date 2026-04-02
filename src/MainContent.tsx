@@ -177,7 +177,10 @@ const SOCIAL = [
   { label: 'TikTok', href: 'https://www.tiktok.com/@untrackedmusic' },
 ] as const
 
+export type ContentPhase = 'entry' | 'text-reveal' | 'transition' | 'main'
+
 interface MainContentProps {
+  phase: ContentPhase
   mode: Mode
   active?: boolean
   accent: string
@@ -185,12 +188,15 @@ interface MainContentProps {
 }
 
 export default function MainContent({
+  phase,
   mode,
   active = false,
   accent,
   onToggleMode,
 }: MainContentProps) {
   const isMobile = useIsMobile()
+  const isTextReveal = phase === 'text-reveal'
+  const chromeVisible = phase === 'main'
 
   const [displayMode, setDisplayMode] = useState<Mode>(mode)
   const [layerOpacity, setLayerOpacity] = useState(1)
@@ -217,8 +223,33 @@ export default function MainContent({
 
   return (
     <>
-      <ModeToggle mode={mode} accent={accent} onToggle={onToggleMode} isMobile={isMobile} />
+      <div
+        style={{
+          opacity: chromeVisible ? 1 : 0,
+          pointerEvents: chromeVisible ? 'auto' : 'none',
+          transition: 'opacity 0s',
+        }}
+      >
+        <ModeToggle mode={mode} accent={accent} onToggle={onToggleMode} isMobile={isMobile} />
+      </div>
 
+      {isTextReveal ? (
+        <div
+          className="pretext-hero-text-reveal-root"
+          style={{
+            ...accentVar,
+            opacity: layerOpacity,
+            transition: 'opacity 0.6s ease',
+          }}
+        >
+          <PretextHero
+            mode={displayMode}
+            active={active}
+            isMobile={isMobile}
+            heroLayout="text-reveal"
+          />
+        </div>
+      ) : (
       <div
         style={{
           width: '100%',
@@ -243,7 +274,7 @@ export default function MainContent({
                 paddingLeft: hPad,
               }}
             >
-              <PretextHero mode={displayMode} active={active} isMobile={isMobile} />
+              <PretextHero mode={displayMode} active={active} isMobile={isMobile} heroLayout="main" />
             </div>
           </ScrollReveal>
 
@@ -412,6 +443,7 @@ export default function MainContent({
           </div>
         </div>
       </div>
+      )}
     </>
   )
 }
