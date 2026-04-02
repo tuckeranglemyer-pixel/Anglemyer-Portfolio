@@ -87,18 +87,18 @@ function ModeToggle({
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        padding: '5px 10px',
+        padding: '8px 16px',
         borderRadius: '999px',
-        border: '1px solid rgba(255,255,255,0.12)',
+        border: '1px solid rgba(255,255,255,0.22)',
         background: 'rgba(0,0,0,0.28)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         cursor: 'pointer',
         fontFamily: '"Space Mono", monospace',
-        fontSize: '10px',
+        fontSize: '11px',
         letterSpacing: '0.25em',
         textTransform: 'uppercase',
-        color: 'rgba(255,255,255,0.7)',
+        color: 'rgba(255,255,255,0.55)',
         outline: 'none',
         WebkitFontSmoothing: 'antialiased',
         userSelect: 'none',
@@ -116,7 +116,7 @@ function ModeToggle({
           width: '22px',
           height: '10px',
           borderRadius: '999px',
-          background: 'rgba(255,255,255,0.08)',
+          background: 'rgba(255,255,255,0.22)',
           flexShrink: 0,
         }}
       >
@@ -128,7 +128,7 @@ function ModeToggle({
             width: '8px',
             height: '8px',
             borderRadius: '50%',
-            background: 'rgba(255,255,255,0.9)',
+            background: 'rgba(255,255,255,0.92)',
             boxShadow: `0 0 6px 2px ${accent}55`,
             transition: 'left 0.6s ease, box-shadow 0.6s ease',
           }}
@@ -208,7 +208,7 @@ export default function MainContent({
   const isPro = displayMode === 'pro'
   const c = COPY[displayMode]
 
-  const hPad = isMobile ? '24px' : '48px'
+  const hPad = isMobile ? '16px' : '48px'
   const vPad = isMobile ? '24px' : '80px'
 
   const accentVar: CSSProperties & { '--accent-color': string } = {
@@ -240,18 +240,18 @@ export default function MainContent({
           }}
         >
           <ScrollReveal active={active}>
-            <header style={{ marginBottom: '36px' }}>
+            <header style={{ marginBottom: '48px' }}>
               <PretextHero mode={displayMode} active={active} isMobile={isMobile} />
 
               <p
                 style={{
-                  marginTop: '16px',
+                  marginTop: '24px',
                   fontFamily: '"Space Mono", monospace',
-                  fontSize: '12px',
+                  fontSize: '24px',
                   lineHeight: 1.5,
                   letterSpacing: isPro ? '0.04em' : '0.06em',
                   opacity: isPro ? 0.3 : 0.45,
-                  color: 'rgba(255,255,255,0.95)',
+                  color: 'rgba(255,255,255,0.55)',
                   maxWidth: '520px',
                   transition: 'opacity 0.6s ease, letter-spacing 0.6s ease',
                 }}
@@ -265,11 +265,11 @@ export default function MainContent({
             <p
               style={{
                 fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
-                fontSize: isPro ? '18px' : '16px',
+                fontSize: '18px',
                 lineHeight: isPro ? 1.72 : 1.65,
                 fontWeight: 400,
-                color: 'rgba(255,255,255,0.45)',
-                margin: '0 0 48px',
+                color: 'rgba(255,255,255,0.55)',
+                margin: '0 0 96px',
                 maxWidth: '550px',
                 transition: 'font-size 0.6s ease, color 0.6s ease',
               }}
@@ -279,21 +279,21 @@ export default function MainContent({
           </ScrollReveal>
 
           <ScrollReveal active={active}>
-            <section style={{ marginBottom: '48px' }}>
+            <section style={{ marginBottom: '96px' }}>
               <h2
                 style={{
                   fontFamily: '"Space Mono", monospace',
-                  fontSize: '10px',
+                  fontSize: '11px',
                   letterSpacing: '0.28em',
                   textTransform: 'uppercase',
-                  color: 'rgba(255,255,255,0.25)',
-                  margin: '0 0 20px',
+                  color: 'rgba(255,255,255,0.22)',
+                  margin: '0 0 24px',
                 }}
               >
                 Projects
               </h2>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
                 <div>
                   <a
                     className="main-project-title"
@@ -306,9 +306,9 @@ export default function MainContent({
                   <p
                     style={{
                       fontFamily: '"Space Mono", monospace',
-                      fontSize: '12px',
+                      fontSize: '14px',
                       lineHeight: 1.55,
-                      color: 'rgba(255,255,255,0.35)',
+                      color: 'rgba(255,255,255,0.38)',
                       margin: 0,
                       maxWidth: '550px',
                       transition: 'color 0.6s ease',
@@ -330,9 +330,9 @@ export default function MainContent({
                   <p
                     style={{
                       fontFamily: '"Space Mono", monospace',
-                      fontSize: '12px',
+                      fontSize: '14px',
                       lineHeight: 1.55,
-                      color: 'rgba(255,255,255,0.35)',
+                      color: 'rgba(255,255,255,0.38)',
                       margin: 0,
                       maxWidth: '550px',
                       transition: 'color 0.6s ease',
@@ -349,11 +349,11 @@ export default function MainContent({
             <p
               style={{
                 fontFamily: '"Space Mono", monospace',
-                fontSize: '11px',
+                fontSize: '14px',
                 lineHeight: 1.6,
                 letterSpacing: '0.06em',
-                color: 'rgba(255,255,255,0.32)',
-                margin: '0 0 40px',
+                color: 'rgba(255,255,255,0.38)',
+                margin: '0 0 24px',
                 maxWidth: '550px',
                 transition: 'color 0.6s ease',
               }}
@@ -366,15 +366,15 @@ export default function MainContent({
             <div
               style={{
                 fontFamily: '"Space Mono", monospace',
-                fontSize: '11px',
+                fontSize: '14px',
                 lineHeight: 1.6,
-                color: 'rgba(255,255,255,0.35)',
+                color: 'rgba(255,255,255,0.38)',
               }}
             >
-              <div style={{ marginBottom: '14px' }}>
+              <div style={{ marginBottom: '24px' }}>
                 {SOCIAL.map((s, i) => (
                   <span key={s.href}>
-                    {i > 0 && <span style={{ color: 'rgba(255,255,255,0.2)' }}>  </span>}
+                    {i > 0 && <span style={{ color: 'rgba(255,255,255,0.22)' }}>  </span>}
                     <a
                       href={s.href}
                       target="_blank"

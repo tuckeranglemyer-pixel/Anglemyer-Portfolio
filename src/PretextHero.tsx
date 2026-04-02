@@ -17,8 +17,8 @@ const PRO = {
 
 const CRE = {
   text: 'ANGLEMYER',
-  font: '700 72px "Space Mono", monospace',
-  lineHeight: 80,
+  font: '700 80px "Space Mono", monospace',
+  lineHeight: 88,
   letterSpacingEm: 0.12,
 } as const
 
@@ -139,7 +139,7 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
       ctx.scale(dpr, dpr)
       ctx.clearRect(0, 0, cssW, cssH)
       ctx.font = spec.font
-      ctx.fillStyle = 'rgba(255,255,255,0.96)'
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'
       ctx.textBaseline = 'top'
 
       const fontSizePx = parseFontSizePx(spec.font)
@@ -242,15 +242,15 @@ export default function PretextHero({ mode, active, isMobile }: PretextHeroProps
         style={{
           fontFamily: isProFb ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
           fontSize: isMobile
-            ? 'clamp(2.5rem, 8vw, 5.5rem)'
-            : isProFb
-              ? 'clamp(2.75rem, 8vw, 4.25rem)'
-              : 'clamp(2rem, 6vw, 3rem)',
+            ? isProFb
+              ? 'clamp(2.5rem, 8vw, 5.5rem)'
+              : 'clamp(2rem, 6vw, 3rem)'
+            : '80px',
           fontWeight: isProFb ? 300 : 700,
           lineHeight: isProFb ? 1.05 : 1.1,
           letterSpacing: isProFb ? '-0.02em' : '0.28em',
           textTransform: isProFb ? 'none' : 'uppercase',
-          color: 'rgba(255,255,255,0.96)',
+          color: 'rgba(255,255,255,0.92)',
           margin: 0,
         }}
       >

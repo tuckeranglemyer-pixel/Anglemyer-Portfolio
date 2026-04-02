@@ -160,7 +160,7 @@ function ColorPicker({
         zIndex: 110,
         textAlign: 'center',
         maxWidth: 'min(100vw - 2rem, 520px)',
-        padding: '0 0.5rem',
+        padding: '0 16px',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.6s ease',
         pointerEvents: entered && !exiting ? 'auto' : 'none',
@@ -169,11 +169,11 @@ function ColorPicker({
       <p
         style={{
           fontFamily: '"Space Mono", monospace',
-          color: 'rgba(255,255,255,0.5)',
+          color: 'rgba(255,255,255,0.22)',
           letterSpacing: '0.2em',
-          fontSize: '0.65rem',
+          fontSize: '11px',
           textTransform: 'uppercase',
-          margin: '0 0 1rem',
+          margin: '0 0 24px',
         }}
       >
         leave your mark
@@ -199,7 +199,7 @@ function ColorPicker({
               height: isMobile ? '1.5rem' : '1.75rem',
               borderRadius: '50%',
               background: hex,
-              border: '2px solid rgba(255,255,255,0.15)',
+              border: '2px solid rgba(255,255,255,0.22)',
               cursor: 'pointer',
               padding: 0,
               flexShrink: 0,
@@ -208,13 +208,13 @@ function ColorPicker({
             onMouseEnter={e => {
               const el = e.currentTarget
               el.style.transform = 'scale(1.3)'
-              el.style.borderColor = 'rgba(255,255,255,0.7)'
+              el.style.borderColor = 'rgba(255,255,255,0.55)'
               el.style.boxShadow = `0 0 10px 2px ${hex}66`
             }}
             onMouseLeave={e => {
               const el = e.currentTarget
               el.style.transform = 'scale(1)'
-              el.style.borderColor = 'rgba(255,255,255,0.15)'
+              el.style.borderColor = 'rgba(255,255,255,0.22)'
               el.style.boxShadow = 'none'
             }}
           />
@@ -578,9 +578,9 @@ export default function App() {
             left:          '1.5rem',
             zIndex:        105,
             fontFamily:    '"Space Mono", monospace',
-            fontSize:      '10px',
-            opacity:       0.2,
-            color:         'rgba(255,255,255,1)',
+            fontSize:      '11px',
+            opacity:       1,
+            color:         'rgba(255,255,255,0.22)',
             pointerEvents: 'none',
             userSelect:    'none',
           }}
