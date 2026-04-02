@@ -7,6 +7,8 @@ import * as THREE from 'three'
 export type InkVisitor = { color: string; timestamp?: number }
 
 const DEFAULT_HERO_COLOR = '#38bdf8'
+/** Entry animation drop — spec color (independent of stored visitor swatch) */
+const ENTRY_DROP_HEX = '#38bdf8'
 
 const FIRST_DROP_DELAY = 0.45
 /** Fall from above viewport to y=0 */
@@ -165,7 +167,7 @@ export type InkEntrySceneProps = {
 
 export default function InkEntryScene({
 	visitors: _visitors,
-	heroColor = DEFAULT_HERO_COLOR,
+	heroColor: _heroColor = DEFAULT_HERO_COLOR,
 	onComplete,
 	active,
 	addRipple,
@@ -189,7 +191,7 @@ export default function InkEntryScene({
 				gravity={gravity}
 				dropStartY={dropStartY}
 				groundY={groundY}
-				colorHex={heroColor}
+				colorHex={ENTRY_DROP_HEX}
 				addRipple={addRipple}
 				onComplete={onComplete}
 			/>
