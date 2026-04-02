@@ -449,7 +449,7 @@ export default function App() {
       add(cx, cy, 5.0)
       setTimeout(() => add(cx, cy, 3.0), 300)
       setTimeout(() => add(cx, cy, 1.5), 600)
-    }, 200)
+    }, 1000)
   }, [])
 
   const handleColorSelect = async (color: string) => {
