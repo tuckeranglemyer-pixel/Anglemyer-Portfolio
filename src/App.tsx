@@ -19,8 +19,6 @@ import InkDropOverlay from './InkDropOverlay'
 import CustomCursor from './CustomCursor'
 import AmbientPad from './AmbientPad'
 
-type RippleFn = (screenX: number, screenY: number, strengthScale?: number) => void
-
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'main'
 type Mode  = 'pro' | 'creative'
@@ -208,15 +206,18 @@ function ColorPicker({
 }
 
 // ─── Water displacement post-FX (phase-gated; entry ripples from HTML InkDropOverlay) ─────────
-function WaterSimPostFx({
-	enabled,
-	displacementMap,
-	update,
-}: {
-	enabled: boolean
-	displacementMap: THREE.DataTexture
-	update: () => void
-}) {
+function WaterSimPostFx({ enabled }: { enabled: boolean }) {
+	const { displacementMap, update, addRipple } = useWaterSim()
+
+	useEffect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		;(window as any).__addRipple = addRipple
+		return () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			delete (window as any).__addRipple
+		}
+	}, [addRipple])
+
 	const effect = useMemo(
 		() =>
 			new WaterDisplacementEffect({
@@ -232,14 +233,8 @@ function WaterSimPostFx({
 		}
 	}, [effect])
 
-	const loggedUpdateOnce = useRef(false)
 	useFrame(() => {
-		if (!enabled) return
-		update()
-		if (!loggedUpdateOnce.current) {
-			loggedUpdateOnce.current = true
-			console.log('[WaterSim] update() running')
-		}
+		if (enabled) update()
 	})
 
 	if (!enabled) return null
@@ -248,23 +243,6 @@ function WaterSimPostFx({
 			<primitive object={effect} dispose={null} />
 		</EffectComposer>
 	)
-}
-
-/** Runs inside R3F Canvas; assigns the same addRipple from App-level useWaterSim to rippleRef. */
-function RippleRefBridge({
-	addRipple,
-	rippleRef,
-}: {
-	addRipple: RippleFn
-	rippleRef: React.MutableRefObject<RippleFn | null>
-}) {
-	useEffect(() => {
-		rippleRef.current = addRipple
-		return () => {
-			rippleRef.current = null
-		}
-	}, [addRipple, rippleRef])
-	return null
 }
 
 // ─── R3F: fullscreen orthographic plane + custom gradient shader ─────────────
@@ -335,8 +313,6 @@ function FullscreenGradientCanvas({
   planesVisible,
   planeOpacity,
   webGLTextVisible,
-  waterSim,
-  rippleRef,
 }: {
   mode: Mode
   heroVisible: boolean
@@ -344,12 +320,6 @@ function FullscreenGradientCanvas({
   planesVisible: boolean
   planeOpacity: number
   webGLTextVisible: boolean
-  waterSim: {
-    displacementMap: THREE.DataTexture
-    update: () => void
-    addRipple: RippleFn
-  }
-  rippleRef: React.MutableRefObject<RippleFn | null>
 }) {
   const showTextPlanes = planesVisible && webGLTextVisible
   return (
@@ -368,7 +338,6 @@ function FullscreenGradientCanvas({
       }}
     >
       <color attach="background" args={['#060e1e']} />
-      <RippleRefBridge addRipple={waterSim.addRipple} rippleRef={rippleRef} />
       <WebGLInteractionProvider visible={heroVisible}>
         <GradientBackgroundPlane mode={mode} />
         <HeroPlane
@@ -388,11 +357,7 @@ function FullscreenGradientCanvas({
         />
         <SocialLinksPlane visible={showTextPlanes} materialOpacity={planeOpacity} />
       </WebGLInteractionProvider>
-      <WaterSimPostFx
-        enabled={waterPostEnabled}
-        displacementMap={waterSim.displacementMap}
-        update={waterSim.update}
-      />
+      <WaterSimPostFx enabled={waterPostEnabled} />
     </Canvas>
   )
 }
@@ -471,42 +436,16 @@ export default function App() {
   const webGLTextVisible = false
   const waterPostEnabled = phase === 'main' || phase === 'entry'
 
-  const waterSim = useWaterSim()
-
-  useEffect(() => {
-    console.log(
-      '[WaterSim] initialized, addRipple:',
-      typeof waterSim.addRipple,
-      'update:',
-      typeof waterSim.update,
-    )
-  }, [waterSim.addRipple, waterSim.update])
-
-  const mousemoveRippleLogged = useRef(false)
-  useEffect(() => {
-    const onMove = () => {
-      if (mousemoveRippleLogged.current) return
-      mousemoveRippleLogged.current = true
-      console.log('[WaterSim] mousemove ripple')
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [])
-
-  const rippleRef = useRef<RippleFn | null>(null)
-
   const handleInkDropImpact = useCallback(() => {
     const centerX = window.innerWidth / 2
     const centerY = window.innerHeight / 2
-    console.log('[App] triggering ripple at', centerX, centerY, 'addRipple exists:', !!rippleRef.current)
-    const add = rippleRef.current
-    if (!add) return
-    add(centerX, centerY, 5.0)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridge for ink overlay (same addRipple as WaterSimPostFx)
+    ;(window as any).__addRipple?.(centerX, centerY, 5.0)
     window.setTimeout(() => {
-      add(centerX, centerY, 3.0)
+      ;(window as any).__addRipple?.(centerX, centerY, 3.0)
     }, 300)
     window.setTimeout(() => {
-      add(centerX, centerY, 1.5)
+      ;(window as any).__addRipple?.(centerX, centerY, 1.5)
     }, 600)
   }, [])
 
@@ -540,8 +479,6 @@ export default function App() {
         planesVisible={planesVisible}
         planeOpacity={planeOpacity}
         webGLTextVisible={webGLTextVisible}
-        waterSim={waterSim}
-        rippleRef={rippleRef}
       />
 
       {phase === 'entry' && visitorsReady && (
