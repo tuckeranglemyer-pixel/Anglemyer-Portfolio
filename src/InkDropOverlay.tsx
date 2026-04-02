@@ -43,11 +43,11 @@ export default function InkDropOverlay({ onImpact, onComplete }: InkDropOverlayP
 		let rafId = 0
 		let settleId: ReturnType<typeof setTimeout> | undefined
 		const startDelayId = window.setTimeout(() => {
-			console.log('[InkDropOverlay] drop starting fall')
 			const duration = 1800
 			const start = performance.now()
-			const startTop = -30
+			const startTop = -40
 			const endTop = typeof window !== 'undefined' ? window.innerHeight * 0.5 : 0
+			console.log('[InkDropOverlay] start top:', startTop, 'end top:', endTop)
 
 			const tick = (now: number) => {
 				const elapsed = now - start
@@ -96,27 +96,27 @@ export default function InkDropOverlay({ onImpact, onComplete }: InkDropOverlayP
 					position: 'absolute',
 					left: '50%',
 					transform: 'translateX(-50%)',
-					top: -30,
-					width: 14,
-					height: 20,
+					top: -40,
+					width: 16,
+					height: 24,
 					borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
 					background:
-						'radial-gradient(circle at 30% 30%, rgba(180,220,255,0.95), rgba(56,189,248,0.7))',
+						'radial-gradient(circle at 35% 25%, rgba(220,240,255,0.95), rgba(56,189,248,0.8), rgba(30,120,200,0.6))',
 					boxShadow:
-						'0 0 15px rgba(56,189,248,0.6), 0 0 40px rgba(56,189,248,0.3), inset 0 -2px 4px rgba(255,255,255,0.3)',
+						'0 0 12px rgba(56,189,248,0.8), 0 0 30px rgba(56,189,248,0.4), 0 0 60px rgba(56,189,248,0.15)',
 					opacity: 1,
 				}}
 			>
 				<div
 					style={{
 						position: 'absolute',
-						top: 2,
-						left: 2,
+						top: 4,
+						left: 5,
 						width: 4,
 						height: 4,
 						borderRadius: '50%',
 						background: '#ffffff',
-						opacity: 0.7,
+						opacity: 0.8,
 						pointerEvents: 'none',
 					}}
 				/>

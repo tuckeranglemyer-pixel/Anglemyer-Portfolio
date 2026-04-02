@@ -303,6 +303,8 @@ function GradientBackgroundPlane({ mode }: { mode: Mode }) {
   )
 }
 
+type RippleFn = (screenX: number, screenY: number, strengthScale?: number) => void
+
 function FullscreenGradientCanvas({
   mode,
   heroVisible,
@@ -310,7 +312,7 @@ function FullscreenGradientCanvas({
   planesVisible,
   planeOpacity,
   webGLTextVisible,
-  waterSim,
+  rippleRef,
 }: {
   mode: Mode
   heroVisible: boolean
@@ -318,11 +320,17 @@ function FullscreenGradientCanvas({
   planesVisible: boolean
   planeOpacity: number
   webGLTextVisible: boolean
-  waterSim: {
-    displacementMap: THREE.DataTexture
-    update: () => void
-  }
+  rippleRef: React.MutableRefObject<RippleFn | null>
 }) {
+  const { displacementMap, update, addRipple } = useWaterSim()
+
+  useEffect(() => {
+    rippleRef.current = addRipple
+    return () => {
+      rippleRef.current = null
+    }
+  }, [addRipple, rippleRef])
+
   const showTextPlanes = planesVisible && webGLTextVisible
   return (
     <Canvas
@@ -361,8 +369,8 @@ function FullscreenGradientCanvas({
       </WebGLInteractionProvider>
       <WaterSimPostFx
         enabled={waterPostEnabled}
-        displacementMap={waterSim.displacementMap}
-        update={waterSim.update}
+        displacementMap={displacementMap}
+        update={update}
       />
     </Canvas>
   )
@@ -442,19 +450,22 @@ export default function App() {
   const webGLTextVisible = false
   const waterPostEnabled = phase === 'main' || phase === 'entry'
 
-  const waterSim = useWaterSim()
+  const rippleRef = useRef<RippleFn | null>(null)
 
   const handleInkDropImpact = useCallback(() => {
-    const cx = window.innerWidth * 0.5
-    const cy = window.innerHeight * 0.5
-    waterSim.addRipple(cx, cy, 5.0)
+    const centerX = window.innerWidth / 2
+    const centerY = window.innerHeight / 2
+    console.log('[App] triggering ripple at', centerX, centerY, 'addRipple exists:', !!rippleRef.current)
+    const add = rippleRef.current
+    if (!add) return
+    add(centerX, centerY, 5.0)
     window.setTimeout(() => {
-      waterSim.addRipple(cx, cy, 3.0)
+      add(centerX, centerY, 3.0)
     }, 300)
     window.setTimeout(() => {
-      waterSim.addRipple(cx, cy, 1.5)
+      add(centerX, centerY, 1.5)
     }, 600)
-  }, [waterSim.addRipple])
+  }, [])
 
   const handleInkDropComplete = useCallback(() => {
     try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
@@ -486,10 +497,7 @@ export default function App() {
         planesVisible={planesVisible}
         planeOpacity={planeOpacity}
         webGLTextVisible={webGLTextVisible}
-        waterSim={{
-          displacementMap: waterSim.displacementMap,
-          update: waterSim.update,
-        }}
+        rippleRef={rippleRef}
       />
 
       {phase === 'entry' && visitorsReady && (
