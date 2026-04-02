@@ -91,6 +91,7 @@ function HeroRaindrop({
 	const cy = typeof window !== 'undefined' ? window.innerHeight * 0.5 : 0
 
 	useFrame((_, dt) => {
+		console.log('[InkEntryScene] animation tick running')
 		if (doneRef.current) return
 		tRef.current += dt
 		const t = tRef.current
@@ -172,6 +173,7 @@ export default function InkEntryScene({
 	active,
 	addRipple,
 }: InkEntrySceneProps) {
+	console.log('[InkEntryScene] MOUNTED, phase should be entry')
 	const radius = useDropRadius()
 	const { dropStartY, groundY, gravity } = useFallBounds()
 	const { viewport } = useThree()

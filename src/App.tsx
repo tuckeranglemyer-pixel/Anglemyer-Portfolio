@@ -395,6 +395,7 @@ export default function App() {
   })()
 
   const [phase, setPhase] = useState<Phase>(() => (skipAnimation ? 'main' : 'entry'))
+  console.log('[App] current phase:', phase)
 
   const [mode,  setMode]  = useState<Mode>('pro')
   const accent   = ACCENTS[mode]
