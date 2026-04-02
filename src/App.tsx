@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -435,6 +435,23 @@ export default function App() {
   const webGLTextVisible = false
   const waterPostEnabled = true
 
+  const handleInkDropImpact = useCallback(() => {}, [])
+
+  const handleInkDropComplete = useCallback(() => {
+    try { localStorage.setItem('hasSeenAnimation', 'true') } catch {}
+    setPhase('main')
+    setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const add = (window as any).__addRipple
+      if (!add) return
+      const cx = window.innerWidth / 2
+      const cy = window.innerHeight / 2
+      add(cx, cy, 5.0)
+      setTimeout(() => add(cx, cy, 3.0), 300)
+      setTimeout(() => add(cx, cy, 1.5), 600)
+    }, 200)
+  }, [])
+
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
     try {
@@ -463,22 +480,7 @@ export default function App() {
       />
 
       {phase === 'entry' && visitorsReady && (
-        <InkDropOverlay
-          onImpact={() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const add = (window as any).__addRipple
-            if (!add) return
-            const cx = window.innerWidth / 2
-            const cy = window.innerHeight / 2
-            add(cx, cy, 5.0)
-            setTimeout(() => add(cx, cy, 3.0), 300)
-            setTimeout(() => add(cx, cy, 1.5), 600)
-          }}
-          onComplete={() => {
-            try { localStorage.setItem('hasSeenAnimation', 'true') } catch {}
-            setPhase('main')
-          }}
-        />
+        <InkDropOverlay onImpact={handleInkDropImpact} onComplete={handleInkDropComplete} />
       )}
 
       {phase === 'entry' && !visitorsReady && (
