@@ -12,7 +12,7 @@ export type HeroMode = 'pro' | 'creative'
 const PRO_TEXT = 'Tucker Anglemyer'
 const CRE_TEXT = 'ANGLEMYER'
 
-const LINE_HEIGHT_RATIO = 0.95
+const LINE_HEIGHT_RATIO = 0.9
 const PRO_LETTER_SPACING_EM = -0.03
 const CRE_LETTER_SPACING_EM = 0.08
 
@@ -82,8 +82,8 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
   const creLinesRef = useRef<LinesResult | null>(null)
 
   const [metrics, setMetrics] = useState(() => ({
-    pro: clampHeroFontPx(3, 9, 7),
-    cre: clampHeroFontPx(4, 14, 11),
+    pro: clampHeroFontPx(4.5, 12, 9),
+    cre: clampHeroFontPx(5, 18, 14),
   }))
 
   const [maxWidth, setMaxWidth] = useState(600)
@@ -104,8 +104,8 @@ export default function PretextHero({ mode, active, isMobile: _isMobile }: Prete
   useLayoutEffect(() => {
     const update = () => {
       setMetrics({
-        pro: clampHeroFontPx(3, 9, 7),
-        cre: clampHeroFontPx(4, 14, 11),
+        pro: clampHeroFontPx(4.5, 12, 9),
+        cre: clampHeroFontPx(5, 18, 14),
       })
     }
     update()
