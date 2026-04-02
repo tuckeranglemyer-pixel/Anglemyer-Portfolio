@@ -177,7 +177,7 @@ const SOCIAL = [
   { label: 'TikTok', href: 'https://www.tiktok.com/@untrackedmusic' },
 ] as const
 
-export type ContentPhase = 'entry' | 'text-reveal' | 'transition' | 'main'
+export type ContentPhase = 'entry' | 'main'
 
 interface MainContentProps {
   phase: ContentPhase
@@ -195,7 +195,6 @@ export default function MainContent({
   onToggleMode,
 }: MainContentProps) {
   const isMobile = useIsMobile()
-  const isTextReveal = phase === 'text-reveal'
   const chromeVisible = phase === 'main'
 
   const [displayMode, setDisplayMode] = useState<Mode>(mode)
@@ -233,23 +232,6 @@ export default function MainContent({
         <ModeToggle mode={mode} accent={accent} onToggle={onToggleMode} isMobile={isMobile} />
       </div>
 
-      {isTextReveal ? (
-        <div
-          className="pretext-hero-text-reveal-root"
-          style={{
-            ...accentVar,
-            opacity: layerOpacity,
-            transition: 'opacity 0.6s ease',
-          }}
-        >
-          <PretextHero
-            mode={displayMode}
-            active={active}
-            isMobile={isMobile}
-            heroLayout="text-reveal"
-          />
-        </div>
-      ) : (
       <div
         style={{
           width: '100%',
@@ -443,7 +425,6 @@ export default function MainContent({
           </div>
         </div>
       </div>
-      )}
     </>
   )
 }

@@ -20,7 +20,7 @@ import CustomCursor from './CustomCursor'
 import AmbientPad from './AmbientPad'
 
 // ─── types ────────────────────────────────────────────────────────────────────
-type Phase = 'entry' | 'text-reveal' | 'transition' | 'main'
+type Phase = 'entry' | 'main'
 type Mode  = 'pro' | 'creative'
 
 // ─── accent colors ────────────────────────────────────────────────────────────
@@ -107,17 +107,6 @@ const PALETTE: { hex: string; name: string }[] = [
   { hex: '#f0f0f0', name: 'white'   },
   { hex: '#ffd700', name: 'gold'    },
 ]
-
-// ─── ANGLEMYER title overlay (text-reveal → transition) ───────────────────────
-function TextRevealOverlay({ phase }: { phase: Phase }) {
-  if (phase !== 'transition') return null
-
-  return (
-    <div className="anglemyer-title-overlay">
-      <h1 className="anglemyer-title--fade-out">ANGLEMYER</h1>
-    </div>
-  )
-}
 
 // ─── ColorPicker (after main phase; above grain overlay z-index) ──────────────
 function ColorPicker({
@@ -389,7 +378,6 @@ export default function App() {
 
   const [phase, setPhase] = useState<Phase>(() => (skipAnimation ? 'main' : 'entry'))
 
-  const [transitionPlaneOpacity, setTransitionPlaneOpacity] = useState(0)
   const [mode,  setMode]  = useState<Mode>('pro')
   const accent   = ACCENTS[mode]
   const isMobile = useIsMobile()
@@ -453,45 +441,11 @@ export default function App() {
     return () => { cancelled = true; clearTimeout(timeout) }
   }, [visitorsReady])
 
-  useEffect(() => {
-    if (phase !== 'text-reveal') return
-    const t = setTimeout(() => setPhase('transition'), 800)
-    return () => clearTimeout(t)
-  }, [phase])
+  const planeOpacity = phase === 'main' ? 1 : 0
 
-  useEffect(() => {
-    if (phase !== 'transition') return
-    const t = setTimeout(() => {
-      setPhase('main')
-      try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
-    }, 1000)
-    return () => clearTimeout(t)
-  }, [phase])
-
-  useEffect(() => {
-    if (phase !== 'transition') return
-    let cancelled = false
-    let rafId = 0
-    const start = performance.now()
-    const tick = () => {
-      if (cancelled) return
-      const t = Math.min(1, (performance.now() - start) / 1000)
-      setTransitionPlaneOpacity(t)
-      if (t < 1) rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(rafId)
-    }
-  }, [phase])
-
-  const planeOpacity =
-    phase === 'main' ? 1 : phase === 'transition' ? transitionPlaneOpacity : 0
-
-  const planesVisible = phase === 'transition' || phase === 'main'
-  const webGLTextVisible = phase !== 'main'
-  const waterPostEnabled = phase === 'transition' || phase === 'main'
+  const planesVisible = phase === 'main'
+  const webGLTextVisible = false
+  const waterPostEnabled = phase === 'main'
 
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
@@ -523,7 +477,10 @@ export default function App() {
             ? {
                 visitors,
                 heroColor,
-                onComplete: () => setPhase('text-reveal'),
+                onComplete: () => {
+                  try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
+                  setPhase('main')
+                },
               }
             : null
         }
@@ -542,22 +499,20 @@ export default function App() {
         />
       )}
 
-      <TextRevealOverlay phase={phase} />
-
       <div
         style={{
           position:      'relative',
           zIndex:        5,
           minHeight:     '100vh',
-          opacity:       phase === 'main' || phase === 'text-reveal' ? 1 : 0,
-          pointerEvents:
-            phase === 'main' || phase === 'text-reveal' ? 'auto' : 'none',
+          opacity:       phase === 'main' ? 1 : 0,
+          pointerEvents: phase === 'main' ? 'auto' : 'none',
+          transition:    'opacity 0.9s ease',
         }}
       >
         <MainContent
           phase={phase}
           mode={mode}
-          active={phase === 'main' || phase === 'text-reveal'}
+          active={phase === 'main'}
           accent={accent}
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
         />
