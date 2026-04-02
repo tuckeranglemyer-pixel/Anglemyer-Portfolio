@@ -434,7 +434,7 @@ export default function App() {
 
   const planesVisible = phase === 'main'
   const webGLTextVisible = false
-  const waterPostEnabled = phase === 'main' || phase === 'entry'
+  const waterPostEnabled = true
 
   const handleInkDropImpact = useCallback(() => {
     const centerX = window.innerWidth / 2
