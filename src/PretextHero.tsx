@@ -14,7 +14,9 @@ const CRE_TEXT = 'ANGLEMYER'
 
 const LINE_HEIGHT_RATIO = 0.85
 const PRO_LETTER_SPACING_EM = -0.03
-const CRE_LETTER_SPACING_EM = 0.06
+/** NIGHT / creative: Kaushan Script reads large vs Space Mono — match visual weight to DAY */
+const CRE_FONT_SIZE_SCALE = 0.85
+const CRE_LETTER_SPACING_EM = 0.03
 
 function rootRemPx(): number {
   if (typeof document === 'undefined') return 16
@@ -51,7 +53,7 @@ function proSpec(fontPx: number) {
 function creSpec(fontPx: number) {
   return {
     text: CRE_TEXT,
-    font: `700 ${fontPx}px "Space Mono", monospace`,
+    font: `400 ${fontPx}px "Kaushan Script", cursive`,
     lineHeight: fontPx * LINE_HEIGHT_RATIO,
     letterSpacingEm: CRE_LETTER_SPACING_EM,
   } as const
@@ -91,7 +93,7 @@ export default function PretextHero({
 
   const [metrics, setMetrics] = useState(() => ({
     pro: clampHeroFontPx(5, 15, 12),
-    cre: clampHeroFontPx(6, 26, 22),
+    cre: clampHeroFontPx(6, 26, 22) * CRE_FONT_SIZE_SCALE,
   }))
 
   const [maxWidth, setMaxWidth] = useState(600)
@@ -113,7 +115,7 @@ export default function PretextHero({
     const update = () => {
       setMetrics({
         pro: clampHeroFontPx(5, 15, 12),
-        cre: clampHeroFontPx(6, 26, 22),
+        cre: clampHeroFontPx(6, 26, 22) * CRE_FONT_SIZE_SCALE,
       })
     }
     update()
@@ -142,6 +144,9 @@ export default function PretextHero({
     ;(async () => {
       try {
         await ensureFontsLoaded()
+        if (typeof document !== 'undefined' && document.fonts?.load) {
+          await document.fonts.load(c.font)
+        }
         if (cancelled) return
         preparedPro.current = prepareWithSegments(p.text, p.font)
         preparedCre.current = prepareWithSegments(c.text, c.font)
@@ -336,7 +341,7 @@ export default function PretextHero({
           top: 0,
           display: 'block',
           opacity: fadeCre ? 0 : 1,
-          transition: 'opacity 0.6s ease',
+          transition: 'opacity 0.3s ease',
           pointerEvents: 'none',
         }}
       />
@@ -350,7 +355,7 @@ export default function PretextHero({
           top: 0,
           display: 'block',
           opacity: fadeCre ? 1 : 0,
-          transition: 'opacity 0.6s ease',
+          transition: 'opacity 0.3s ease',
           pointerEvents: 'none',
         }}
       />

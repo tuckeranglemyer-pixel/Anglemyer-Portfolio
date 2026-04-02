@@ -15,8 +15,6 @@ function useIsMobile(breakpoint = 768) {
   return is
 }
 
-const FADE_MS = 600
-
 function ScrollReveal({
   children,
   delay = 0,
@@ -197,21 +195,8 @@ export default function MainContent({
   const isMobile = useIsMobile()
   const chromeVisible = phase === 'main'
 
-  const [displayMode, setDisplayMode] = useState<Mode>(mode)
-  const [layerOpacity, setLayerOpacity] = useState(1)
-
-  useEffect(() => {
-    if (mode === displayMode) return
-    setLayerOpacity(0)
-    const t = setTimeout(() => {
-      setDisplayMode(mode)
-      setLayerOpacity(1)
-    }, FADE_MS)
-    return () => clearTimeout(t)
-  }, [mode, displayMode])
-
-  const isPro = displayMode === 'pro'
-  const c = COPY[displayMode]
+  const isPro = mode === 'pro'
+  const c = COPY[mode]
 
   const hPad = isMobile ? '16px' : '48px'
   const vPad = isMobile ? '24px' : '80px'
@@ -242,13 +227,7 @@ export default function MainContent({
           pointerEvents: 'auto',
         }}
       >
-        <div
-          style={{
-            ...accentVar,
-            opacity: layerOpacity,
-            transition: 'opacity 0.6s ease',
-          }}
-        >
+        <div style={{ ...accentVar }}>
           <ScrollReveal active={active}>
             <div
               className="pretext-hero-strip"
@@ -256,7 +235,7 @@ export default function MainContent({
                 paddingLeft: hPad,
               }}
             >
-              <PretextHero mode={displayMode} active={active} isMobile={isMobile} heroLayout="main" />
+              <PretextHero mode={mode} active={active} isMobile={isMobile} heroLayout="main" />
             </div>
           </ScrollReveal>
 

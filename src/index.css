@@ -171,11 +171,12 @@ label[for],
 }
 
 .hero-cycle-h1--cre {
-  font-family: "Space Mono", monospace;
-  font-weight: 700;
-  font-size: clamp(6rem, 26vw, 22rem);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: "Kaushan Script", cursive;
+  font-weight: 400;
+  /* ~85% of prior creative scale — matches canvas PretextHero */
+  font-size: clamp(5.1rem, 22.1vw, 18.7rem);
+  letter-spacing: 0.03em;
+  text-transform: none;
 }
 
 .pretext-hero-canvas {
@@ -197,12 +198,12 @@ label[for],
 }
 
 .pretext-hero-fallback--cre {
-  font-family: "Space Mono", monospace;
-  font-weight: 700;
-  font-size: clamp(6rem, 26vw, 22rem);
-  letter-spacing: 0.06em;
+  font-family: "Kaushan Script", cursive;
+  font-weight: 400;
+  font-size: clamp(5.1rem, 22.1vw, 18.7rem);
+  letter-spacing: 0.03em;
   line-height: 0.85;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 /* MainContent — project titles, email, social microinteractions */
