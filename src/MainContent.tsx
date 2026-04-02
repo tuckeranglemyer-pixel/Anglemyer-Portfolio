@@ -238,12 +238,9 @@ export default function MainContent({
         >
           <ScrollReveal active={active}>
             <div
+              className="pretext-hero-strip"
               style={{
-                width: '100%',
                 paddingLeft: hPad,
-                paddingRight: 0,
-                boxSizing: 'border-box',
-                marginBottom: '16px',
               }}
             >
               <PretextHero mode={displayMode} active={active} isMobile={isMobile} />
