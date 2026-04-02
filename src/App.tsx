@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -205,7 +205,7 @@ function ColorPicker({
   )
 }
 
-// ─── Water displacement post-FX (phase-gated; entry ripples from HTML InkDropOverlay) ─────────
+// ─── Water displacement post-FX (phase-gated; mobile may revisit with touch check) ─────────
 function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 	const { displacementMap, update, addRipple } = useWaterSim()
 
@@ -369,7 +369,6 @@ export default function App() {
   })()
 
   const [phase, setPhase] = useState<Phase>(() => (skipAnimation ? 'main' : 'entry'))
-  console.log('[App] current phase:', phase)
 
   const [mode,  setMode]  = useState<Mode>('pro')
   const accent   = ACCENTS[mode]
@@ -436,24 +435,6 @@ export default function App() {
   const webGLTextVisible = false
   const waterPostEnabled = true
 
-  const handleInkDropImpact = useCallback(() => {
-    const centerX = window.innerWidth / 2
-    const centerY = window.innerHeight / 2
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridge for ink overlay (same addRipple as WaterSimPostFx)
-    ;(window as any).__addRipple?.(centerX, centerY, 5.0)
-    window.setTimeout(() => {
-      ;(window as any).__addRipple?.(centerX, centerY, 3.0)
-    }, 300)
-    window.setTimeout(() => {
-      ;(window as any).__addRipple?.(centerX, centerY, 1.5)
-    }, 600)
-  }, [])
-
-  const handleInkDropComplete = useCallback(() => {
-    try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
-    setPhase('main')
-  }, [])
-
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
     try {
@@ -482,7 +463,22 @@ export default function App() {
       />
 
       {phase === 'entry' && visitorsReady && (
-        <InkDropOverlay onImpact={handleInkDropImpact} onComplete={handleInkDropComplete} />
+        <InkDropOverlay
+          onImpact={() => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const add = (window as any).__addRipple
+            if (!add) return
+            const cx = window.innerWidth / 2
+            const cy = window.innerHeight / 2
+            add(cx, cy, 5.0)
+            setTimeout(() => add(cx, cy, 3.0), 300)
+            setTimeout(() => add(cx, cy, 1.5), 600)
+          }}
+          onComplete={() => {
+            try { localStorage.setItem('hasSeenAnimation', 'true') } catch {}
+            setPhase('main')
+          }}
+        />
       )}
 
       {phase === 'entry' && !visitorsReady && (
