@@ -207,9 +207,16 @@ function ColorPicker({
   )
 }
 
-// ─── Water displacement post-FX (phase-gated; mobile may revisit with touch check) ─────────
-function WaterSimPostFx({ enabled }: { enabled: boolean }) {
-	const { displacementMap, update } = useWaterSim()
+// ─── Water displacement post-FX (phase-gated; shares sim with InkEntryScene ripples) ─────────
+function WaterSimPostFx({
+	enabled,
+	displacementMap,
+	update,
+}: {
+	enabled: boolean
+	displacementMap: THREE.DataTexture
+	update: () => void
+}) {
 	const effect = useMemo(
 		() =>
 			new WaterDisplacementEffect({
@@ -306,6 +313,7 @@ function FullscreenGradientCanvas({
   planesVisible,
   planeOpacity,
   webGLTextVisible,
+  waterSim,
 }: {
   mode: Mode
   heroVisible: boolean
@@ -315,11 +323,16 @@ function FullscreenGradientCanvas({
         visitors: Visitor[]
         heroColor: string
         onComplete: () => void
+        addRipple: (screenX: number, screenY: number, strengthScale?: number) => void
       }
     | null
   planesVisible: boolean
   planeOpacity: number
   webGLTextVisible: boolean
+  waterSim: {
+    displacementMap: THREE.DataTexture
+    update: () => void
+  }
 }) {
   const showTextPlanes = planesVisible && webGLTextVisible
   return (
@@ -345,6 +358,7 @@ function FullscreenGradientCanvas({
             active
             visitors={inkEntry.visitors}
             heroColor={inkEntry.heroColor}
+            addRipple={inkEntry.addRipple}
             onComplete={inkEntry.onComplete}
           />
         )}
@@ -365,7 +379,11 @@ function FullscreenGradientCanvas({
         />
         <SocialLinksPlane visible={showTextPlanes} materialOpacity={planeOpacity} />
       </WebGLInteractionProvider>
-      <WaterSimPostFx enabled={waterPostEnabled} />
+      <WaterSimPostFx
+        enabled={waterPostEnabled}
+        displacementMap={waterSim.displacementMap}
+        update={waterSim.update}
+      />
     </Canvas>
   )
 }
@@ -445,7 +463,9 @@ export default function App() {
 
   const planesVisible = phase === 'main'
   const webGLTextVisible = false
-  const waterPostEnabled = phase === 'main'
+  const waterPostEnabled = phase === 'main' || phase === 'entry'
+
+  const waterSim = useWaterSim()
 
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
@@ -472,11 +492,16 @@ export default function App() {
         planesVisible={planesVisible}
         planeOpacity={planeOpacity}
         webGLTextVisible={webGLTextVisible}
+        waterSim={{
+          displacementMap: waterSim.displacementMap,
+          update: waterSim.update,
+        }}
         inkEntry={
           phase === 'entry' && visitorsReady
             ? {
                 visitors,
                 heroColor,
+                addRipple: waterSim.addRipple,
                 onComplete: () => {
                   try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
                   setPhase('main')

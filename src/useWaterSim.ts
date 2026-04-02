@@ -6,6 +6,19 @@ const C = 0.24
 const RIPPLE_SIGMA = 2.5
 const RIPPLE_INTENSITY = 5
 const RIPPLE_RADIUS = 6
+
+let rippleSystemLogged = false
+function logRippleSystemOnce() {
+  if (rippleSystemLogged) return
+  rippleSystemLogged = true
+  console.log(
+    '[RippleSystem] found ripple input:',
+    'addRipple(screenX, screenY, strengthScale?) adds Gaussian height to the wave grid (curr buffer);',
+    'update() advances the 2D wave equation, maps gradients to RGBA DataTexture (R/G ≈ displacement);',
+    'mousemove drives periodic addRipple via distance threshold in update();',
+    'WaterDisplacementEffect samples displacementMap and offsets fullscreen UVs.',
+  )
+}
 const GRAD_SCALE = 200
 const MID = 128
 
@@ -43,7 +56,7 @@ function createDataTexture(w: number, h: number): THREE.DataTexture {
 
 export function useWaterSim(): {
   displacementMap: THREE.DataTexture
-  addRipple: (screenX: number, screenY: number) => void
+  addRipple: (screenX: number, screenY: number, strengthScale?: number) => void
   update: () => void
 } {
   const dimRef = useRef(gridDimensions())
@@ -97,7 +110,8 @@ export function useWaterSim(): {
     return () => window.removeEventListener('mousemove', onMove)
   }, [])
 
-  const addRipple = useCallback((screenX: number, screenY: number) => {
+  const addRipple = useCallback((screenX: number, screenY: number, strengthScale = 1) => {
+    logRippleSystemOnce()
     const { w, h } = dimRef.current
     const curr = currRef.current
     const { gx, gy } = screenToGrid(screenX, screenY, w, h)
@@ -111,7 +125,9 @@ export function useWaterSim(): {
         const ny = gy + dy
         if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue
         const bump =
-          RIPPLE_INTENSITY * Math.exp(-d2 / (2 * RIPPLE_SIGMA * RIPPLE_SIGMA))
+          strengthScale *
+          RIPPLE_INTENSITY *
+          Math.exp(-d2 / (2 * RIPPLE_SIGMA * RIPPLE_SIGMA))
         const idx = ny * w + nx
         curr[idx] += bump
       }
