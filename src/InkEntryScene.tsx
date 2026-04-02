@@ -1,24 +1,30 @@
 /* eslint-disable react-hooks/immutability -- R3F animation: mutable refs, materials, buffers */
 /* eslint-disable react-hooks/purity -- visitor XZ scatter uses RNG once per mount via useMemo(list) */
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
 /** Minimal visitor shape (matches Visitor from visitors.ts) */
 export type InkVisitor = { color: string; timestamp?: number }
 
-const DEFAULT_HERO_COLOR = '#00d4ff'
-const GRAVITY = 16
-const HERO_DELAY_EMPTY = 0.5
-const VISITOR_STAGGER = 1.5
-const RING_DUR = 1.2
-const RING2_DELAY = 0.1
+const DEFAULT_HERO_COLOR = '#38bdf8'
+
+/** First drop starts falling within this many seconds of mount */
+const FIRST_DROP_DELAY = 0.45
+/** Stagger between drop *start* times (each drop gets full fall + impact) */
+const DROP_STAGGER = 0.4
+/** Target time from release to impact (integrate with v += g·dt) */
+const TARGET_FALL_DURATION = 0.7
+
+const RING_COUNT = 4
+const RING_EXPAND_DURATION = 0.72
+const RING_STAGGER = 0.055
 const SPLASH_COUNT = 10
-const SPLASH_LIFE = 0.5
-const VISITOR_RING_DUR = 0.7
-const SHAKE_AMP = 0.15
-const SHAKE_DUR = 0.2
-const MAX_VISITOR_DROPS = 15
+const SPLASH_LIFE = 0.48
+const SHAKE_AMPLITUDE = 7
+const SHAKE_DECAY_SEC = 0.15
+
+const MAX_VISITOR_DROPS = 4
 const MIN_VISITOR_DROPS = 5
 
 /** Dev-only: bright sphere to verify frustum / z-order */
@@ -26,10 +32,6 @@ const SHOW_INK_DEBUG_SPHERE = import.meta.env.DEV
 
 function easeOutExpo(x: number): number {
 	return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x)
-}
-
-function fallTimeFromHeight(h: number, g: number): number {
-	return Math.sqrt((2 * h) / g)
 }
 
 /** Orthographic view: visible Y ∈ [-halfH, +halfH], X ∈ [-halfW, +halfW]. */
@@ -40,8 +42,13 @@ export type InkViewportBounds = {
 	groundY: number
 	heroDropRadius: number
 	visitorDropRadius: number
+	/** Ring outer radius at full expansion (world units) — ~40–50% of viewport width */
 	ringMaxScale: number
 	scatter: number
+	fallDistance: number
+	gravity: number
+	viewportWidth: number
+	viewportHeight: number
 }
 
 function useInkBounds(): InkViewportBounds {
@@ -49,30 +56,47 @@ function useInkBounds(): InkViewportBounds {
 	return useMemo(() => {
 		const halfW = viewport.width / 2
 		const halfH = viewport.height / 2
-		const minDim = Math.min(viewport.width, viewport.height)
+		/** ~4% of viewport height (e.g. ~19 units at 475px-tall frustum) */
+		const heroDropRadius = viewport.height * 0.04
+		const visitorDropRadius = heroDropRadius * 0.92
+		const groundY = 0
+		/** Above top edge (+halfH); falls to center (y=0) */
+		const dropStartY = halfH + viewport.height * 0.65
+		const fallDistance = Math.max(0.01, dropStartY - groundY)
+		const gravity = (2 * fallDistance) / (TARGET_FALL_DURATION * TARGET_FALL_DURATION)
+		/** ~40–50% of full viewport width as outer ring radius */
+		const ringMaxScale = viewport.width * 0.25
 		return {
 			halfW,
 			halfH,
-			dropStartY: halfH * 0.82,
-			groundY: -halfH * 0.88,
-			heroDropRadius: Math.max(0.055, minDim * 0.014),
-			visitorDropRadius: Math.max(0.035, minDim * 0.01),
-			ringMaxScale: Math.min(halfW, halfH) * 0.55,
-			scatter: Math.min(halfW, halfH) * 0.42,
+			dropStartY,
+			groundY,
+			heroDropRadius,
+			visitorDropRadius,
+			ringMaxScale,
+			scatter: Math.min(halfW, halfH) * 0.38,
+			fallDistance,
+			gravity,
+			viewportWidth: viewport.width,
+			viewportHeight: viewport.height,
 		}
 	}, [viewport.width, viewport.height])
 }
 
-/** Basic + additive: reliable in ortho without relying on lights. */
-function inkBasicMaterial(hex: string, opacity = 1) {
-	return new THREE.MeshBasicMaterial({
-		color: new THREE.Color(hex),
-		transparent: true,
+function inkEmissiveMaterial(hex: string, opacity = 1) {
+	const c = new THREE.Color(hex)
+	return new THREE.MeshStandardMaterial({
+		color: c,
+		emissive: c,
+		emissiveIntensity: 1.35,
+		transparent: opacity < 1,
 		opacity,
 		blending: THREE.AdditiveBlending,
 		depthWrite: false,
-		depthTest: false,
+		depthTest: true,
 		toneMapped: false,
+		metalness: 0.2,
+		roughness: 0.35,
 	})
 }
 
@@ -83,334 +107,312 @@ function pickVisitors(visitors: InkVisitor[]): InkVisitor[] {
 	return visitors.slice(0, Math.min(MAX_VISITOR_DROPS, n))
 }
 
-type VisitorDropState = {
-	startDelay: number
-	x: number
-	z: number
-	phase: 'waiting' | 'falling' | 'ring' | 'done'
+type DropPhase = 'wait' | 'fall' | 'impact' | 'done'
+
+type DropRuntime = {
+	phase: DropPhase
+	startFallAt: number
 	dropY: number
 	dropVY: number
+	impactT: number
 	ringT: number
+	splashPos: Float32Array
+	splashVel: Float32Array
 }
 
-function VisitorDrops({
-	list,
+type InkDropSpec = {
+	color: string
+	x: number
+	z: number
+	radius: number
+	startFallAt: number
+}
+
+function InkDropsSystem({
+	drops,
 	bounds,
+	onComplete,
 }: {
-	list: InkVisitor[]
+	drops: InkDropSpec[]
 	bounds: InkViewportBounds
+	onComplete: () => void
 }) {
-	const count = list.length
+	const shakeRef = useRef<THREE.Group>(null!)
+	const count = drops.length
+
+	const dropRefs = useRef<(THREE.Mesh | null)[]>([])
+	const ringRefs = useRef<(THREE.Mesh | null)[][]>([])
+	const splashRefs = useRef<(THREE.Mesh | null)[][]>([])
+
+	useLayoutEffect(() => {
+		dropRefs.current.length = count
+		ringRefs.current = drops.map((_, i) => {
+			const prev = ringRefs.current[i]
+			if (prev && prev.length === RING_COUNT) return prev
+			return new Array<THREE.Mesh | null>(RING_COUNT).fill(null)
+		})
+		splashRefs.current = drops.map((_, i) => {
+			const prev = splashRefs.current[i]
+			if (prev && prev.length === SPLASH_COUNT) return prev
+			return new Array<THREE.Mesh | null>(SPLASH_COUNT).fill(null)
+		})
+	}, [drops, count])
+
 	const mats = useMemo(
 		() =>
-			list.map(v => ({
-				drop: inkBasicMaterial(v.color, 1),
-				ring: inkBasicMaterial(v.color, 0),
+			drops.map(d => ({
+				drop: inkEmissiveMaterial(d.color, 1),
+				rings: Array.from({ length: RING_COUNT }, () => inkEmissiveMaterial(d.color, 0)),
+				splash: inkEmissiveMaterial(d.color, 1),
 			})),
-		[list],
+		[drops],
 	)
 
 	useEffect(() => {
 		return () =>
 			mats.forEach(m => {
 				m.drop.dispose()
-				m.ring.dispose()
+				m.rings.forEach(r => r.dispose())
+				m.splash.dispose()
 			})
 	}, [mats])
 
-	const data = useMemo<VisitorDropState[]>(
+	const state = useMemo<DropRuntime[]>(
 		() =>
-			list.map((_, i) => ({
-				startDelay: count > 1 ? (i / (count - 1)) * VISITOR_STAGGER : 0,
-				x: (Math.random() - 0.5) * 2 * bounds.scatter,
-				z: (Math.random() - 0.5) * 2 * bounds.scatter,
-				phase: 'waiting',
+			drops.map(() => ({
+				phase: 'wait',
+				startFallAt: 0,
 				dropY: bounds.dropStartY,
 				dropVY: 0,
+				impactT: 0,
 				ringT: 0,
+				splashPos: new Float32Array(SPLASH_COUNT * 3),
+				splashVel: new Float32Array(SPLASH_COUNT * 3),
 			})),
-		[list, count, bounds.dropStartY, bounds.scatter],
+		[drops, bounds.dropStartY],
 	)
 
-	const dropMeshes = useRef<(THREE.Mesh | null)[]>([])
-	const ringMeshes = useRef<(THREE.Mesh | null)[]>([])
 	const elapsed = useRef(0)
+	const doneRef = useRef(false)
+	const shakeUntil = useRef(0)
+	const inkStartLogged = useRef(false)
+
+	const g = bounds.gravity
 
 	useFrame((_, dt) => {
 		elapsed.current += dt
+		const t = elapsed.current
+
+		let allDone = true
+
 		for (let i = 0; i < count; i++) {
-			const d = data[i]
-			const dm = dropMeshes.current[i]
-			const rm = ringMeshes.current[i]
-			if (!dm || !rm || d.phase === 'done') continue
+			const d = state[i]
+			const spec = drops[i]
+			const dm = dropRefs.current[i]
 
-			const t = elapsed.current - d.startDelay
-			if (t < 0) continue
+			if (d.phase === 'done') continue
+			allDone = false
 
-			if (d.phase === 'waiting') {
-				d.phase = 'falling'
-				d.dropY = bounds.dropStartY
-				d.dropVY = 0
-				dm.visible = true
-				dm.position.set(d.x, d.dropY, d.z)
+			if (d.phase === 'wait') {
+				if (t >= spec.startFallAt) {
+					d.phase = 'fall'
+					d.dropY = bounds.dropStartY
+					d.dropVY = 0
+					d.startFallAt = spec.startFallAt
+					if (i === 0 && !inkStartLogged.current) {
+						inkStartLogged.current = true
+						console.log(
+							'[InkDrop] viewport bounds:',
+							bounds.viewportWidth,
+							bounds.viewportHeight,
+							'drop radius:',
+							spec.radius,
+						)
+					}
+					if (dm) {
+						dm.visible = true
+						const zInk = Math.max(spec.z, 0.02)
+						dm.position.set(spec.x, d.dropY, zInk)
+					}
+				}
+				continue
 			}
 
-			if (d.phase === 'falling') {
-				d.dropVY -= GRAVITY * dt
+			if (d.phase === 'fall') {
+				if (!dm) continue
+				d.dropVY -= g * dt
 				d.dropY += d.dropVY * dt
 				dm.position.y = d.dropY
+				dm.position.z = Math.max(spec.z, 0.02)
 
 				if (d.dropY <= bounds.groundY) {
-					d.phase = 'ring'
+					d.phase = 'impact'
 					dm.visible = false
-					rm.visible = true
-					rm.position.set(d.x, bounds.groundY + 0.002, d.z)
 					d.ringT = 0
+					d.impactT = t
+					shakeUntil.current = t + SHAKE_DECAY_SEC
+
+					const zInk = Math.max(spec.z, 0.02)
+					for (let r = 0; r < RING_COUNT; r++) {
+						const rm = ringRefs.current[i][r]
+						if (rm) {
+							rm.visible = true
+							rm.position.set(spec.x, bounds.groundY + 0.02 + r * 0.12, zInk)
+							rm.scale.set(0.001, 0.001, 1)
+						}
+						mats[i].rings[r].opacity = 0.55
+					}
+
+					for (let s = 0; s < SPLASH_COUNT; s++) {
+						const angle = (s / SPLASH_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.5
+						const hSp = 200 + Math.random() * 200
+						const vSp = 180 + Math.random() * 220
+						const i3 = s * 3
+						d.splashVel[i3] = Math.cos(angle) * hSp
+						d.splashVel[i3 + 1] = vSp
+						d.splashVel[i3 + 2] = Math.sin(angle) * hSp
+						d.splashPos[i3] = spec.x
+						d.splashPos[i3 + 1] = bounds.groundY + spec.radius * 0.4
+						d.splashPos[i3 + 2] = zInk
+						const sm = splashRefs.current[i][s]
+						if (sm) {
+							sm.visible = true
+							sm.position.set(spec.x, bounds.groundY + spec.radius * 0.4, zInk)
+						}
+					}
 				}
+				continue
 			}
 
-			if (d.phase === 'ring') {
+			if (d.phase === 'impact') {
 				d.ringT += dt
-				const rp = Math.min(d.ringT / VISITOR_RING_DUR, 1)
-				const r = Math.max(0.001, easeOutExpo(rp) * 1.2)
-				rm.scale.set(r, r, 1)
-				mats[i].ring.opacity = 0.4 * (1 - rp)
 
-				if (rp >= 1) {
+				for (let r = 0; r < RING_COUNT; r++) {
+					const localT = Math.max(0, d.ringT - r * RING_STAGGER)
+					const rp = Math.min(localT / RING_EXPAND_DURATION, 1)
+					const rm = ringRefs.current[i][r]
+					if (!rm || !rm.visible) continue
+					const scale = Math.max(0.001, easeOutExpo(rp) * bounds.ringMaxScale * (1 - r * 0.04))
+					rm.scale.set(scale, scale, 1)
+					const fade = 0.5 * (1 - rp * 0.95)
+					mats[i].rings[r].opacity = Math.max(0, fade * (1 - r * 0.12))
+					if (rp >= 1) rm.visible = false
+				}
+
+				const splashAlive = d.ringT < SPLASH_LIFE
+				mats[i].splash.opacity = splashAlive ? Math.max(0, 1 - d.ringT / SPLASH_LIFE) * 0.95 : 0
+
+				if (splashAlive) {
+					for (let s = 0; s < SPLASH_COUNT; s++) {
+						const i3 = s * 3
+						d.splashVel[i3 + 1] -= g * dt
+						d.splashPos[i3] += d.splashVel[i3] * dt
+						d.splashPos[i3 + 1] += d.splashVel[i3 + 1] * dt
+						d.splashPos[i3 + 2] += d.splashVel[i3 + 2] * dt
+						if (d.splashPos[i3 + 1] < bounds.groundY) {
+							d.splashPos[i3 + 1] = bounds.groundY
+							d.splashVel[i3 + 1] *= -0.18
+						}
+						const sm = splashRefs.current[i][s]
+						if (sm)
+							sm.position.set(
+								d.splashPos[i3],
+								d.splashPos[i3 + 1],
+								d.splashPos[i3 + 2],
+							)
+					}
+				} else {
+					for (let s = 0; s < SPLASH_COUNT; s++) {
+						const sm = splashRefs.current[i][s]
+						if (sm) sm.visible = false
+					}
+				}
+
+				const ringsFinished = d.ringT >= RING_EXPAND_DURATION + RING_COUNT * RING_STAGGER + 0.05
+				if (ringsFinished) {
 					d.phase = 'done'
-					rm.visible = false
+					for (let r = 0; r < RING_COUNT; r++) {
+						const rm = ringRefs.current[i][r]
+						if (rm) rm.visible = false
+					}
 				}
 			}
+		}
+
+		const shakeT = shakeUntil.current - t
+		const shakeGroup = shakeRef.current
+		if (shakeGroup) {
+			if (shakeT > 0) {
+				const decay = Math.max(0, shakeT / SHAKE_DECAY_SEC)
+				const amp = SHAKE_AMPLITUDE * decay * decay
+				shakeGroup.position.x = (Math.random() - 0.5) * 2 * amp
+				shakeGroup.position.y = (Math.random() - 0.5) * 2 * amp
+			} else {
+				shakeGroup.position.set(0, 0, 0)
+			}
+		}
+
+		if (allDone && !doneRef.current) {
+			doneRef.current = true
+			shakeRef.current?.position.set(0, 0, 0)
+			onComplete()
 		}
 	})
 
 	if (count === 0) return null
 
-	return (
-		<group renderOrder={10}>
-			{list.map((v, i) => (
-				<group key={`${v.color}-${i}`}>
-					<mesh
-						ref={(el: THREE.Mesh | null) => {
-							dropMeshes.current[i] = el
-						}}
-						visible={false}
-						renderOrder={10}
-					>
-						<sphereGeometry args={[bounds.visitorDropRadius, 20, 20]} />
-						<primitive object={mats[i].drop} attach="material" />
-					</mesh>
-					<mesh
-						ref={(el: THREE.Mesh | null) => {
-							ringMeshes.current[i] = el
-						}}
-						rotation={[-Math.PI / 2, 0, 0]}
-						scale={[0.001, 0.001, 1]}
-						visible={false}
-						renderOrder={10}
-					>
-						<ringGeometry args={[0.98, 1.0, 96]} />
-						<primitive object={mats[i].ring} attach="material" />
-					</mesh>
-				</group>
-			))}
-		</group>
-	)
-}
-
-function HeroInkScene({
-	onComplete,
-	heroColor,
-	heroDelay,
-	bounds,
-}: {
-	onComplete: () => void
-	heroColor: string
-	heroDelay: number
-	bounds: InkViewportBounds
-}) {
-	const shakeRef = useRef<THREE.Group>(null!)
-	const dropRef = useRef<THREE.Mesh>(null!)
-	const ring1Ref = useRef<THREE.Mesh>(null!)
-	const ring2Ref = useRef<THREE.Mesh>(null!)
-	const splashRefs = useRef<(THREE.Mesh | null)[]>([])
-
-	const dropMat = useMemo(() => inkBasicMaterial(heroColor, 1), [heroColor])
-	const ring1Mat = useMemo(() => inkBasicMaterial(heroColor, 0), [heroColor])
-	const ring2Mat = useMemo(() => inkBasicMaterial(heroColor, 0), [heroColor])
-	const splashMat = useMemo(() => inkBasicMaterial(heroColor, 1), [heroColor])
-
-	useEffect(() => {
-		return () => {
-			dropMat.dispose()
-			ring1Mat.dispose()
-			ring2Mat.dispose()
-			splashMat.dispose()
-		}
-	}, [dropMat, ring1Mat, ring2Mat, splashMat])
-
-	const phase = useRef<'delay' | 'falling' | 'ring'>('delay')
-	const elapsed = useRef(0)
-	const dropY = useRef(bounds.dropStartY)
-	const dropVY = useRef(0)
-	const ringT = useRef(0)
-	const done = useRef(false)
-
-	const splashPos = useMemo(() => new Float32Array(SPLASH_COUNT * 3), [])
-	const splashVel = useRef(new Float32Array(SPLASH_COUNT * 3))
-
-	useFrame((_, dt) => {
-		elapsed.current += dt
-
-		if (phase.current === 'delay') {
-			if (elapsed.current >= heroDelay) {
-				phase.current = 'falling'
-				dropRef.current.visible = true
-				dropY.current = bounds.dropStartY
-				dropVY.current = 0
-			}
-			return
-		}
-
-		if (phase.current === 'falling') {
-			dropVY.current -= GRAVITY * dt
-			dropY.current += dropVY.current * dt
-			dropRef.current.position.y = dropY.current
-
-			if (dropY.current <= bounds.groundY) {
-				dropRef.current.visible = false
-				phase.current = 'ring'
-				ringT.current = 0
-				ring1Ref.current.visible = true
-
-				for (let i = 0; i < SPLASH_COUNT; i++) {
-					const angle = (i / SPLASH_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.6
-					const hSpeed = 3.2 + Math.random() * 3.0
-					const vSpeed = 2.0 + Math.random() * 3.5
-					const i3 = i * 3
-					splashVel.current[i3] = Math.cos(angle) * hSpeed
-					splashVel.current[i3 + 1] = vSpeed
-					splashVel.current[i3 + 2] = Math.sin(angle) * hSpeed
-					splashPos[i3] = 0
-					splashPos[i3 + 1] = bounds.groundY + 0.04
-					splashPos[i3 + 2] = 0
-					const m = splashRefs.current[i]
-					if (m) {
-						m.visible = true
-						m.position.set(0, bounds.groundY + 0.04, 0)
-					}
-				}
-			}
-			return
-		}
-
-		if (phase.current === 'ring') {
-			ringT.current += dt
-
-			const rp1 = Math.min(ringT.current / RING_DUR, 1)
-			const r1 = Math.max(0.001, easeOutExpo(rp1) * bounds.ringMaxScale)
-			ring1Ref.current.scale.set(r1, r1, 1)
-			ring1Mat.opacity = 0.65 * (1 - rp1)
-
-			const t2 = Math.max(0, ringT.current - RING2_DELAY)
-			const rp2 = Math.min(t2 / RING_DUR, 1)
-			if (ringT.current >= RING2_DELAY) {
-				ring2Ref.current.visible = true
-				const r2 = Math.max(0.001, easeOutExpo(rp2) * bounds.ringMaxScale)
-				ring2Ref.current.scale.set(r2, r2, 1)
-				ring2Mat.opacity = 0.3 * (1 - rp2)
-			}
-
-			const shakeDecay = Math.max(0, 1 - ringT.current / SHAKE_DUR)
-			const amp = SHAKE_AMP * shakeDecay * shakeDecay
-			if (amp > 0.0001) {
-				shakeRef.current.position.x = (Math.random() - 0.5) * 2 * amp
-				shakeRef.current.position.y = (Math.random() - 0.5) * 2 * amp
-			} else {
-				shakeRef.current.position.x = 0
-				shakeRef.current.position.y = 0
-			}
-
-			const lifeFrac = Math.max(0, 1 - ringT.current / SPLASH_LIFE)
-			splashMat.opacity = lifeFrac * 0.95
-
-			if (lifeFrac > 0) {
-				for (let i = 0; i < SPLASH_COUNT; i++) {
-					const i3 = i * 3
-					splashVel.current[i3 + 1] -= GRAVITY * dt
-					splashPos[i3] += splashVel.current[i3] * dt
-					splashPos[i3 + 1] += splashVel.current[i3 + 1] * dt
-					splashPos[i3 + 2] += splashVel.current[i3 + 2] * dt
-					if (splashPos[i3 + 1] < bounds.groundY) {
-						splashPos[i3 + 1] = bounds.groundY
-						splashVel.current[i3 + 1] *= -0.2
-					}
-					const m = splashRefs.current[i]
-					if (m) m.position.set(splashPos[i3], splashPos[i3 + 1], splashPos[i3 + 2])
-				}
-			} else {
-				for (let i = 0; i < SPLASH_COUNT; i++) {
-					const m = splashRefs.current[i]
-					if (m) m.visible = false
-				}
-			}
-
-			if (rp1 >= 1 && !done.current) {
-				done.current = true
-				shakeRef.current.position.set(0, 0, 0)
-				onComplete()
-			}
-		}
-	})
+	const splashR = (r: number) => THREE.MathUtils.clamp(r * 0.48, 8, 12)
 
 	return (
 		<group ref={shakeRef} renderOrder={10}>
-			<mesh
-				ref={dropRef}
-				position={[0, bounds.dropStartY, 0]}
-				visible={false}
-				renderOrder={10}
-			>
-				<sphereGeometry args={[bounds.heroDropRadius, 24, 24]} />
-				<primitive object={dropMat} attach="material" />
-			</mesh>
+			{drops.map((spec, i) => (
+				<group key={`${spec.color}-${i}-${spec.startFallAt}`}>
+					<mesh
+						ref={(el: THREE.Mesh | null) => {
+							dropRefs.current[i] = el
+						}}
+						position={[spec.x, bounds.dropStartY, Math.max(spec.z, 0.02)]}
+						visible={false}
+						renderOrder={10}
+						castShadow
+					>
+						<sphereGeometry args={[spec.radius, 28, 28]} />
+						<primitive object={mats[i].drop} attach="material" />
+					</mesh>
 
-			<mesh
-				ref={ring1Ref}
-				position={[0, bounds.groundY + 0.001, 0]}
-				rotation={[-Math.PI / 2, 0, 0]}
-				scale={[0.001, 0.001, 1]}
-				visible={false}
-				renderOrder={10}
-			>
-				<ringGeometry args={[0.98, 1.0, 128]} />
-				<primitive object={ring1Mat} attach="material" />
-			</mesh>
+					{Array.from({ length: RING_COUNT }, (_, r) => (
+						<mesh
+							key={r}
+							ref={(el: THREE.Mesh | null) => {
+								const row = ringRefs.current[i]
+								if (row) row[r] = el
+							}}
+							rotation={[-Math.PI / 2, 0, 0]}
+							scale={[0.001, 0.001, 1]}
+							visible={false}
+							renderOrder={10}
+						>
+							<ringGeometry args={[0.96, 1.0, 96]} />
+							<primitive object={mats[i].rings[r]} attach="material" />
+						</mesh>
+					))}
 
-			<mesh
-				ref={ring2Ref}
-				position={[0, bounds.groundY + 0.001, 0]}
-				rotation={[-Math.PI / 2, 0, 0]}
-				scale={[0.001, 0.001, 1]}
-				visible={false}
-				renderOrder={10}
-			>
-				<ringGeometry args={[0.98, 1.0, 128]} />
-				<primitive object={ring2Mat} attach="material" />
-			</mesh>
-
-			{Array.from({ length: SPLASH_COUNT }, (_, i) => (
-				<mesh
-					key={i}
-					ref={(el: THREE.Mesh | null) => {
-						splashRefs.current[i] = el
-					}}
-					visible={false}
-					renderOrder={10}
-				>
-					<sphereGeometry args={[Math.max(0.02, bounds.heroDropRadius * 0.55), 10, 10]} />
-					<primitive object={splashMat} attach="material" />
-				</mesh>
+					{Array.from({ length: SPLASH_COUNT }, (_, s) => (
+						<mesh
+							key={s}
+							ref={(el: THREE.Mesh | null) => {
+								const row = splashRefs.current[i]
+								if (row) row[s] = el
+							}}
+							position={[spec.x, bounds.groundY, Math.max(spec.z, 0.02)]}
+							visible={false}
+							renderOrder={10}
+						>
+							<sphereGeometry args={[splashR(spec.radius), 8, 8]} />
+							<primitive object={mats[i].splash} attach="material" />
+						</mesh>
+					))}
+				</group>
 			))}
 		</group>
 	)
@@ -456,32 +458,44 @@ export default function InkEntryScene({
 }: InkEntrySceneProps) {
 	const bounds = useInkBounds()
 	const vList = useMemo(() => pickVisitors(visitors), [visitors])
-	const fall = fallTimeFromHeight(bounds.dropStartY - bounds.groundY, GRAVITY)
-	const heroDelay = useMemo(() => {
-		if (vList.length === 0) return HERO_DELAY_EMPTY
-		const maxStagger = vList.length > 1 ? VISITOR_STAGGER : 0
-		return maxStagger + fall + 0.15
-	}, [vList.length, fall])
+
+	const dropSpecs = useMemo<InkDropSpec[]>(() => {
+		const list: InkDropSpec[] = [
+			{
+				color: heroColor,
+				x: 0,
+				z: 0,
+				radius: bounds.heroDropRadius,
+				startFallAt: FIRST_DROP_DELAY,
+			},
+		]
+		for (let i = 0; i < vList.length; i++) {
+			const v = vList[i]!
+			list.push({
+				color: v.color,
+				x: (Math.random() - 0.5) * 2 * bounds.scatter,
+				z: (Math.random() - 0.5) * 2 * bounds.scatter,
+				radius: bounds.visitorDropRadius,
+				startFallAt: FIRST_DROP_DELAY + (i + 1) * DROP_STAGGER,
+			})
+		}
+		return list
+	}, [heroColor, vList, bounds])
 
 	if (!active) return null
 
 	return (
-		<group position={[0, 0, 0.12]} renderOrder={10}>
+		<group position={[0, 0, 0.02]} renderOrder={10}>
 			<InkEntryDebugLog />
-			<ambientLight intensity={0.55} />
+			<ambientLight intensity={0.45} />
+			<pointLight position={[0, bounds.halfH, 2]} intensity={0.85} color="#ffffff" />
 			{SHOW_INK_DEBUG_SPHERE && (
-				<mesh position={[0, 0, 0.1]} renderOrder={11}>
-					<sphereGeometry args={[0.12, 16, 16]} />
+				<mesh position={[0, 0, 0.02]} renderOrder={11}>
+					<sphereGeometry args={[Math.max(bounds.heroDropRadius, 8), 16, 16]} />
 					<meshBasicMaterial color="#ff0000" depthTest={false} depthWrite={false} toneMapped={false} />
 				</mesh>
 			)}
-			<VisitorDrops list={vList} bounds={bounds} />
-			<HeroInkScene
-				onComplete={onComplete}
-				heroColor={heroColor}
-				heroDelay={heroDelay}
-				bounds={bounds}
-			/>
+			<InkDropsSystem drops={dropSpecs} bounds={bounds} onComplete={onComplete} />
 		</group>
 	)
 }
