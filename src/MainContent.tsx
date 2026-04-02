@@ -221,12 +221,9 @@ export default function MainContent({
 
       <div
         style={{
-          maxWidth: '600px',
           width: '100%',
           boxSizing: 'border-box',
           overflowX: 'hidden',
-          paddingLeft: hPad,
-          paddingRight: hPad,
           paddingTop: vPad,
           paddingBottom: isMobile ? '140px' : '96px',
           pointerEvents: 'auto',
@@ -240,43 +237,67 @@ export default function MainContent({
           }}
         >
           <ScrollReveal active={active}>
-            <header style={{ marginBottom: '48px' }}>
-              <PretextHero mode={displayMode} active={active} isMobile={isMobile} />
-
-              <p
-                style={{
-                  marginTop: '24px',
-                  fontFamily: '"Space Mono", monospace',
-                  fontSize: '24px',
-                  lineHeight: 1.5,
-                  letterSpacing: isPro ? '0.04em' : '0.06em',
-                  opacity: isPro ? 0.3 : 0.45,
-                  color: 'rgba(255,255,255,0.55)',
-                  maxWidth: '520px',
-                  transition: 'opacity 0.6s ease, letter-spacing 0.6s ease',
-                }}
-              >
-                {c.subtitle}
-              </p>
-            </header>
-          </ScrollReveal>
-
-          <ScrollReveal active={active}>
-            <p
+            <div
               style={{
-                fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
-                fontSize: '18px',
-                lineHeight: isPro ? 1.72 : 1.65,
-                fontWeight: 400,
-                color: 'rgba(255,255,255,0.55)',
-                margin: '0 0 96px',
-                maxWidth: '550px',
-                transition: 'font-size 0.6s ease, color 0.6s ease',
+                width: '100%',
+                paddingLeft: hPad,
+                paddingRight: 0,
+                boxSizing: 'border-box',
+                marginBottom: '16px',
               }}
             >
-              {c.bio}
-            </p>
+              <PretextHero mode={displayMode} active={active} isMobile={isMobile} />
+            </div>
           </ScrollReveal>
+
+          <div
+            style={{
+              maxWidth: '600px',
+              width: '100%',
+              marginLeft: hPad,
+              marginRight: 'auto',
+              paddingLeft: 0,
+              paddingRight: hPad,
+              boxSizing: 'border-box',
+            }}
+          >
+            <ScrollReveal active={active}>
+              <header style={{ marginBottom: '48px' }}>
+                <p
+                  className="main-subtitle"
+                  style={{
+                    marginTop: 0,
+                    fontFamily: '"Space Mono", monospace',
+                    fontSize: '24px',
+                    lineHeight: 1.5,
+                    letterSpacing: isPro ? '0.04em' : '0.06em',
+                    opacity: isPro ? 0.3 : 0.45,
+                    color: 'rgba(255,255,255,0.55)',
+                    maxWidth: '520px',
+                    transition: 'opacity 0.6s ease, letter-spacing 0.6s ease',
+                  }}
+                >
+                  {c.subtitle}
+                </p>
+              </header>
+            </ScrollReveal>
+
+            <ScrollReveal active={active}>
+              <p
+                style={{
+                  fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
+                  fontSize: '18px',
+                  lineHeight: isPro ? 1.72 : 1.65,
+                  fontWeight: 400,
+                  color: 'rgba(255,255,255,0.55)',
+                  margin: '0 0 96px',
+                  maxWidth: '550px',
+                  transition: 'font-size 0.6s ease, color 0.6s ease',
+                }}
+              >
+                {c.bio}
+              </p>
+            </ScrollReveal>
 
           <ScrollReveal active={active}>
             <section style={{ marginBottom: '96px' }}>
@@ -391,6 +412,7 @@ export default function MainContent({
               </a>
             </div>
           </ScrollReveal>
+          </div>
         </div>
       </div>
     </>

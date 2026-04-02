@@ -90,9 +90,9 @@ label[for],
   margin-bottom: 0;
 }
 
-/* Tight stack: subtitle sits 16px under hero (overrides MainContent inline margin on the hero p) */
-header > .pretext-hero + p {
-  margin-top: 16px !important;
+/* Subtitle lives in the 600px column; spacing from hero is the hero strip margin in MainContent */
+.main-subtitle {
+  margin-top: 0;
 }
 
 .hero-cycle-layer {
