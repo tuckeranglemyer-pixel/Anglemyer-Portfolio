@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -15,7 +15,7 @@ import {
 	WaterDisplacementEffect,
 	DEFAULT_WATER_DISPLACEMENT_SCALE,
 } from './WaterDisplacementEffect'
-import InkEntryScene from './InkEntryScene'
+import InkDropOverlay from './InkDropOverlay'
 import CustomCursor from './CustomCursor'
 import AmbientPad from './AmbientPad'
 
@@ -94,8 +94,6 @@ function CursorGlow({ accent }: { accent: string }) {
     />
   )
 }
-
-const DEFAULT_HERO_COLOR = '#00d4ff'
 
 const PALETTE: { hex: string; name: string }[] = [
   { hex: '#00d4ff', name: 'cyan'    },
@@ -207,7 +205,7 @@ function ColorPicker({
   )
 }
 
-// ─── Water displacement post-FX (phase-gated; shares sim with InkEntryScene ripples) ─────────
+// ─── Water displacement post-FX (phase-gated; entry ripples from HTML InkDropOverlay) ─────────
 function WaterSimPostFx({
 	enabled,
 	displacementMap,
@@ -309,7 +307,6 @@ function FullscreenGradientCanvas({
   mode,
   heroVisible,
   waterPostEnabled,
-  inkEntry,
   planesVisible,
   planeOpacity,
   webGLTextVisible,
@@ -318,14 +315,6 @@ function FullscreenGradientCanvas({
   mode: Mode
   heroVisible: boolean
   waterPostEnabled: boolean
-  inkEntry:
-    | {
-        visitors: Visitor[]
-        heroColor: string
-        onComplete: () => void
-        addRipple: (screenX: number, screenY: number, strengthScale?: number) => void
-      }
-    | null
   planesVisible: boolean
   planeOpacity: number
   webGLTextVisible: boolean
@@ -353,15 +342,6 @@ function FullscreenGradientCanvas({
       <color attach="background" args={['#060e1e']} />
       <WebGLInteractionProvider visible={heroVisible}>
         <GradientBackgroundPlane mode={mode} />
-        {inkEntry && (
-          <InkEntryScene
-            active
-            visitors={inkEntry.visitors}
-            heroColor={inkEntry.heroColor}
-            addRipple={inkEntry.addRipple}
-            onComplete={inkEntry.onComplete}
-          />
-        )}
         <HeroPlane
           mode={mode}
           visible={showTextPlanes}
@@ -416,10 +396,6 @@ export default function App() {
   const [visitors,      setVisitors]      = useState<Visitor[]>([])
   const [visitorsReady, setVisitorsReady] = useState(skipAnimation)
 
-  const [heroColor] = useState<string>(() => {
-    try { return localStorage.getItem('visitorColor') || DEFAULT_HERO_COLOR } catch { return DEFAULT_HERO_COLOR }
-  })
-
   const [hasChosen] = useState<boolean>(() => {
     try {
       return !!(
@@ -468,6 +444,23 @@ export default function App() {
 
   const waterSim = useWaterSim()
 
+  const handleInkDropImpact = useCallback(() => {
+    const cx = window.innerWidth * 0.5
+    const cy = window.innerHeight * 0.5
+    waterSim.addRipple(cx, cy, 5.0)
+    window.setTimeout(() => {
+      waterSim.addRipple(cx, cy, 3.0)
+    }, 300)
+    window.setTimeout(() => {
+      waterSim.addRipple(cx, cy, 1.5)
+    }, 600)
+  }, [waterSim.addRipple])
+
+  const handleInkDropComplete = useCallback(() => {
+    try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
+    setPhase('main')
+  }, [])
+
   const handleColorSelect = async (color: string) => {
     setPickerDismissed(true)
     try {
@@ -497,20 +490,11 @@ export default function App() {
           displacementMap: waterSim.displacementMap,
           update: waterSim.update,
         }}
-        inkEntry={
-          phase === 'entry' && visitorsReady
-            ? {
-                visitors,
-                heroColor,
-                addRipple: waterSim.addRipple,
-                onComplete: () => {
-                  try { localStorage.setItem('hasSeenAnimation', 'true') } catch { /* SSR */ }
-                  setPhase('main')
-                },
-              }
-            : null
-        }
       />
+
+      {phase === 'entry' && visitorsReady && (
+        <InkDropOverlay onImpact={handleInkDropImpact} onComplete={handleInkDropComplete} />
+      )}
 
       {phase === 'entry' && !visitorsReady && (
         <div
