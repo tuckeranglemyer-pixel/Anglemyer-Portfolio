@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-const DAMP = 0.965
+const DAMP = 0.9
 const C = 0.24
 const RIPPLE_SIGMA = 10
 const RIPPLE_INTENSITY = 150
