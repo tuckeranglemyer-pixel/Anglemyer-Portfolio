@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { RootState } from '@react-three/fiber'
 import * as THREE from 'three'
-import { OBJLoader } from './loaders/OBJLoader'
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 
 /** ANGLEMYER — object names from pilowlava3d.obj */
 const LETTER_OBJECT_NAMES = [
@@ -92,7 +92,7 @@ export default function PilowlavaHero3D() {
     const loader = new OBJLoader()
     loader.load(
       OBJ_URL,
-      obj => {
+      (obj: THREE.Group) => {
         if (cancelled) return
         const geoms: THREE.BufferGeometry[] = []
         const widths: number[] = []
@@ -141,7 +141,7 @@ export default function PilowlavaHero3D() {
         if (!cancelled) setReady(true)
       },
       undefined,
-      err => console.error('[PilowlavaHero3D] OBJ load failed', err),
+      (err: unknown) => console.error('[PilowlavaHero3D] OBJ load failed', err),
     )
     return () => {
       cancelled = true
