@@ -543,6 +543,7 @@ export default function App() {
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
           identityCycleHidesContent={identityCycleOpen && !identityCycleRevealMain}
           heroContainerRef={heroContainerRef}
+          hideHeroDuringIdentityCycle={identityCycleOpen}
         />
       </div>
 

@@ -88,6 +88,8 @@ interface PretextHeroProps {
   heroLayout?: HeroLayoutMode
   /** Optional ref to the `.pretext-hero` root (e.g. IdentityCycle fly-to target). */
   heroMeasureRef?: Ref<HTMLDivElement>
+  /** Hide visually (opacity 0) while IdentityCycle runs; layout preserved for measurement. */
+  hiddenDuringIdentityCycle?: boolean
 }
 
 /**
@@ -102,6 +104,7 @@ export default function PretextHero({
   isMobile: _isMobile,
   heroLayout = 'main',
   heroMeasureRef,
+  hiddenDuringIdentityCycle = false,
 }: PretextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const proCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -313,10 +316,20 @@ export default function PretextHero({
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
+  const heroVisibilityStyle = {
+    opacity: hiddenDuringIdentityCycle ? 0 : 1,
+    transition: hiddenDuringIdentityCycle ? 'opacity 0s' : 'opacity 0.35s ease',
+  } as const
+
   if (useFallback) {
     const isProFb = mode === 'pro'
     const inner = (
-      <div ref={mergeRefs(containerRef, heroMeasureRef)} className="pretext-hero">
+      <div
+        ref={mergeRefs(containerRef, heroMeasureRef)}
+        className="pretext-hero"
+        data-hero-target
+        style={heroVisibilityStyle}
+      >
         <h1
           className={isProFb ? 'pretext-hero-fallback--pro' : 'pretext-hero-fallback--cre'}
         >
@@ -338,6 +351,7 @@ export default function PretextHero({
     <div
       ref={mergeRefs(containerRef, heroMeasureRef)}
       className="pretext-hero"
+      data-hero-target
       onMouseMove={active ? onMouseMove : undefined}
       onMouseEnter={active ? onMouseEnter : undefined}
       onMouseLeave={active ? onMouseLeave : undefined}
@@ -345,6 +359,7 @@ export default function PretextHero({
         position: 'relative',
         width: '100%',
         minHeight: boxHeight,
+        ...heroVisibilityStyle,
       }}
     >
       <div className="hero-cycle-layer" aria-hidden>

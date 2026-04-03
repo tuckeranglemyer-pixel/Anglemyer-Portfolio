@@ -194,6 +194,8 @@ interface MainContentProps {
   identityCycleHidesContent?: boolean
   /** Ref to `.pretext-hero` for IdentityCycle fly-to measurement. */
   heroContainerRef?: RefObject<HTMLDivElement | null>
+  /** Keep PretextHero invisible until IdentityCycle migration finishes (layout still measurable). */
+  hideHeroDuringIdentityCycle?: boolean
 }
 
 export default function MainContent({
@@ -204,6 +206,7 @@ export default function MainContent({
   onToggleMode,
   identityCycleHidesContent = false,
   heroContainerRef,
+  hideHeroDuringIdentityCycle = false,
 }: MainContentProps) {
   const isMobile = useIsMobile()
   const chromeVisible = phase === 'main'
@@ -266,6 +269,7 @@ export default function MainContent({
                 isMobile={isMobile}
                 heroLayout="main"
                 heroMeasureRef={heroContainerRef}
+                hiddenDuringIdentityCycle={hideHeroDuringIdentityCycle}
               />
             </div>
           </ScrollReveal>
