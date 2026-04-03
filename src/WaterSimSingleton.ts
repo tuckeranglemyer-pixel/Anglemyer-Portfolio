@@ -6,11 +6,6 @@ const RIPPLE_SIGMA = 10
 const RIPPLE_INTENSITY = 150
 const RIPPLE_RADIUS = 40
 
-/** Catastrophic full-screen wave — not for cursor use. */
-const TSUNAMI_INTENSITY = RIPPLE_INTENSITY * 10
-const TSUNAMI_SIGMA = RIPPLE_SIGMA * 3
-const TSUNAMI_RADIUS = Math.max(30, RIPPLE_RADIUS * 3)
-
 let rippleSystemLogged = false
 function logRippleSystemOnce() {
   if (rippleSystemLogged) return
@@ -96,52 +91,28 @@ export class WaterSim {
     this.pixelData = this.texture.image.data as Uint8Array
   }
 
-  /**
-   * Gaussian bump on the wave grid. Normal ripples use {@link addRipple};
-   * catastrophic hits use {@link tsunamiRipple}.
-   */
-  private addRippleGaussian(
-    screenX: number,
-    screenY: number,
-    intensity: number,
-    sigma: number,
-    radiusCells: number,
-  ) {
+  addRipple(screenX: number, screenY: number, strengthScale = 1) {
+    logRippleSystemOnce()
     const { w, h } = this.dim
     const curr = this.curr
     const { gx, gy } = screenToGrid(screenX, screenY, w, h)
-    const r2Max = radiusCells * radiusCells
-    const denom = 2 * sigma * sigma
+    const r2Max = RIPPLE_RADIUS * RIPPLE_RADIUS
 
-    for (let dy = -radiusCells; dy <= radiusCells; dy++) {
-      for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+    for (let dy = -RIPPLE_RADIUS; dy <= RIPPLE_RADIUS; dy++) {
+      for (let dx = -RIPPLE_RADIUS; dx <= RIPPLE_RADIUS; dx++) {
         const d2 = dx * dx + dy * dy
         if (d2 > r2Max) continue
         const nx = gx + dx
         const ny = gy + dy
         if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue
-        const bump = intensity * Math.exp(-d2 / denom)
+        const bump =
+          strengthScale *
+          RIPPLE_INTENSITY *
+          Math.exp(-d2 / (2 * RIPPLE_SIGMA * RIPPLE_SIGMA))
         const idx = ny * w + nx
         curr[idx] += bump
       }
     }
-  }
-
-  addRipple(screenX: number, screenY: number, strengthScale = 1) {
-    logRippleSystemOnce()
-    this.addRippleGaussian(
-      screenX,
-      screenY,
-      strengthScale * RIPPLE_INTENSITY,
-      RIPPLE_SIGMA,
-      RIPPLE_RADIUS,
-    )
-  }
-
-  /** Identity-cycle / hero moment: huge area, no subtlety. */
-  tsunamiRipple(screenX: number, screenY: number) {
-    logRippleSystemOnce()
-    this.addRippleGaussian(screenX, screenY, TSUNAMI_INTENSITY, TSUNAMI_SIGMA, TSUNAMI_RADIUS)
   }
 
   update() {

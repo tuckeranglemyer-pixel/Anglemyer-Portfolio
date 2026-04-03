@@ -15,7 +15,6 @@ import {
 	WaterDisplacementEffect,
 	DEFAULT_WATER_DISPLACEMENT_SCALE,
 } from './WaterDisplacementEffect'
-import { triggerTsunamiDisplacementBoost, getTsunamiDisplacementScale } from './tsunamiDisplacement'
 import InkDropOverlay from './InkDropOverlay'
 import CustomCursor from './CustomCursor'
 import AmbientPad from './AmbientPad'
@@ -236,7 +235,6 @@ function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 		if (effect.displacementMap !== tex) {
 			effect.displacementMap = tex
 		}
-		effect.scale = getTsunamiDisplacementScale()
 		if (enabled) waterSim.update()
 	})
 
@@ -412,21 +410,15 @@ export default function App() {
   const showPicker = phase === 'main' && !hasChosen && !pickerDismissed
 
   const [identityCycleOpen, setIdentityCycleOpen] = useState(false)
-  const [screenShake, setScreenShake] = useState(false)
   const heroContainerRef = useRef<HTMLDivElement | null>(null)
 
   const handleIdentityCycleComplete = useCallback(() => {
     setIdentityCycleOpen(false)
     const cx = window.innerWidth / 2
     const cy = window.innerHeight / 2
-    triggerTsunamiDisplacementBoost()
-    setScreenShake(true)
-    window.setTimeout(() => setScreenShake(false), 600)
-    waterSim.tsunamiRipple(cx, cy)
-    window.setTimeout(() => waterSim.tsunamiRipple(cx, cy), 200)
-    window.setTimeout(() => waterSim.tsunamiRipple(cx, cy), 400)
-    window.setTimeout(() => waterSim.tsunamiRipple(cx, cy), 600)
-    window.setTimeout(() => waterSim.tsunamiRipple(cx, cy), 800)
+    waterSim.addRipple(cx, cy, 150.0)
+    setTimeout(() => waterSim.addRipple(cx, cy, 80.0), 300)
+    setTimeout(() => waterSim.addRipple(cx, cy, 40.0), 600)
     try { sessionStorage.setItem('hasSeenCycle', 'true') } catch { /* ignore */ }
   }, [])
 
@@ -505,9 +497,7 @@ export default function App() {
   }
 
   return (
-    <div
-      className={`app-root${screenShake ? ' app-screen-shake' : ''}`}
-    >
+    <>
       <FullscreenGradientCanvas
         mode={mode}
         heroVisible={phase === 'main'}
@@ -588,6 +578,6 @@ export default function App() {
       <CustomCursor accent={accent} />
 
       {phase === 'main' && <AmbientPad />}
-    </div>
+    </>
   )
 }
