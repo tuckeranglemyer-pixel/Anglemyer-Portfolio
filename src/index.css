@@ -180,8 +180,8 @@ label[for],
 .hero-cycle-h1--cre {
   font-family: "Pilowlava", cursive;
   font-weight: 400;
-  /* ~85% of prior creative scale — matches canvas PretextHero */
-  font-size: clamp(5.1rem, 22.1vw, 18.7rem);
+  /* Single-line ANGLEMYER; tweak 12vw ±1–2vw if needed */
+  font-size: clamp(3.5rem, 12vw, 9rem);
   letter-spacing: 0.03em;
   text-transform: none;
 }
@@ -213,7 +213,7 @@ label[for],
 .pretext-hero-fallback--cre {
   font-family: "Pilowlava", cursive;
   font-weight: 400;
-  font-size: clamp(5.1rem, 22.1vw, 18.7rem);
+  font-size: clamp(3.5rem, 12vw, 9rem);
   letter-spacing: 0.03em;
   line-height: 0.85;
   text-transform: none;
