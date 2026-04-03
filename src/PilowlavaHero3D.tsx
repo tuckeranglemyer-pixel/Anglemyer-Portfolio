@@ -71,10 +71,14 @@ export default function PilowlavaHero3D() {
     () =>
       new THREE.MeshStandardMaterial({
         color: '#ffffff',
-        metalness: 0.1,
-        roughness: 0.3,
+        metalness: 0.6,
+        roughness: 0.1,
         emissive: '#38bdf8',
-        emissiveIntensity: 0.05,
+        emissiveIntensity: 0.4,
+        opacity: 1,
+        transparent: false,
+        depthWrite: true,
+        depthTest: true,
       }),
     [],
   )
@@ -219,8 +223,9 @@ export default function PilowlavaHero3D() {
   return (
     <>
       <ambientLight intensity={0.5} />
-      <directionalLight position={[5, 5, 5]} intensity={1} />
-      <group ref={groupRef} position={[0, 0, 0.1]} renderOrder={1}>
+      <directionalLight position={[5, 5, 5]} intensity={3} />
+      <directionalLight position={[-3, -2, 4]} intensity={1.5} />
+      <group ref={groupRef} position={[0, 0, 1]} renderOrder={1}>
         {geoms.map((geom, i) => (
           <mesh
             key={LETTER_OBJECT_NAMES[i]}
