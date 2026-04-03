@@ -278,3 +278,37 @@ label[for],
   transform: translateY(-2px);
   border-bottom-color: rgba(255, 255, 255, 0.22);
 }
+
+/* Identity-cycle tsunami: whole-app wrapper + screen shake */
+.app-root {
+  min-height: 100%;
+  width: 100%;
+}
+
+@keyframes screenShake {
+  0% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-4px, 3px);
+  }
+  20% {
+    transform: translate(3px, -4px);
+  }
+  30% {
+    transform: translate(-3px, 2px);
+  }
+  40% {
+    transform: translate(2px, -2px);
+  }
+  50% {
+    transform: translate(-1px, 1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.app-screen-shake {
+  animation: screenShake 600ms ease-out forwards;
+}
