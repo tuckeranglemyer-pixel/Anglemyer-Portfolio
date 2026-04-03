@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type Ref,
+} from 'react'
 import {
   layout,
   prepareWithSegments,
@@ -63,11 +71,23 @@ type LinesResult = ReturnType<typeof layoutWithLines>
 
 export type HeroLayoutMode = 'main' | 'text-reveal'
 
+function mergeRefs<T>(...refs: (Ref<T> | undefined)[]): Ref<T> {
+  return (value: T | null) => {
+    for (const ref of refs) {
+      if (!ref) continue
+      if (typeof ref === 'function') ref(value)
+      else (ref as MutableRefObject<T | null>).current = value
+    }
+  }
+}
+
 interface PretextHeroProps {
   mode: HeroMode
   active: boolean
   isMobile: boolean
   heroLayout?: HeroLayoutMode
+  /** Optional ref to the `.pretext-hero` root (e.g. IdentityCycle fly-to target). */
+  heroMeasureRef?: Ref<HTMLDivElement>
 }
 
 /**
@@ -81,6 +101,7 @@ export default function PretextHero({
   active,
   isMobile: _isMobile,
   heroLayout = 'main',
+  heroMeasureRef,
 }: PretextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const proCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -295,7 +316,7 @@ export default function PretextHero({
   if (useFallback) {
     const isProFb = mode === 'pro'
     const inner = (
-      <div className="pretext-hero">
+      <div ref={mergeRefs(containerRef, heroMeasureRef)} className="pretext-hero">
         <h1
           className={isProFb ? 'pretext-hero-fallback--pro' : 'pretext-hero-fallback--cre'}
         >
@@ -315,7 +336,7 @@ export default function PretextHero({
 
   const heroInner = (
     <div
-      ref={containerRef}
+      ref={mergeRefs(containerRef, heroMeasureRef)}
       className="pretext-hero"
       onMouseMove={active ? onMouseMove : undefined}
       onMouseEnter={active ? onMouseEnter : undefined}

@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import {
+  useState,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import PretextHero from './PretextHero'
 
 export type Mode = 'pro' | 'creative'
@@ -185,6 +192,8 @@ interface MainContentProps {
   onToggleMode: () => void
   /** Full-viewport identity cycle: hide entire main chrome while running. */
   identityCycleHidesContent?: boolean
+  /** Ref to `.pretext-hero` for IdentityCycle fly-to measurement. */
+  heroContainerRef?: RefObject<HTMLDivElement | null>
 }
 
 export default function MainContent({
@@ -194,6 +203,7 @@ export default function MainContent({
   accent,
   onToggleMode,
   identityCycleHidesContent = false,
+  heroContainerRef,
 }: MainContentProps) {
   const isMobile = useIsMobile()
   const chromeVisible = phase === 'main'
@@ -218,7 +228,7 @@ export default function MainContent({
       style={{
         opacity: mainOpacity,
         pointerEvents: mainPointer,
-        transition: 'opacity 0.4s ease',
+        transition: 'opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       <div
@@ -250,7 +260,13 @@ export default function MainContent({
                 position: 'relative',
               }}
             >
-              <PretextHero mode={mode} active={active} isMobile={isMobile} heroLayout="main" />
+              <PretextHero
+                mode={mode}
+                active={active}
+                isMobile={isMobile}
+                heroLayout="main"
+                heroMeasureRef={heroContainerRef}
+              />
             </div>
           </ScrollReveal>
 

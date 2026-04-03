@@ -411,6 +411,7 @@ export default function App() {
 
   const [identityCycleOpen, setIdentityCycleOpen] = useState(false)
   const [identityCycleRevealMain, setIdentityCycleRevealMain] = useState(false)
+  const heroContainerRef = useRef<HTMLDivElement | null>(null)
 
   const onIdentityCrossfadeStart = useCallback(() => {
     setIdentityCycleRevealMain(true)
@@ -541,12 +542,14 @@ export default function App() {
           accent={accent}
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
           identityCycleHidesContent={identityCycleOpen && !identityCycleRevealMain}
+          heroContainerRef={heroContainerRef}
         />
       </div>
 
       {identityCycleOpen && (
         <IdentityCycle
           active
+          heroContainerRef={heroContainerRef}
           onCrossfadeStart={onIdentityCrossfadeStart}
           onComplete={onIdentityCycleComplete}
         />
