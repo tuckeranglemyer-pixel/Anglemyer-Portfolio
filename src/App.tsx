@@ -441,7 +441,10 @@ export default function App() {
   const webGLTextVisible = false
   const waterPostEnabled = true
 
-  const handleInkDropImpact = useCallback(() => {}, [])
+  const handleInkDropImpact = useCallback(() => {
+    waterSim.addRipple(window.innerWidth / 2, window.innerHeight / 2, 100.0)
+    setTimeout(() => waterSim.addRipple(window.innerWidth / 2, window.innerHeight / 2, 60.0), 250)
+  }, [])
 
   const handleInkDropComplete = useCallback(() => {
     setPhase('main')
