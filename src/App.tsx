@@ -442,8 +442,8 @@ export default function App() {
   const waterPostEnabled = true
 
   const handleInkDropImpact = useCallback(() => {
-    waterSim.addRipple(window.innerWidth / 2, window.innerHeight / 2, 100.0)
-    setTimeout(() => waterSim.addRipple(window.innerWidth / 2, window.innerHeight / 2, 60.0), 250)
+    waterSim.addRipple(window.innerWidth / 2, window.innerHeight / 2, 200.0)
+    setTimeout(() => waterSim.addRipple(window.innerWidth / 2, window.innerHeight / 2, 120.0), 250)
   }, [])
 
   const handleInkDropComplete = useCallback(() => {
@@ -451,9 +451,9 @@ export default function App() {
     try { localStorage.setItem('hasSeenAnimation', 'true') } catch {}
     const cx = window.innerWidth / 2
     const cy = window.innerHeight / 2
-    setTimeout(() => waterSim.addRipple(cx, cy, 100.0), 0)
-    setTimeout(() => waterSim.addRipple(cx, cy, 60.0), 250)
-    setTimeout(() => waterSim.addRipple(cx, cy, 30.0), 500)
+    setTimeout(() => waterSim.addRipple(cx, cy, 150.0), 0)
+    setTimeout(() => waterSim.addRipple(cx, cy, 80.0), 250)
+    setTimeout(() => waterSim.addRipple(cx, cy, 40.0), 500)
   }, [])
 
   const handleColorSelect = async (color: string) => {

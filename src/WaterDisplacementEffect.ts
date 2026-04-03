@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { Effect, BlendFunction } from 'postprocessing'
 
-export const DEFAULT_WATER_DISPLACEMENT_SCALE = 0.012
+export const DEFAULT_WATER_DISPLACEMENT_SCALE = 0.036
 
 const fragmentShader = /* glsl */ `
 uniform sampler2D displacementMap;
