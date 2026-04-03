@@ -67,18 +67,17 @@ export default function PilowlavaHero3D() {
   const tmpWorld = useRef(new THREE.Vector3())
   const tmpDir = useRef(new THREE.Vector3())
 
+  /** DEBUG: loud red + DoubleSide — revert after visibility check */
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#ffffff',
-        metalness: 0.6,
-        roughness: 0.1,
-        emissive: '#38bdf8',
-        emissiveIntensity: 0.4,
-        opacity: 1,
+        color: '#ff0000',
+        emissive: '#ff0000',
+        emissiveIntensity: 2.0,
+        metalness: 0,
+        roughness: 1,
         transparent: false,
-        depthWrite: true,
-        depthTest: true,
+        side: THREE.DoubleSide,
       }),
     [],
   )
@@ -139,6 +138,7 @@ export default function PilowlavaHero3D() {
         pushRef.current = pushes
         geometriesRef.current = geoms
         meshRefs.current = new Array(geoms.length).fill(null)
+        console.log('[Pilowlava3D] loaded letters:', geoms.length, 'group z:', 1.0)
         if (!cancelled) setReady(true)
       },
       undefined,
