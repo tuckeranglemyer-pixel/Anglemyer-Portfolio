@@ -10,7 +10,7 @@ import BioParagraphPlane from './BioParagraphPlane'
 import ProjectsPlane from './ProjectsPlane'
 import SocialLinksPlane from './SocialLinksPlane'
 import WebGLInteractionProvider from './WebGLInteractionProvider'
-import { useWaterSim } from './useWaterSim'
+import { waterSim } from './WaterSimSingleton'
 import {
 	WaterDisplacementEffect,
 	DEFAULT_WATER_DISPLACEMENT_SCALE,
@@ -205,44 +205,18 @@ function ColorPicker({
   )
 }
 
-// ─── Water displacement post-FX (phase-gated; mobile may revisit with touch check) ─────────
+// ─── Water displacement post-FX (singleton sim; update gated by enabled) ─────────
 function WaterSimPostFx({ enabled }: { enabled: boolean }) {
-	const { displacementMap, update, addRipple } = useWaterSim()
-
-	useEffect(() => {
-		console.log('[WaterSimPostFx] mounted')
-		return () => {
-			console.log('[WaterSimPostFx] UNMOUNTED — THIS IS THE BUG')
-		}
-	}, [])
-
-	useEffect(() => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		;(window as any).__addRipple = addRipple
-		return () => {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			delete (window as any).__addRipple
-		}
-	}, [addRipple])
-
-	// One Effect instance for the lifetime of this node. Recreating it whenever
-	// `displacementMap` changes (e.g. resize when the scrollbar appears at main phase)
-	// called `dispose()` while @react-three/postprocessing's EffectComposer was still
-	// wired to old EffectPass instances — the pass chain broke permanently.
-	// Texture swaps are handled via the effect's displacementMap setter.
+	// One Effect instance; `waterSim` may replace its DataTexture on resize — sync uniform in useFrame.
 	const effect = useMemo(
 		() =>
 			new WaterDisplacementEffect({
-				displacementMap,
+				displacementMap: waterSim.getTexture(),
 				scale: DEFAULT_WATER_DISPLACEMENT_SCALE,
 			}),
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single instance; map synced below
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single instance; map synced in useFrame
 		[],
 	)
-
-	useEffect(() => {
-		effect.displacementMap = displacementMap
-	}, [effect, displacementMap])
 
 	useEffect(() => {
 		return () => {
@@ -250,19 +224,19 @@ function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 		}
 	}, [effect])
 
-	// Stabilize React `children` for EffectComposer: its useLayoutEffect depends on
-	// `children`; a new <primitive /> element every parent re-run tore down/rebuilt
-	// all passes (see node_modules/@react-three/postprocessing/src/EffectComposer.tsx).
 	const composerChild = useMemo(
 		() => <primitive object={effect} dispose={null} />,
 		[effect],
 	)
 
 	useFrame(() => {
-		if (enabled) update()
+		const tex = waterSim.getTexture()
+		if (effect.displacementMap !== tex) {
+			effect.displacementMap = tex
+		}
+		if (enabled) waterSim.update()
 	})
 
-	if (!enabled) return null
 	return <EffectComposer>{composerChild}</EffectComposer>
 }
 
@@ -473,14 +447,11 @@ export default function App() {
     try { localStorage.setItem('hasSeenAnimation', 'true') } catch {}
     setPhase('main')
     setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const add = (window as any).__addRipple
-      if (!add) return
       const cx = window.innerWidth / 2
       const cy = window.innerHeight / 2
-      add(cx, cy, 5.0)
-      setTimeout(() => add(cx, cy, 3.0), 300)
-      setTimeout(() => add(cx, cy, 1.5), 600)
+      waterSim.addRipple(cx, cy, 5.0)
+      setTimeout(() => waterSim.addRipple(cx, cy, 3.0), 300)
+      setTimeout(() => waterSim.addRipple(cx, cy, 1.5), 600)
     }, 1000)
   }, [])
 

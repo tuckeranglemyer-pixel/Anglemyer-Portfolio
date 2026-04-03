@@ -15,7 +15,7 @@ const FIRST_DROP_DELAY = 0.45
 const FALL_DURATION_SEC = 1.8
 /** After impact, wait before onComplete (water settle) */
 const SETTLE_SEC = 1.5
-/** addRipple strengthScale: ~3–5× cursor bump (RIPPLE_INTENSITY=5 in useWaterSim) */
+/** addRipple strengthScale: ~3–5× cursor bump (RIPPLE_INTENSITY=5 in WaterSimSingleton) */
 const IMPACT_RIPPLE_STRENGTH = 4
 const RIPPLE_PULSE_DELAYS_SEC = [0, 0.3, 0.6]
 
