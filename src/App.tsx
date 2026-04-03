@@ -51,7 +51,7 @@ function GrainOverlay() {
       style={{
         position:      'fixed',
         inset:         0,
-        zIndex:        100,
+        zIndex:        90,
         pointerEvents: 'none',
         opacity:       0.03,
         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)'/%3E%3C/svg%3E")`,
@@ -410,15 +410,16 @@ export default function App() {
   const showPicker = phase === 'main' && !hasChosen && !pickerDismissed
 
   const [identityCycleOpen, setIdentityCycleOpen] = useState(false)
-  const [heroSuppressedForIdentityCycle, setHeroSuppressedForIdentityCycle] = useState(false)
+  const [identityCycleRevealMain, setIdentityCycleRevealMain] = useState(false)
 
   const onIdentityCrossfadeStart = useCallback(() => {
-    setHeroSuppressedForIdentityCycle(false)
+    setIdentityCycleRevealMain(true)
   }, [])
 
   const onIdentityCycleComplete = useCallback(() => {
     try { sessionStorage.setItem('hasSeenCycle', 'true') } catch { /* ignore */ }
     setIdentityCycleOpen(false)
+    setIdentityCycleRevealMain(false)
   }, [])
 
   useEffect(() => {
@@ -428,11 +429,7 @@ export default function App() {
       return
     }
     if (phase !== 'main') return
-    const t = window.setTimeout(() => {
-      setIdentityCycleOpen(true)
-      setHeroSuppressedForIdentityCycle(true)
-    }, 1000)
-    return () => clearTimeout(t)
+    setIdentityCycleOpen(true)
   }, [phase])
 
   useEffect(() => {
@@ -543,18 +540,17 @@ export default function App() {
           active={phase === 'main'}
           accent={accent}
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
-          identityCycleOverlay={
-            identityCycleOpen ? (
-              <IdentityCycle
-                active
-                onCrossfadeStart={onIdentityCrossfadeStart}
-                onComplete={onIdentityCycleComplete}
-              />
-            ) : null
-          }
-          heroSuppressedForIdentityCycle={heroSuppressedForIdentityCycle}
+          identityCycleHidesContent={identityCycleOpen && !identityCycleRevealMain}
         />
       </div>
+
+      {identityCycleOpen && (
+        <IdentityCycle
+          active
+          onCrossfadeStart={onIdentityCrossfadeStart}
+          onComplete={onIdentityCycleComplete}
+        />
+      )}
 
       {showPicker && <ColorPicker onSelect={handleColorSelect} isMobile={isMobile} />}
 
@@ -564,7 +560,7 @@ export default function App() {
             position:      'fixed',
             top:           '1.5rem',
             left:          '1.5rem',
-            zIndex:        105,
+            zIndex:        50,
             fontFamily:    '"Space Mono", monospace',
             fontSize:      '11px',
             opacity:       1,

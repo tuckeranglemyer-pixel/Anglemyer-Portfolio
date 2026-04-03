@@ -44,21 +44,21 @@ const CYCLE_IMAGES = [
 
 type CycleUrl = (typeof CYCLE_IMAGES)[number]
 
-const FAST_MS = 120
-const FAST_FRAMES = 78
-const SLOW_DELAYS_MS = [200, 300, 400, 500, 700, 1000] as const
-const HOLD_LAST_MS = 600
+const FAST_MS = 80
+const SETTLE_DELAYS_MS = [150, 250, 400, 600, 900] as const
+const HOLD_LAST_MS = 500
+const INTRO_MS = 400
 const CROSSFADE_MS = 400
 
 function randomBgPos(): string {
-  const x = 50 + (Math.random() * 10 - 5)
-  const y = 50 + (Math.random() * 10 - 5)
+  const x = 50 + (Math.random() * 20 - 10)
+  const y = 50 + (Math.random() * 20 - 10)
   return `${x.toFixed(1)}% ${y.toFixed(1)}%`
 }
 
-function pickSixRandomImages(): CycleUrl[] {
+function pickFiveRandomImages(): CycleUrl[] {
   const out: CycleUrl[] = []
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     out.push(CYCLE_IMAGES[Math.floor(Math.random() * CYCLE_IMAGES.length)]!)
   }
   return out
@@ -87,16 +87,15 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
 export type IdentityCycleProps = {
   active: boolean
-  /** Fires once the sequence is fully done (after crossfade). */
   onComplete: () => void
-  /** Reveal underlying hero at the start of the 400ms crossfade. */
   onCrossfadeStart?: () => void
 }
 
 export default function IdentityCycle({ active, onComplete, onCrossfadeStart }: IdentityCycleProps) {
   const [bgUrl, setBgUrl] = useState<CycleUrl>(CYCLE_IMAGES[0])
   const [bgPos, setBgPos] = useState('50% 50%')
-  const [overlayOpacity, setOverlayOpacity] = useState(1)
+  const [layerOpacity, setLayerOpacity] = useState(1)
+  const [introIn, setIntroIn] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const onCompleteRef = useRef(onComplete)
   const onCrossfadeRef = useRef(onCrossfadeStart)
@@ -115,6 +114,15 @@ export default function IdentityCycle({ active, onComplete, onCrossfadeStart }: 
 
   useEffect(() => {
     if (!active) return
+    setIntroIn(false)
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setIntroIn(true))
+    })
+    return () => cancelAnimationFrame(id)
+  }, [active])
+
+  useEffect(() => {
+    if (!active) return
 
     const ac = new AbortController()
     abortRef.current = ac
@@ -122,23 +130,25 @@ export default function IdentityCycle({ active, onComplete, onCrossfadeStart }: 
 
     ;(async () => {
       try {
-        for (let f = 0; f < FAST_FRAMES; f++) {
-          setBgUrl(CYCLE_IMAGES[f % CYCLE_IMAGES.length]!)
+        await delay(INTRO_MS, signal)
+
+        for (let i = 0; i < CYCLE_IMAGES.length; i++) {
+          setBgUrl(CYCLE_IMAGES[i]!)
           setBgPos(randomBgPos())
-          await delay(FAST_MS, signal)
+          if (i < CYCLE_IMAGES.length - 1) await delay(FAST_MS, signal)
         }
 
-        const finals = pickSixRandomImages()
+        const finals = pickFiveRandomImages()
         for (let i = 0; i < finals.length; i++) {
           setBgUrl(finals[i]!)
           setBgPos(randomBgPos())
-          await delay(SLOW_DELAYS_MS[i]!, signal)
+          await delay(SETTLE_DELAYS_MS[i]!, signal)
         }
 
         await delay(HOLD_LAST_MS, signal)
 
         onCrossfadeRef.current?.()
-        setOverlayOpacity(0)
+        setLayerOpacity(0)
         await delay(CROSSFADE_MS, signal)
         onCompleteRef.current()
       } catch (e) {
@@ -152,30 +162,58 @@ export default function IdentityCycle({ active, onComplete, onCrossfadeStart }: 
     }
   }, [active])
 
+  if (!active) return null
+
   return (
-    <div
-      className="identity-cycle-overlay"
-      aria-hidden
-      style={{
-        opacity: overlayOpacity,
-        transition: `opacity ${CROSSFADE_MS}ms ease`,
-      }}
-    >
-      <div className="pretext-hero identity-cycle-inner">
+    <>
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99,
+          background: 'rgba(0,0,0,0.3)',
+          opacity: introIn ? layerOpacity : 0,
+          transition: `opacity ${CROSSFADE_MS}ms ease`,
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        aria-hidden
+        className="identity-cycle-text-wrap"
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          zIndex: 100,
+          transform: introIn ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.8)',
+          opacity: introIn ? layerOpacity : 0,
+          transition: `transform ${INTRO_MS}ms ease, opacity ${CROSSFADE_MS}ms ease`,
+          pointerEvents: 'none',
+        }}
+      >
         <h1
-          className="hero-cycle-h1 hero-cycle-h1--pro identity-cycle-h1"
+          className="hero-cycle-h1 hero-cycle-h1--pro identity-cycle-h1 identity-cycle-h1--viewport"
           style={{
+            position: 'relative',
+            left: 'auto',
+            top: 'auto',
+            width: 'max-content',
+            maxWidth: '100vw',
+            margin: '0 auto',
             WebkitTextFillColor: 'transparent',
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',
-            backgroundSize: 'cover',
+            backgroundSize: '200%',
             backgroundPosition: bgPos,
             backgroundImage: `url(${bgUrl})`,
+            fontSize: 'clamp(20vw, 25vw, 30vw)',
+            lineHeight: 0.85,
           }}
         >
           ANGLEMYER
         </h1>
       </div>
-    </div>
+    </>
   )
 }

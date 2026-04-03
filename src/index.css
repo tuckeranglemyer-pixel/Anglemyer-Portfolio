@@ -183,21 +183,8 @@ label[for],
   z-index: 1;
 }
 
-/* Supreme-style identity cycle — overlays hero strip; DAY typography = .hero-cycle-h1--pro */
-.identity-cycle-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-  width: 100%;
-}
-
-.identity-cycle-inner {
-  position: relative;
-  width: 100%;
-}
-
-.identity-cycle-overlay .identity-cycle-h1 {
+/* Identity cycle — full viewport; DAY typography = .hero-cycle-h1--pro */
+.identity-cycle-h1--viewport {
   background-color: transparent !important;
   background-repeat: no-repeat !important;
 }

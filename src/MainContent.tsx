@@ -183,10 +183,8 @@ interface MainContentProps {
   active?: boolean
   accent: string
   onToggleMode: () => void
-  /** Supreme-style identity cycle overlay (positioned over hero strip). */
-  identityCycleOverlay?: ReactNode
-  /** Hide PretextHero while cycle runs; reveal during crossfade. */
-  heroSuppressedForIdentityCycle?: boolean
+  /** Full-viewport identity cycle: hide entire main chrome while running. */
+  identityCycleHidesContent?: boolean
 }
 
 export default function MainContent({
@@ -195,8 +193,7 @@ export default function MainContent({
   active = false,
   accent,
   onToggleMode,
-  identityCycleOverlay,
-  heroSuppressedForIdentityCycle = false,
+  identityCycleHidesContent = false,
 }: MainContentProps) {
   const isMobile = useIsMobile()
   const chromeVisible = phase === 'main'
@@ -211,8 +208,19 @@ export default function MainContent({
     '--accent-color': accent,
   }
 
+  const mainOpacity =
+    !chromeVisible ? 0 : identityCycleHidesContent ? 0 : 1
+  const mainPointer =
+    chromeVisible && !identityCycleHidesContent ? 'auto' : 'none'
+
   return (
-    <>
+    <div
+      style={{
+        opacity: mainOpacity,
+        pointerEvents: mainPointer,
+        transition: 'opacity 0.4s ease',
+      }}
+    >
       <div
         style={{
           opacity: chromeVisible ? 1 : 0,
@@ -242,15 +250,7 @@ export default function MainContent({
                 position: 'relative',
               }}
             >
-              <div
-                style={{
-                  opacity: heroSuppressedForIdentityCycle ? 0 : 1,
-                  transition: 'opacity 0.4s ease',
-                }}
-              >
-                <PretextHero mode={mode} active={active} isMobile={isMobile} heroLayout="main" />
-              </div>
-              {identityCycleOverlay}
+              <PretextHero mode={mode} active={active} isMobile={isMobile} heroLayout="main" />
             </div>
           </ScrollReveal>
 
@@ -419,6 +419,6 @@ export default function MainContent({
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
