@@ -128,7 +128,7 @@ export class WaterSim {
 
     if (Number.isFinite(lx) && Number.isFinite(ly)) {
       if (Math.hypot(mx - lx, my - ly) > 2) {
-        this.addRipple(mx, my, 0.3)
+        this.addRipple(mx, my, 0.08)
         this.lastBump = { x: mx, y: my }
       }
     } else {
