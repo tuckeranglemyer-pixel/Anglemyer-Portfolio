@@ -270,6 +270,7 @@ export default function MainContent({
                 heroLayout="main"
                 heroMeasureRef={heroContainerRef}
                 hiddenDuringIdentityCycle={hideHeroDuringIdentityCycle}
+                hideFlatCreativeHero={mode === 'creative'}
               />
             </div>
           </ScrollReveal>

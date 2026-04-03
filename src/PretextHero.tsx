@@ -90,6 +90,8 @@ interface PretextHeroProps {
   heroMeasureRef?: Ref<HTMLDivElement>
   /** Hide visually (opacity 0) while IdentityCycle runs; layout preserved for measurement. */
   hiddenDuringIdentityCycle?: boolean
+  /** Hide 2D canvas hero when 3D Pilowlava (N canvas) is shown. */
+  hideFlatCreativeHero?: boolean
 }
 
 /**
@@ -105,6 +107,7 @@ export default function PretextHero({
   heroLayout = 'main',
   heroMeasureRef,
   hiddenDuringIdentityCycle = false,
+  hideFlatCreativeHero = false,
 }: PretextHeroProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const proCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -316,9 +319,11 @@ export default function PretextHero({
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
+  const hideFlat = hideFlatCreativeHero && mode === 'creative'
   const heroVisibilityStyle = {
-    opacity: hiddenDuringIdentityCycle ? 0 : 1,
+    opacity: hiddenDuringIdentityCycle || hideFlat ? 0 : 1,
     transition: hiddenDuringIdentityCycle ? 'opacity 0s' : 'opacity 0.35s ease',
+    pointerEvents: hideFlat ? 'none' : undefined,
   } as const
 
   if (useFallback) {

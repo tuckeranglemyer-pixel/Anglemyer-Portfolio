@@ -19,6 +19,7 @@ import InkDropOverlay from './InkDropOverlay'
 import CustomCursor from './CustomCursor'
 import AmbientPad from './AmbientPad'
 import IdentityCycle from './IdentityCycle'
+import PilowlavaHero3D from './PilowlavaHero3D'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'main'
@@ -347,6 +348,7 @@ function FullscreenGradientCanvas({
       <color attach="background" args={['#060e1e']} />
       <WebGLInteractionProvider visible={heroVisible}>
         <GradientBackgroundPlane mode={mode} />
+        {mode === 'creative' && heroVisible && <PilowlavaHero3D />}
         <HeroPlane
           mode={mode}
           visible={showTextPlanes}
