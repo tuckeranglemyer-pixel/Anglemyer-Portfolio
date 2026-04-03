@@ -70,11 +70,11 @@ export default function PilowlavaHero3D() {
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#38bdf8',
-        emissive: '#38bdf8',
-        emissiveIntensity: 1.2,
-        metalness: 0,
-        roughness: 1,
+        color: '#ffffff',
+        emissive: '#ffffff',
+        emissiveIntensity: 0.8,
+        metalness: 0.3,
+        roughness: 0.2,
         side: THREE.DoubleSide,
         wireframe: false,
       }),
