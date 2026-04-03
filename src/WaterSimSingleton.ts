@@ -2,9 +2,9 @@ import * as THREE from 'three'
 
 const DAMP = 0.965
 const C = 0.24
-const RIPPLE_SIGMA = 2.5
-const RIPPLE_INTENSITY = 5
-const RIPPLE_RADIUS = 6
+const RIPPLE_SIGMA = 5
+const RIPPLE_INTENSITY = 50
+const RIPPLE_RADIUS = 20
 
 let rippleSystemLogged = false
 function logRippleSystemOnce() {
