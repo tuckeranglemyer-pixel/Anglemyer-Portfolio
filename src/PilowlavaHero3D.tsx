@@ -67,17 +67,16 @@ export default function PilowlavaHero3D() {
   const tmpWorld = useRef(new THREE.Vector3())
   const tmpDir = useRef(new THREE.Vector3())
 
-  /** DEBUG: loud red + DoubleSide — revert after visibility check */
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#ff0000',
-        emissive: '#ff0000',
-        emissiveIntensity: 2.0,
-        metalness: 0,
-        roughness: 1,
-        transparent: false,
+        color: '#ffffff',
+        emissive: '#ffffff',
+        emissiveIntensity: 0.8,
+        metalness: 0.3,
+        roughness: 0.2,
         side: THREE.DoubleSide,
+        wireframe: false,
       }),
     [],
   )
