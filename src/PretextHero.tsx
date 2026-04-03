@@ -22,7 +22,7 @@ const CRE_TEXT = 'ANGLEMYER'
 
 const LINE_HEIGHT_RATIO = 0.85
 const PRO_LETTER_SPACING_EM = -0.03
-/** NIGHT / creative: Kaushan Script reads large vs Space Mono — match visual weight to DAY */
+/** NIGHT / creative: Pilowlava reads large vs Space Mono — match visual weight to DAY */
 const CRE_FONT_SIZE_SCALE = 0.85
 const CRE_LETTER_SPACING_EM = 0.03
 
@@ -61,7 +61,7 @@ function proSpec(fontPx: number) {
 function creSpec(fontPx: number) {
   return {
     text: CRE_TEXT,
-    font: `400 ${fontPx}px "Kaushan Script", cursive`,
+    font: `400 ${fontPx}px "Pilowlava", cursive`,
     lineHeight: fontPx * LINE_HEIGHT_RATIO,
     letterSpacingEm: CRE_LETTER_SPACING_EM,
   } as const
