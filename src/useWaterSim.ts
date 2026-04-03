@@ -102,8 +102,14 @@ export function useWaterSim(): {
     return () => window.removeEventListener('resize', onResize)
   }, [rebuildBuffers])
 
+  const mousemoveLogCountRef = useRef(0)
+
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
+      if (mousemoveLogCountRef.current < 3) {
+        mousemoveLogCountRef.current += 1
+        console.log('[useWaterSim] mousemove (first 3)', mousemoveLogCountRef.current, e.clientX, e.clientY)
+      }
       mouseRef.current = { x: e.clientX, y: e.clientY }
     }
     window.addEventListener('mousemove', onMove, { passive: true })
@@ -113,6 +119,7 @@ export function useWaterSim(): {
   const addRipple = useCallback((screenX: number, screenY: number, strengthScale = 1) => {
     logRippleSystemOnce()
     const { w, h } = dimRef.current
+    console.log('[useWaterSim] addRipple called', { screenX, screenY, strengthScale, gridW: w, gridH: h })
     const curr = currRef.current
     const { gx, gy } = screenToGrid(screenX, screenY, w, h)
     const r2Max = RIPPLE_RADIUS * RIPPLE_RADIUS

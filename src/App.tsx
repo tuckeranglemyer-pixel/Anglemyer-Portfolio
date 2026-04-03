@@ -210,6 +210,13 @@ function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 	const { displacementMap, update, addRipple } = useWaterSim()
 
 	useEffect(() => {
+		console.log('[WaterSimPostFx] mounted')
+		return () => {
+			console.log('[WaterSimPostFx] UNMOUNTED — THIS IS THE BUG')
+		}
+	}, [])
+
+	useEffect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).__addRipple = addRipple
 		return () => {
@@ -218,14 +225,24 @@ function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 		}
 	}, [addRipple])
 
+	// One Effect instance for the lifetime of this node. Recreating it whenever
+	// `displacementMap` changes (e.g. resize when the scrollbar appears at main phase)
+	// called `dispose()` while @react-three/postprocessing's EffectComposer was still
+	// wired to old EffectPass instances — the pass chain broke permanently.
+	// Texture swaps are handled via the effect's displacementMap setter.
 	const effect = useMemo(
 		() =>
 			new WaterDisplacementEffect({
 				displacementMap,
 				scale: DEFAULT_WATER_DISPLACEMENT_SCALE,
 			}),
-		[displacementMap],
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single instance; map synced below
+		[],
 	)
+
+	useEffect(() => {
+		effect.displacementMap = displacementMap
+	}, [effect, displacementMap])
 
 	useEffect(() => {
 		return () => {
@@ -233,16 +250,20 @@ function WaterSimPostFx({ enabled }: { enabled: boolean }) {
 		}
 	}, [effect])
 
+	// Stabilize React `children` for EffectComposer: its useLayoutEffect depends on
+	// `children`; a new <primitive /> element every parent re-run tore down/rebuilt
+	// all passes (see node_modules/@react-three/postprocessing/src/EffectComposer.tsx).
+	const composerChild = useMemo(
+		() => <primitive object={effect} dispose={null} />,
+		[effect],
+	)
+
 	useFrame(() => {
 		if (enabled) update()
 	})
 
 	if (!enabled) return null
-	return (
-		<EffectComposer>
-			<primitive object={effect} dispose={null} />
-		</EffectComposer>
-	)
+	return <EffectComposer>{composerChild}</EffectComposer>
 }
 
 // ─── R3F: fullscreen orthographic plane + custom gradient shader ─────────────
@@ -321,6 +342,17 @@ function FullscreenGradientCanvas({
   planeOpacity: number
   webGLTextVisible: boolean
 }) {
+  const renderCountRef = useRef(0)
+  renderCountRef.current += 1
+  console.log('[FullscreenGradientCanvas] render #', renderCountRef.current)
+
+  useEffect(() => {
+    console.log('[Canvas] mounted')
+    return () => {
+      console.log('[Canvas] unmounted')
+    }
+  }, [])
+
   const showTextPlanes = planesVisible && webGLTextVisible
   return (
     <Canvas
