@@ -18,6 +18,7 @@ import {
 import InkDropOverlay from './InkDropOverlay'
 import CustomCursor from './CustomCursor'
 import AmbientPad from './AmbientPad'
+import IdentityCycle from './IdentityCycle'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 type Phase = 'entry' | 'main'
@@ -408,6 +409,32 @@ export default function App() {
   const [pickerDismissed, setPickerDismissed] = useState(false)
   const showPicker = phase === 'main' && !hasChosen && !pickerDismissed
 
+  const [identityCycleOpen, setIdentityCycleOpen] = useState(false)
+  const [heroSuppressedForIdentityCycle, setHeroSuppressedForIdentityCycle] = useState(false)
+
+  const onIdentityCrossfadeStart = useCallback(() => {
+    setHeroSuppressedForIdentityCycle(false)
+  }, [])
+
+  const onIdentityCycleComplete = useCallback(() => {
+    try { sessionStorage.setItem('hasSeenCycle', 'true') } catch { /* ignore */ }
+    setIdentityCycleOpen(false)
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('hasSeenCycle') === 'true') return
+    } catch {
+      return
+    }
+    if (phase !== 'main') return
+    const t = window.setTimeout(() => {
+      setIdentityCycleOpen(true)
+      setHeroSuppressedForIdentityCycle(true)
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [phase])
+
   useEffect(() => {
     if (visitorsReady) return
 
@@ -516,6 +543,16 @@ export default function App() {
           active={phase === 'main'}
           accent={accent}
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
+          identityCycleOverlay={
+            identityCycleOpen ? (
+              <IdentityCycle
+                active
+                onCrossfadeStart={onIdentityCrossfadeStart}
+                onComplete={onIdentityCycleComplete}
+              />
+            ) : null
+          }
+          heroSuppressedForIdentityCycle={heroSuppressedForIdentityCycle}
         />
       </div>
 

@@ -183,6 +183,10 @@ interface MainContentProps {
   active?: boolean
   accent: string
   onToggleMode: () => void
+  /** Supreme-style identity cycle overlay (positioned over hero strip). */
+  identityCycleOverlay?: ReactNode
+  /** Hide PretextHero while cycle runs; reveal during crossfade. */
+  heroSuppressedForIdentityCycle?: boolean
 }
 
 export default function MainContent({
@@ -191,6 +195,8 @@ export default function MainContent({
   active = false,
   accent,
   onToggleMode,
+  identityCycleOverlay,
+  heroSuppressedForIdentityCycle = false,
 }: MainContentProps) {
   const isMobile = useIsMobile()
   const chromeVisible = phase === 'main'
@@ -233,9 +239,18 @@ export default function MainContent({
               className="pretext-hero-strip"
               style={{
                 paddingLeft: hPad,
+                position: 'relative',
               }}
             >
-              <PretextHero mode={mode} active={active} isMobile={isMobile} heroLayout="main" />
+              <div
+                style={{
+                  opacity: heroSuppressedForIdentityCycle ? 0 : 1,
+                  transition: 'opacity 0.4s ease',
+                }}
+              >
+                <PretextHero mode={mode} active={active} isMobile={isMobile} heroLayout="main" />
+              </div>
+              {identityCycleOverlay}
             </div>
           </ScrollReveal>
 
