@@ -448,9 +448,9 @@ export default function App() {
     try { localStorage.setItem('hasSeenAnimation', 'true') } catch {}
     const cx = window.innerWidth / 2
     const cy = window.innerHeight / 2
-    setTimeout(() => waterSim.addRipple(cx, cy, 5.0), 1000)
-    setTimeout(() => waterSim.addRipple(cx, cy, 3.0), 1300)
-    setTimeout(() => waterSim.addRipple(cx, cy, 1.5), 1600)
+    setTimeout(() => waterSim.addRipple(cx, cy, 20.0), 200)
+    setTimeout(() => waterSim.addRipple(cx, cy, 12.0), 500)
+    setTimeout(() => waterSim.addRipple(cx, cy, 6.0), 800)
   }, [])
 
   const handleColorSelect = async (color: string) => {
