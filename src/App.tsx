@@ -410,17 +410,16 @@ export default function App() {
   const showPicker = phase === 'main' && !hasChosen && !pickerDismissed
 
   const [identityCycleOpen, setIdentityCycleOpen] = useState(false)
-  const [identityCycleRevealMain, setIdentityCycleRevealMain] = useState(false)
   const heroContainerRef = useRef<HTMLDivElement | null>(null)
 
-  const onIdentityCrossfadeStart = useCallback(() => {
-    setIdentityCycleRevealMain(true)
-  }, [])
-
-  const onIdentityCycleComplete = useCallback(() => {
-    try { sessionStorage.setItem('hasSeenCycle', 'true') } catch { /* ignore */ }
+  const handleIdentityCycleComplete = useCallback(() => {
     setIdentityCycleOpen(false)
-    setIdentityCycleRevealMain(false)
+    const cx = window.innerWidth / 2
+    const cy = window.innerHeight / 2
+    waterSim.addRipple(cx, cy, 150.0)
+    setTimeout(() => waterSim.addRipple(cx, cy, 80.0), 300)
+    setTimeout(() => waterSim.addRipple(cx, cy, 40.0), 600)
+    try { sessionStorage.setItem('hasSeenCycle', 'true') } catch { /* ignore */ }
   }, [])
 
   useEffect(() => {
@@ -541,19 +540,14 @@ export default function App() {
           active={phase === 'main'}
           accent={accent}
           onToggleMode={() => setMode(m => (m === 'pro' ? 'creative' : 'pro'))}
-          identityCycleHidesContent={identityCycleOpen && !identityCycleRevealMain}
+          identityCycleHidesContent={identityCycleOpen}
           heroContainerRef={heroContainerRef}
           hideHeroDuringIdentityCycle={identityCycleOpen}
         />
       </div>
 
       {identityCycleOpen && (
-        <IdentityCycle
-          active
-          heroContainerRef={heroContainerRef}
-          onCrossfadeStart={onIdentityCrossfadeStart}
-          onComplete={onIdentityCycleComplete}
-        />
+        <IdentityCycle active onComplete={handleIdentityCycleComplete} />
       )}
 
       {showPicker && <ColorPicker onSelect={handleColorSelect} isMobile={isMobile} />}

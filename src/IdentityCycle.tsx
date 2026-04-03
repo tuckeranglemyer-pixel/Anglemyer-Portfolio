@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useLayoutEffect,
-  type RefObject,
-} from 'react'
+import { useEffect, useRef, useState, useLayoutEffect } from 'react'
 
 const CYCLE_IMAGES = [
   '/textures/cycle/01.jpg',
@@ -55,37 +49,12 @@ const N = LETTERS.length
 
 const FAST_MS = 80
 const LETTER_STAGGER_MS = 30
-/** Same total fast phase as 39 steps with 38×80ms gaps. */
 const FAST_PHASE_MS = (CYCLE_IMAGES.length - 1) * FAST_MS
 const SETTLE_DELAYS_MS = [150, 250, 400, 600, 900] as const
 const HOLD_LAST_MS = 500
 const INTRO_MS = 400
-const FLY_MS = 800
-const FLY_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)'
+const EXIT_MS = 400
 const SWAP_PROB = 0.7
-
-function rootRemPx(): number {
-  if (typeof document === 'undefined') return 16
-  const fs = getComputedStyle(document.documentElement).fontSize
-  return parseFloat(fs) || 16
-}
-
-function clampHeroFontPx(minRem: number, vwPercent: number, maxRem: number): number {
-  if (typeof window === 'undefined') {
-    return minRem * rootRemPx()
-  }
-  const root = rootRemPx()
-  const minPx = minRem * root
-  const maxPx = maxRem * root
-  const preferred = (vwPercent / 100) * window.innerWidth
-  return Math.min(maxPx, Math.max(minPx, preferred))
-}
-
-const CRE_FONT_SIZE_SCALE = 0.85
-
-function creHeroFontPx(): number {
-  return clampHeroFontPx(6, 26, 22) * CRE_FONT_SIZE_SCALE
-}
 
 function randomBgPos(): string {
   const x = 50 + (Math.random() * 20 - 10)
@@ -133,26 +102,9 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-/** Migration: fixed center + translate + scale → hero rect (font size via uniform scale). */
-type FlySnap = {
-  sx: number
-  sy: number
-  dx: number
-  dy: number
-  scale: number
-  startFontPx: number
-  targetFontPx: number
-  clipOp: number
-  solidOp: number
-  scrimOp: number
-  transitioning: boolean
-}
-
 export type IdentityCycleProps = {
   active: boolean
   onComplete: () => void
-  onCrossfadeStart?: () => void
-  heroContainerRef: RefObject<HTMLDivElement | null>
 }
 
 function useLetterRotations(): number[] {
@@ -162,38 +114,20 @@ function useLetterRotations(): number[] {
   return rotationsDeg
 }
 
-function resolveHeroTargetEl(
-  heroContainerRef: RefObject<HTMLDivElement | null>,
-): HTMLElement | null {
-  if (typeof document === 'undefined') return heroContainerRef.current
-  const byAttr = document.querySelector('[data-hero-target]')
-  if (byAttr instanceof HTMLElement) return byAttr
-  return heroContainerRef.current
-}
-
-export default function IdentityCycle({
-  active,
-  onComplete,
-  onCrossfadeStart,
-  heroContainerRef,
-}: IdentityCycleProps) {
+export default function IdentityCycle({ active, onComplete }: IdentityCycleProps) {
   const [letters, setLetters] = useState(() => initialLetters())
   const rotationsDeg = useLetterRotations()
 
   const layerOpacity = 1
   const [introIn, setIntroIn] = useState(false)
-  const [phase, setPhase] = useState<'cycle' | 'fly'>('cycle')
-  const [flySnap, setFlySnap] = useState<FlySnap | null>(null)
+  const [exitOut, setExitOut] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const onCompleteRef = useRef(onComplete)
-  const onCrossfadeRef = useRef(onCrossfadeStart)
-  const cycleTextWrapRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     onCompleteRef.current = onComplete
-    onCrossfadeRef.current = onCrossfadeStart
-  }, [onComplete, onCrossfadeStart])
+  }, [onComplete])
 
   useEffect(() => {
     for (const url of CYCLE_IMAGES) {
@@ -205,6 +139,7 @@ export default function IdentityCycle({
   useEffect(() => {
     if (!active) return
     setIntroIn(false)
+    setExitOut(false)
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => setIntroIn(true))
     })
@@ -262,76 +197,16 @@ export default function IdentityCycle({
 
         await delay(HOLD_LAST_MS, signal)
 
-        const targetEl = resolveHeroTargetEl(heroContainerRef)
-        const cycleWrap = cycleTextWrapRef.current
-        const measureEl = cycleWrap?.querySelector('.identity-cycle-letters') ?? cycleWrap
-
-        if (!targetEl || !cycleWrap || !measureEl) {
-          onCrossfadeRef.current?.()
-          onCompleteRef.current()
-          return
-        }
-
-        const targetRect = targetEl.getBoundingClientRect()
-        const startRect = cycleWrap.getBoundingClientRect()
-        const measureComputed = getComputedStyle(measureEl as Element)
-        const startFontPx = parseFloat(measureComputed.fontSize)
-        const targetFontPx = creHeroFontPx()
-
-        const sx = startRect.left + startRect.width / 2
-        const sy = startRect.top + startRect.height / 2
-        const tx = targetRect.left + targetRect.width / 2
-        const ty = targetRect.top + targetRect.height / 2
-        const dx = tx - sx
-        const dy = ty - sy
-        const scale =
-          startFontPx > 0 && Number.isFinite(startFontPx)
-            ? targetFontPx / startFontPx
-            : 1
-
-        onCrossfadeRef.current?.()
-
-        const fromSnap: FlySnap = {
-          sx,
-          sy,
-          dx: 0,
-          dy: 0,
-          scale: 1,
-          startFontPx,
-          targetFontPx,
-          clipOp: 1,
-          solidOp: 0,
-          scrimOp: 1,
-          transitioning: false,
-        }
-
-        const toSnap: FlySnap = {
-          sx,
-          sy,
-          dx,
-          dy,
-          scale,
-          startFontPx,
-          targetFontPx,
-          clipOp: 0,
-          solidOp: 1,
-          scrimOp: 0,
-          transitioning: true,
-        }
-
-        setPhase('fly')
-        setFlySnap(fromSnap)
-
         await new Promise<void>(resolve => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              setFlySnap(toSnap)
+              setExitOut(true)
               resolve()
             })
           })
         })
 
-        await delay(FLY_MS, signal)
+        await delay(EXIT_MS, signal)
         onCompleteRef.current()
       } catch (e) {
         if ((e as Error).name !== 'AbortError') throw e
@@ -342,176 +217,21 @@ export default function IdentityCycle({
       ac.abort()
       abortRef.current = null
     }
-  }, [active, heroContainerRef])
+  }, [active])
 
   const letterMargin = '0 -0.02em'
+  const exitEase = 'ease'
+  const exitTransition = `opacity ${EXIT_MS}ms ${exitEase}, transform ${EXIT_MS}ms ${exitEase}`
 
-  const renderLetterRow = (opts: {
-    variant: 'clip' | 'solid'
-    size: 'cycle' | 'fly'
-    flyFontPx?: number
-    layerOpacity?: number
-    opTransition?: string
-    /** Extra transitions for clip/solid crossfade (fill, background). */
-    letterExtraTransition?: string
-  }) => (
-    <div
-      className="identity-cycle-letters hero-cycle-h1--pro identity-cycle-h1--viewport"
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 'max-content',
-        maxWidth: '100vw',
-        margin: '0 auto',
-        fontSize:
-          opts.size === 'cycle'
-            ? 'clamp(20vw, 25vw, 30vw)'
-            : opts.flyFontPx != null
-              ? `${opts.flyFontPx}px`
-              : 'inherit',
-        lineHeight: 0.85,
-      }}
-    >
-      {LETTERS.map((ch, i) => (
-        <div
-          key={`${opts.variant}-${ch}-${i}`}
-          style={{
-            display: 'inline-block',
-            margin: letterMargin,
-            transform: `rotate(${rotationsDeg[i]}deg)`,
-          }}
-        >
-          {opts.variant === 'clip' ? (
-            <span
-              className="identity-cycle-letter identity-cycle-h1"
-              style={{
-                display: 'inline-block',
-                WebkitTextFillColor: 'transparent',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                backgroundSize: '200%',
-                backgroundPosition: letters.positions[i],
-                backgroundImage: `url(${letters.urls[i]})`,
-                fontSize: 'inherit',
-                lineHeight: 0.85,
-                opacity: opts.layerOpacity ?? 1,
-                transition: [opts.opTransition, opts.letterExtraTransition]
-                  .filter(Boolean)
-                  .join(', '),
-              }}
-            >
-              {ch}
-            </span>
-          ) : (
-            <span
-              className="hero-cycle-h1 hero-cycle-h1--cre"
-              style={{
-                display: 'inline-block',
-                color: 'rgba(255,255,255,0.92)',
-                WebkitTextFillColor: 'rgba(255,255,255,0.92)',
-                fontSize: 'inherit',
-                lineHeight: 0.85,
-                opacity: opts.layerOpacity ?? 1,
-                transition: [opts.opTransition, opts.letterExtraTransition]
-                  .filter(Boolean)
-                  .join(', '),
-              }}
-            >
-              {ch}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  )
+  const scrimOpacity = !introIn ? 0 : exitOut ? 0 : layerOpacity
+  const textOpacity = !introIn ? 0 : exitOut ? 0 : layerOpacity
+  const textTransform = !introIn
+    ? 'translate(-50%, -50%) scale(0.8)'
+    : exitOut
+      ? 'translate(-50%, -50%) scale(1.05)'
+      : 'translate(-50%, -50%) scale(1)'
 
   if (!active) return null
-
-  if (phase === 'fly' && flySnap) {
-    const s = flySnap
-    const transformTransition = s.transitioning ? `transform ${FLY_MS}ms ${FLY_EASE}` : 'none'
-    const opTransition = s.transitioning ? `opacity ${FLY_MS}ms ${FLY_EASE}` : 'none'
-    const fillTransition = s.transitioning
-      ? `-webkit-text-fill-color ${FLY_MS}ms ${FLY_EASE}`
-      : 'none'
-    const bgFadeTransition = s.transitioning
-      ? `opacity ${FLY_MS}ms ${FLY_EASE}, background-size ${FLY_MS}ms ${FLY_EASE}`
-      : 'none'
-
-    const t = s.transitioning
-      ? `translate(-50%, -50%) translate(${s.dx}px, ${s.dy}px) scale(${s.scale})`
-      : 'translate(-50%, -50%)'
-
-    return (
-      <>
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99,
-            background: 'rgba(0,0,0,0.3)',
-            opacity: s.scrimOp,
-            transition: opTransition,
-            pointerEvents: 'none',
-          }}
-        />
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            left: s.sx,
-            top: s.sy,
-            zIndex: 100,
-            transform: t,
-            transformOrigin: 'center center',
-            transition: transformTransition,
-            pointerEvents: 'none',
-            boxSizing: 'border-box',
-            willChange: s.transitioning ? 'transform' : undefined,
-          }}
-        >
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            <div
-              style={{
-                opacity: s.clipOp,
-                transition: opTransition,
-              }}
-            >
-              {renderLetterRow({
-                variant: 'clip',
-                size: 'fly',
-                flyFontPx: s.startFontPx,
-                layerOpacity: 1,
-                opTransition,
-                letterExtraTransition: bgFadeTransition,
-              })}
-            </div>
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                opacity: s.solidOp,
-                transition: opTransition,
-              }}
-            >
-              {renderLetterRow({
-                variant: 'solid',
-                size: 'fly',
-                flyFontPx: s.startFontPx,
-                layerOpacity: 1,
-                opTransition,
-                letterExtraTransition: fillTransition,
-              })}
-            </div>
-          </div>
-        </div>
-      </>
-    )
-  }
 
   return (
     <>
@@ -522,13 +242,14 @@ export default function IdentityCycle({
           inset: 0,
           zIndex: 99,
           background: 'rgba(0,0,0,0.3)',
-          opacity: introIn ? layerOpacity : 0,
-          transition: `opacity ${INTRO_MS}ms ease`,
+          opacity: scrimOpacity,
+          transition: exitOut
+            ? `opacity ${EXIT_MS}ms ${exitEase}`
+            : `opacity ${INTRO_MS}ms ease`,
           pointerEvents: 'none',
         }}
       />
       <div
-        ref={cycleTextWrapRef}
         aria-hidden
         className="identity-cycle-text-wrap"
         style={{
@@ -536,13 +257,56 @@ export default function IdentityCycle({
           top: '50%',
           left: '50%',
           zIndex: 100,
-          transform: introIn ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.8)',
-          opacity: introIn ? layerOpacity : 0,
-          transition: `transform ${INTRO_MS}ms ease, opacity ${INTRO_MS}ms ease`,
+          transform: textTransform,
+          opacity: textOpacity,
+          transition: exitOut
+            ? exitTransition
+            : `transform ${INTRO_MS}ms ease, opacity ${INTRO_MS}ms ease`,
           pointerEvents: 'none',
         }}
       >
-        {renderLetterRow({ variant: 'clip', size: 'cycle' })}
+        <div
+          className="identity-cycle-letters hero-cycle-h1--pro identity-cycle-h1--viewport"
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 'max-content',
+            maxWidth: '100vw',
+            margin: '0 auto',
+            fontSize: 'clamp(20vw, 25vw, 30vw)',
+            lineHeight: 0.85,
+          }}
+        >
+          {LETTERS.map((ch, i) => (
+            <div
+              key={`${ch}-${i}`}
+              style={{
+                display: 'inline-block',
+                margin: letterMargin,
+                transform: `rotate(${rotationsDeg[i]}deg)`,
+              }}
+            >
+              <span
+                className="identity-cycle-letter identity-cycle-h1"
+                style={{
+                  display: 'inline-block',
+                  WebkitTextFillColor: 'transparent',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  backgroundSize: '200%',
+                  backgroundPosition: letters.positions[i],
+                  backgroundImage: `url(${letters.urls[i]})`,
+                  fontSize: 'inherit',
+                  lineHeight: 0.85,
+                }}
+              >
+                {ch}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </>
   )

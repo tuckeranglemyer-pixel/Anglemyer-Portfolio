@@ -86,7 +86,7 @@ interface PretextHeroProps {
   active: boolean
   isMobile: boolean
   heroLayout?: HeroLayoutMode
-  /** Optional ref to the `.pretext-hero` root (e.g. IdentityCycle fly-to target). */
+  /** Optional ref to the `.pretext-hero` root. */
   heroMeasureRef?: Ref<HTMLDivElement>
   /** Hide visually (opacity 0) while IdentityCycle runs; layout preserved for measurement. */
   hiddenDuringIdentityCycle?: boolean

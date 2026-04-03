@@ -192,9 +192,9 @@ interface MainContentProps {
   onToggleMode: () => void
   /** Full-viewport identity cycle: hide entire main chrome while running. */
   identityCycleHidesContent?: boolean
-  /** Ref to `.pretext-hero` for IdentityCycle fly-to measurement. */
+  /** Ref to `.pretext-hero` root (layout / measurement). */
   heroContainerRef?: RefObject<HTMLDivElement | null>
-  /** Keep PretextHero invisible until IdentityCycle migration finishes (layout still measurable). */
+  /** Keep PretextHero invisible until IdentityCycle ends (layout still measurable). */
   hideHeroDuringIdentityCycle?: boolean
 }
 
@@ -231,7 +231,7 @@ export default function MainContent({
       style={{
         opacity: mainOpacity,
         pointerEvents: mainPointer,
-        transition: 'opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'opacity 0.9s ease',
       }}
     >
       <div
