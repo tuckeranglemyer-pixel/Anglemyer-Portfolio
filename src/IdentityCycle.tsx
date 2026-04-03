@@ -50,12 +50,19 @@ const CYCLE_IMAGES = [
 
 type CycleUrl = (typeof CYCLE_IMAGES)[number]
 
+const LETTERS = ['A', 'N', 'G', 'L', 'E', 'M', 'Y', 'E', 'R'] as const
+const N = LETTERS.length
+
 const FAST_MS = 80
+const LETTER_STAGGER_MS = 30
+/** Same total fast phase as 39 steps with 38×80ms gaps. */
+const FAST_PHASE_MS = (CYCLE_IMAGES.length - 1) * FAST_MS
 const SETTLE_DELAYS_MS = [150, 250, 400, 600, 900] as const
 const HOLD_LAST_MS = 500
 const INTRO_MS = 400
 const FLY_MS = 800
 const FLY_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)'
+const SWAP_PROB = 0.7
 
 function rootRemPx(): number {
   if (typeof document === 'undefined') return 16
@@ -76,7 +83,6 @@ function clampHeroFontPx(minRem: number, vwPercent: number, maxRem: number): num
 
 const CRE_FONT_SIZE_SCALE = 0.85
 
-/** Matches PretextHero creSpec / `.hero-cycle-h1--cre` for ANGLEMYER landing size. */
 function creHeroFontPx(): number {
   return clampHeroFontPx(6, 26, 22) * CRE_FONT_SIZE_SCALE
 }
@@ -85,6 +91,17 @@ function randomBgPos(): string {
   const x = 50 + (Math.random() * 20 - 10)
   const y = 50 + (Math.random() * 20 - 10)
   return `${x.toFixed(1)}% ${y.toFixed(1)}%`
+}
+
+function randomImage(): CycleUrl {
+  return CYCLE_IMAGES[Math.floor(Math.random() * CYCLE_IMAGES.length)]!
+}
+
+function initialLetters(): { urls: CycleUrl[]; positions: string[] } {
+  return {
+    urls: Array.from({ length: N }, () => randomImage()),
+    positions: Array.from({ length: N }, () => randomBgPos()),
+  }
 }
 
 function pickFiveRandomImages(): CycleUrl[] {
@@ -134,9 +151,15 @@ const flyBoxTransition = (ms: number) =>
 export type IdentityCycleProps = {
   active: boolean
   onComplete: () => void
-  /** Reveal MainContent / start fly — MainContent fades 0→1 over the same 0.8s. */
   onCrossfadeStart?: () => void
   heroContainerRef: RefObject<HTMLDivElement | null>
+}
+
+function useLetterRotations(): number[] {
+  const [rotationsDeg] = useState(() =>
+    Array.from({ length: N }, () => (Math.random() * 6 - 3)),
+  )
+  return rotationsDeg
 }
 
 export default function IdentityCycle({
@@ -145,8 +168,9 @@ export default function IdentityCycle({
   onCrossfadeStart,
   heroContainerRef,
 }: IdentityCycleProps) {
-  const [bgUrl, setBgUrl] = useState<CycleUrl>(CYCLE_IMAGES[0])
-  const [bgPos, setBgPos] = useState('50% 50%')
+  const [letters, setLetters] = useState(() => initialLetters())
+  const rotationsDeg = useLetterRotations()
+
   const layerOpacity = 1
   const [introIn, setIntroIn] = useState(false)
   const [phase, setPhase] = useState<'cycle' | 'fly'>('cycle')
@@ -185,30 +209,55 @@ export default function IdentityCycle({
     abortRef.current = ac
     const { signal } = ac
 
+    const tickLetter = (index: number) => {
+      setLetters(prev => {
+        const urls = [...prev.urls]
+        const positions = [...prev.positions]
+        if (Math.random() < SWAP_PROB) {
+          urls[index] = randomImage()
+        }
+        positions[index] = randomBgPos()
+        return { ...prev, urls, positions }
+      })
+    }
+
     ;(async () => {
       try {
         await delay(INTRO_MS, signal)
 
-        for (let i = 0; i < CYCLE_IMAGES.length; i++) {
-          setBgUrl(CYCLE_IMAGES[i]!)
-          setBgPos(randomBgPos())
-          if (i < CYCLE_IMAGES.length - 1) await delay(FAST_MS, signal)
+        const letterCleanups: (() => void)[] = []
+        for (let i = 0; i < N; i++) {
+          const startId = window.setTimeout(() => {
+            const intervalId = window.setInterval(() => tickLetter(i), FAST_MS)
+            letterCleanups.push(() => clearInterval(intervalId))
+          }, i * LETTER_STAGGER_MS)
+          letterCleanups.push(() => clearTimeout(startId))
+        }
+
+        try {
+          await delay(FAST_PHASE_MS, signal)
+        } finally {
+          letterCleanups.forEach(c => c())
         }
 
         const finals = pickFiveRandomImages()
-        for (let i = 0; i < finals.length; i++) {
-          setBgUrl(finals[i]!)
-          setBgPos(randomBgPos())
-          await delay(SETTLE_DELAYS_MS[i]!, signal)
+        for (let step = 0; step < finals.length; step++) {
+          const img = finals[step]!
+          setLetters(prev => ({
+            ...prev,
+            urls: Array.from({ length: N }, () => img),
+            positions: Array.from({ length: N }, () => randomBgPos()),
+          }))
+          await delay(SETTLE_DELAYS_MS[step]!, signal)
         }
 
         await delay(HOLD_LAST_MS, signal)
 
         const heroEl = heroContainerRef.current
         const cycleWrap = cycleTextWrapRef.current
-        const h1El = cycleWrap?.querySelector('h1')
+        const measureEl = cycleWrap?.querySelector('.identity-cycle-letters') ?? cycleWrap
 
-        if (!heroEl || !cycleWrap || !h1El) {
+        if (!heroEl || !cycleWrap || !measureEl) {
           onCrossfadeRef.current?.()
           onCompleteRef.current()
           return
@@ -216,7 +265,7 @@ export default function IdentityCycle({
 
         const startRect = cycleWrap.getBoundingClientRect()
         const targetRect = heroEl.getBoundingClientRect()
-        const startFontPx = parseFloat(getComputedStyle(h1El).fontSize)
+        const startFontPx = parseFloat(getComputedStyle(measureEl as Element).fontSize)
         const targetFontPx = creHeroFontPx()
 
         onCrossfadeRef.current?.()
@@ -270,6 +319,78 @@ export default function IdentityCycle({
     }
   }, [active, heroContainerRef])
 
+  const letterMargin = '0 -0.02em'
+
+  const renderLetterRow = (opts: {
+    variant: 'clip' | 'solid'
+    /** Cycle: viewport clamp. Fly: inherit from animated box. */
+    size: 'cycle' | 'fly'
+    layerOpacity?: number
+    opTransition?: string
+  }) => (
+    <div
+      className="identity-cycle-letters hero-cycle-h1--pro identity-cycle-h1--viewport"
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 'max-content',
+        maxWidth: '100vw',
+        margin: '0 auto',
+        fontSize: opts.size === 'cycle' ? 'clamp(20vw, 25vw, 30vw)' : 'inherit',
+        lineHeight: 0.85,
+      }}
+    >
+      {LETTERS.map((ch, i) => (
+        <div
+          key={`${opts.variant}-${ch}-${i}`}
+          style={{
+            display: 'inline-block',
+            margin: letterMargin,
+            transform: `rotate(${rotationsDeg[i]}deg)`,
+          }}
+        >
+          {opts.variant === 'clip' ? (
+            <span
+              className="identity-cycle-letter identity-cycle-h1"
+              style={{
+                display: 'inline-block',
+                WebkitTextFillColor: 'transparent',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                backgroundSize: '200%',
+                backgroundPosition: letters.positions[i],
+                backgroundImage: `url(${letters.urls[i]})`,
+                fontSize: 'inherit',
+                lineHeight: 0.85,
+                opacity: opts.layerOpacity ?? 1,
+                transition: opts.opTransition,
+              }}
+            >
+              {ch}
+            </span>
+          ) : (
+            <span
+              className="hero-cycle-h1 hero-cycle-h1--cre"
+              style={{
+                display: 'inline-block',
+                color: 'rgba(255,255,255,0.92)',
+                WebkitTextFillColor: 'rgba(255,255,255,0.92)',
+                fontSize: 'inherit',
+                lineHeight: 0.85,
+                opacity: opts.layerOpacity ?? 1,
+                transition: opts.opTransition,
+              }}
+            >
+              {ch}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
   if (!active) return null
 
   if (phase === 'fly' && flySnap) {
@@ -313,47 +434,36 @@ export default function IdentityCycle({
               height: '100%',
             }}
           >
-            <h1
-              className="hero-cycle-h1 hero-cycle-h1--cre identity-cycle-h1"
+            <div
               style={{
                 position: 'absolute',
                 left: 0,
                 top: 0,
                 width: '100%',
-                margin: 0,
-                lineHeight: 0.85,
-                WebkitTextFillColor: 'transparent',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                backgroundSize: '200%',
-                backgroundPosition: bgPos,
-                backgroundImage: `url(${bgUrl})`,
-                opacity: s.clipOp,
-                transition: opTransition,
-                fontSize: 'inherit',
               }}
             >
-              ANGLEMYER
-            </h1>
-            <h1
-              className="hero-cycle-h1 hero-cycle-h1--cre"
+              {renderLetterRow({
+                variant: 'clip',
+                size: 'fly',
+                layerOpacity: s.clipOp,
+                opTransition,
+              })}
+            </div>
+            <div
               style={{
                 position: 'absolute',
                 left: 0,
                 top: 0,
                 width: '100%',
-                margin: 0,
-                lineHeight: 0.85,
-                color: 'rgba(255,255,255,0.92)',
-                WebkitTextFillColor: 'rgba(255,255,255,0.92)',
-                opacity: s.solidOp,
-                transition: opTransition,
-                fontSize: 'inherit',
-                pointerEvents: 'none',
               }}
             >
-              ANGLEMYER
-            </h1>
+              {renderLetterRow({
+                variant: 'solid',
+                size: 'fly',
+                layerOpacity: s.solidOp,
+                opTransition,
+              })}
+            </div>
           </div>
         </div>
       </>
@@ -389,27 +499,7 @@ export default function IdentityCycle({
           pointerEvents: 'none',
         }}
       >
-        <h1
-          className="hero-cycle-h1 hero-cycle-h1--pro identity-cycle-h1 identity-cycle-h1--viewport"
-          style={{
-            position: 'relative',
-            left: 'auto',
-            top: 'auto',
-            width: 'max-content',
-            maxWidth: '100vw',
-            margin: '0 auto',
-            WebkitTextFillColor: 'transparent',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            backgroundSize: '200%',
-            backgroundPosition: bgPos,
-            backgroundImage: `url(${bgUrl})`,
-            fontSize: 'clamp(20vw, 25vw, 30vw)',
-            lineHeight: 0.85,
-          }}
-        >
-          ANGLEMYER
-        </h1>
+        {renderLetterRow({ variant: 'clip', size: 'cycle' })}
       </div>
     </>
   )
