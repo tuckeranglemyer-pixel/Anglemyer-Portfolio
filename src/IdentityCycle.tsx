@@ -82,9 +82,10 @@ type CycleUrl = (typeof CYCLE_IMAGES)[number]
 const LETTERS = ['A', 'N', 'G', 'L', 'E', 'M', 'Y', 'E', 'R'] as const
 const N = LETTERS.length
 
-const FAST_MS = 80
+const FAST_MS = 120
 const LETTER_STAGGER_MS = 30
-const FAST_PHASE_MS = (CYCLE_IMAGES.length - 1) * FAST_MS
+const FAST_PHASE_STEPS = 35
+const FAST_PHASE_MS = (FAST_PHASE_STEPS - 1) * FAST_MS
 const SETTLE_DELAYS_MS = [150, 250, 400, 600, 900] as const
 const HOLD_LAST_MS = 500
 const INTRO_MS = 400
@@ -152,6 +153,7 @@ function useLetterRotations(): number[] {
 export default function IdentityCycle({ active, onComplete }: IdentityCycleProps) {
   const [letters, setLetters] = useState(() => initialLetters())
   const rotationsDeg = useLetterRotations()
+  const [imagesReady, setImagesReady] = useState(false)
 
   const layerOpacity = 1
   const [introIn, setIntroIn] = useState(false)
@@ -165,24 +167,45 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
   }, [onComplete])
 
   useEffect(() => {
+    let cancelled = false
+    const total = CYCLE_IMAGES.length
+    let loaded = 0
+    const onOneDone = () => {
+      loaded += 1
+      if (!cancelled && loaded >= total) setImagesReady(true)
+    }
     for (const url of CYCLE_IMAGES) {
       const img = new Image()
+      img.onload = onOneDone
+      img.onerror = onOneDone
       img.src = url
+    }
+    return () => {
+      cancelled = true
     }
   }, [])
 
   useEffect(() => {
-    if (!active) return
+    if (!active) {
+      setIntroIn(false)
+      setExitOut(false)
+      return
+    }
+    if (!imagesReady) {
+      setIntroIn(false)
+      setExitOut(false)
+      return
+    }
     setIntroIn(false)
     setExitOut(false)
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => setIntroIn(true))
     })
     return () => cancelAnimationFrame(id)
-  }, [active])
+  }, [active, imagesReady])
 
   useEffect(() => {
-    if (!active) return
+    if (!active || !imagesReady) return
 
     const ac = new AbortController()
     abortRef.current = ac
@@ -252,7 +275,7 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
       ac.abort()
       abortRef.current = null
     }
-  }, [active])
+  }, [active, imagesReady])
 
   const letterMargin = '0 -0.02em'
   const exitEase = 'ease'
