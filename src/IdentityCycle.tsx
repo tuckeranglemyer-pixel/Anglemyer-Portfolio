@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useLayoutEffect } from 'react'
+import { useEffect, useRef, useState, useLayoutEffect, useMemo } from 'react'
 
 const CYCLE_IMAGES = [
   '/textures/cycle/001.webp',
@@ -89,37 +89,40 @@ type CycleUrl = (typeof CYCLE_IMAGES)[number]
 const LETTERS = ['A', 'N', 'G', 'L', 'E', 'M', 'Y', 'E', 'R'] as const
 const N = LETTERS.length
 
+const CYCLE_POOL_SIZE = 35
+
 const LETTER_STAGGER_MS = 30
 const FAST_PHASE_STEPS = 35
 const ENTRANCE_FADE_MS = 400
-const CROSSFADE_MS = 80
-const SETTLE_STEPS = 8
-const SETTLE_BASE_MS = 220
+const BG_TRANSITION_MS = 80
+const SETTLE_STEPS = 6
+const SETTLE_DELAYS_MS = [150, 200, 300, 450, 650, 900] as const
 const HOLD_LAST_MS = 500
-const EXIT_MS = 400
+const EXIT_FADE_MS = 400
 const SWAP_PROB = 0.7
 
+function shuffleCyclePool(): CycleUrl[] {
+  const arr = [...CYCLE_IMAGES]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const t = arr[i]!
+    arr[i] = arr[j]!
+    arr[j] = t
+  }
+  return arr.slice(0, CYCLE_POOL_SIZE)
+}
+
 function fastPhaseGapMs(gapIndex: number): number {
-  if (gapIndex < 5) return 300
-  if (gapIndex < 10) return 200
-  return 120
+  if (gapIndex < 5) return 250
+  if (gapIndex < 10) return 180
+  return 100
 }
 
 const SUM_FAST_GAPS_MS = Array.from({ length: FAST_PHASE_STEPS - 1 }, (_, i) =>
   fastPhaseGapMs(i),
 ).reduce((a, b) => a + b, 0)
 
-/** After entrance: last letter finishes at (N−1)*stagger + all gaps between ticks */
 const FAST_PHASE_TOTAL_MS = (N - 1) * LETTER_STAGGER_MS + SUM_FAST_GAPS_MS
-
-function easeInQuad(t: number): number {
-  return t * t
-}
-
-function settleStepDelayMs(step: number): number {
-  const progress = step / (SETTLE_STEPS - 1)
-  return SETTLE_BASE_MS * (1 + easeInQuad(progress))
-}
 
 function randomBgPos(): string {
   const x = 50 + (Math.random() * 20 - 10)
@@ -127,68 +130,28 @@ function randomBgPos(): string {
   return `${x.toFixed(1)}% ${y.toFixed(1)}%`
 }
 
-function randomImage(): CycleUrl {
-  return CYCLE_IMAGES[Math.floor(Math.random() * CYCLE_IMAGES.length)]!
+function pickRandomFromPool(pool: readonly CycleUrl[]): CycleUrl {
+  return pool[Math.floor(Math.random() * pool.length)]!
 }
 
 type LetterState = {
-  fUrl: CycleUrl
-  bUrl: CycleUrl
-  fOp: number
-  bOp: number
+  url: CycleUrl
   pos: string
-  opacityTransition: boolean
 }
 
-function initialLetter(): LetterState {
-  const u = randomImage()
-  const p = randomBgPos()
-  return {
-    fUrl: u,
-    bUrl: u,
-    fOp: 1,
-    bOp: 0,
-    pos: p,
-    opacityTransition: true,
-  }
+function initialLetters(pool: readonly CycleUrl[]): LetterState[] {
+  return Array.from({ length: N }, () => ({
+    url: pickRandomFromPool(pool),
+    pos: randomBgPos(),
+  }))
 }
 
-function initialLetters(): LetterState[] {
-  return Array.from({ length: N }, () => initialLetter())
-}
-
-function pickSettleImages(count: number): CycleUrl[] {
+function pickSettleImages(pool: readonly CycleUrl[], count: number): CycleUrl[] {
   const out: CycleUrl[] = []
   for (let i = 0; i < count; i++) {
-    out.push(CYCLE_IMAGES[Math.floor(Math.random() * CYCLE_IMAGES.length)]!)
+    out.push(pickRandomFromPool(pool))
   }
   return out
-}
-
-function startCrossfade(L: LetterState, url: CycleUrl, pos: string): LetterState {
-  return {
-    ...L,
-    bUrl: url,
-    pos,
-    fOp: 0,
-    bOp: 1,
-    opacityTransition: true,
-  }
-}
-
-function finishCrossfade(L: LetterState): LetterState {
-  return {
-    fUrl: L.bUrl,
-    bUrl: L.fUrl,
-    fOp: 1,
-    bOp: 0,
-    pos: L.pos,
-    opacityTransition: false,
-  }
-}
-
-function bumpPositionOnly(L: LetterState, pos: string): LetterState {
-  return { ...L, pos, opacityTransition: false }
 }
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
@@ -231,19 +194,21 @@ const clipTextStyle = {
   backgroundSize: '200%' as const,
 }
 
+const bgTransition = `background ${BG_TRANSITION_MS}ms ease, background-position ${BG_TRANSITION_MS}ms ease`
+
 export default function IdentityCycle({ active, onComplete }: IdentityCycleProps) {
-  const [letters, setLetters] = useState<LetterState[]>(() => initialLetters())
+  const cyclePool = useMemo(() => shuffleCyclePool(), [])
+  const [letters, setLetters] = useState<LetterState[]>(() => initialLetters(cyclePool))
   const rotationsDeg = useLetterRotations()
   const [imagesReady, setImagesReady] = useState(false)
 
   const layerOpacity = 1
   const [introIn, setIntroIn] = useState(false)
-  const [exitOut, setExitOut] = useState(false)
   const [shellOpacity, setShellOpacity] = useState(0)
+  const [isExiting, setIsExiting] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const onCompleteRef = useRef(onComplete)
-  const crossfadeTimeoutsRef = useRef<number[]>([])
 
   useLayoutEffect(() => {
     onCompleteRef.current = onComplete
@@ -251,13 +216,13 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
 
   useEffect(() => {
     let cancelled = false
-    const total = CYCLE_IMAGES.length
+    const total = cyclePool.length
     let loaded = 0
     const onOneDone = () => {
       loaded += 1
       if (!cancelled && loaded >= total) setImagesReady(true)
     }
-    for (const url of CYCLE_IMAGES) {
+    for (const url of cyclePool) {
       const img = new Image()
       img.onload = onOneDone
       img.onerror = onOneDone
@@ -266,24 +231,25 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [cyclePool])
 
   useEffect(() => {
     if (!active) {
       setIntroIn(false)
-      setExitOut(false)
       setShellOpacity(0)
+      setIsExiting(false)
       return
     }
     if (!imagesReady) {
       setIntroIn(false)
-      setExitOut(false)
       setShellOpacity(0)
+      setIsExiting(false)
       return
     }
     setIntroIn(false)
-    setExitOut(false)
     setShellOpacity(0)
+    setIsExiting(false)
+    setLetters(initialLetters(cyclePool))
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setShellOpacity(1)
@@ -291,7 +257,7 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
       })
     })
     return () => cancelAnimationFrame(id)
-  }, [active, imagesReady])
+  }, [active, imagesReady, cyclePool])
 
   useEffect(() => {
     if (!active || !imagesReady) return
@@ -300,28 +266,15 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
     abortRef.current = ac
     const { signal } = ac
 
-    const scheduleCrossfadeEnd = (index: number) => {
-      const tid = window.setTimeout(() => {
-        setLetters(prev =>
-          prev.map((L, j) => (j === index ? finishCrossfade(L) : L)),
-        )
-        crossfadeTimeoutsRef.current = crossfadeTimeoutsRef.current.filter(x => x !== tid)
-      }, CROSSFADE_MS)
-      crossfadeTimeoutsRef.current.push(tid)
-    }
-
     const tickLetter = (index: number) => {
       const pos = randomBgPos()
       if (Math.random() < SWAP_PROB) {
-        const url = randomImage()
-        scheduleCrossfadeEnd(index)
+        const url = pickRandomFromPool(cyclePool)
         setLetters(prev =>
-          prev.map((x, j) => (j === index ? startCrossfade(x, url, pos) : x)),
+          prev.map((x, j) => (j === index ? { ...x, url, pos } : x)),
         )
       } else {
-        setLetters(prev =>
-          prev.map((x, j) => (j === index ? bumpPositionOnly(x, pos) : x)),
-        )
+        setLetters(prev => prev.map((x, j) => (j === index ? { ...x, pos } : x)))
       }
     }
 
@@ -363,33 +316,25 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
           letterCleanups.forEach(c => c())
         }
 
-        await delay(CROSSFADE_MS, signal)
+        await delay(BG_TRANSITION_MS, signal)
 
-        const finals = pickSettleImages(SETTLE_STEPS)
+        const finals = pickSettleImages(cyclePool, SETTLE_STEPS)
         for (let step = 0; step < SETTLE_STEPS; step++) {
           const img = finals[step]!
-          const stepDelay = settleStepDelayMs(step)
           setLetters(prev =>
-            prev.map(L => startCrossfade(L, img, randomBgPos())),
+            prev.map(() => ({ url: img, pos: randomBgPos() })),
           )
-          for (let i = 0; i < N; i++) {
-            scheduleCrossfadeEnd(i)
-          }
-          await delay(stepDelay, signal)
+          await delay(SETTLE_DELAYS_MS[step]!, signal)
         }
 
         await delay(HOLD_LAST_MS, signal)
 
-        await new Promise<void>(resolve => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setExitOut(true)
-              resolve()
-            })
-          })
+        setIsExiting(true)
+        requestAnimationFrame(() => {
+          setShellOpacity(0)
         })
 
-        await delay(EXIT_MS, signal)
+        await delay(EXIT_FADE_MS, signal)
         onCompleteRef.current()
       } catch (e) {
         if ((e as Error).name !== 'AbortError') throw e
@@ -398,26 +343,22 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
 
     return () => {
       ac.abort()
-      crossfadeTimeoutsRef.current.forEach(t => clearTimeout(t))
-      crossfadeTimeoutsRef.current = []
       abortRef.current = null
     }
-  }, [active, imagesReady])
+  }, [active, imagesReady, cyclePool])
 
   const letterMargin = '0 -0.02em'
-  const exitEase = 'ease'
-  const exitTransition = `opacity ${EXIT_MS}ms ${exitEase}, transform ${EXIT_MS}ms ${exitEase}`
+  const opacityEase = 'ease'
 
-  const scrimOpacity = !introIn ? 0 : exitOut ? 0 : layerOpacity
-  const textOpacity = !introIn ? 0 : exitOut ? 0 : layerOpacity
+  const shellTransition = isExiting
+    ? `opacity ${EXIT_FADE_MS}ms ${opacityEase}`
+    : `opacity ${ENTRANCE_FADE_MS}ms ${opacityEase}`
+
+  const scrimOpacity = !introIn ? 0 : layerOpacity
+  const textOpacity = !introIn ? 0 : layerOpacity
   const textTransform = !introIn
     ? 'translate(-50%, -50%) scale(0.8)'
-    : exitOut
-      ? 'translate(-50%, -50%) scale(1.05)'
-      : 'translate(-50%, -50%) scale(1)'
-
-  const opacityEase = 'ease'
-  const crossfadeTransition = `opacity ${CROSSFADE_MS}ms ${opacityEase}`
+    : 'translate(-50%, -50%) scale(1)'
 
   if (!active) return null
 
@@ -430,9 +371,7 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
           inset: 0,
           zIndex: 99,
           opacity: shellOpacity,
-          transition: exitOut
-            ? `opacity ${EXIT_MS}ms ${exitEase}`
-            : `opacity ${ENTRANCE_FADE_MS}ms ${opacityEase}`,
+          transition: shellTransition,
           pointerEvents: 'none',
         }}
       >
@@ -443,9 +382,7 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
             inset: 0,
             background: 'rgba(0,0,0,0.3)',
             opacity: scrimOpacity,
-            transition: exitOut
-              ? `opacity ${EXIT_MS}ms ${exitEase}`
-              : `opacity ${ENTRANCE_FADE_MS}ms ${opacityEase}`,
+            transition: `opacity ${ENTRANCE_FADE_MS}ms ${opacityEase}`,
             pointerEvents: 'none',
           }}
         />
@@ -460,8 +397,8 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
           zIndex: 100,
           transform: textTransform,
           opacity: textOpacity * shellOpacity,
-          transition: exitOut
-            ? exitTransition
+          transition: isExiting
+            ? `opacity ${EXIT_FADE_MS}ms ${opacityEase}`
             : `transform ${ENTRANCE_FADE_MS}ms ease, opacity ${ENTRANCE_FADE_MS}ms ease`,
           pointerEvents: 'none',
         }}
@@ -482,7 +419,6 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
         >
           {LETTERS.map((ch, i) => {
             const L = letters[i]!
-            const opTrans = L.opacityTransition ? crossfadeTransition : 'none'
             return (
               <div
                 key={`${ch}-${i}`}
@@ -495,71 +431,16 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
                 <span
                   className="identity-cycle-letter identity-cycle-h1"
                   style={{
-                    position: 'relative',
                     display: 'inline-block',
                     fontSize: 'inherit',
                     lineHeight: 0.85,
+                    ...clipTextStyle,
+                    backgroundPosition: L.pos,
+                    backgroundImage: `url(${L.url})`,
+                    transition: bgTransition,
                   }}
                 >
-                  <span
-                    aria-hidden
-                    style={{
-                      visibility: 'hidden',
-                      display: 'inline-block',
-                      fontSize: 'inherit',
-                      lineHeight: 0.85,
-                    }}
-                  >
-                    {ch}
-                  </span>
-                  <span
-                    aria-hidden
-                    className="identity-cycle-h1"
-                    style={{
-                      ...clipTextStyle,
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundPosition: L.pos,
-                      backgroundImage: `url(${L.bUrl})`,
-                      opacity: L.bOp,
-                      transition: opTrans,
-                      zIndex: 1,
-                      fontSize: 'inherit',
-                      lineHeight: 0.85,
-                    }}
-                  >
-                    {ch}
-                  </span>
-                  <span
-                    aria-hidden
-                    className="identity-cycle-h1"
-                    style={{
-                      ...clipTextStyle,
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundPosition: L.pos,
-                      backgroundImage: `url(${L.fUrl})`,
-                      opacity: L.fOp,
-                      transition: opTrans,
-                      zIndex: 2,
-                      fontSize: 'inherit',
-                      lineHeight: 0.85,
-                    }}
-                  >
-                    {ch}
-                  </span>
+                  {ch}
                 </span>
               </div>
             )
