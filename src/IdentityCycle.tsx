@@ -82,15 +82,37 @@ type CycleUrl = (typeof CYCLE_IMAGES)[number]
 const LETTERS = ['A', 'N', 'G', 'L', 'E', 'M', 'Y', 'E', 'R'] as const
 const N = LETTERS.length
 
-const FAST_MS = 120
 const LETTER_STAGGER_MS = 30
 const FAST_PHASE_STEPS = 35
-const FAST_PHASE_MS = (FAST_PHASE_STEPS - 1) * FAST_MS
-const SETTLE_DELAYS_MS = [150, 250, 400, 600, 900] as const
+const ENTRANCE_FADE_MS = 400
+const CROSSFADE_MS = 80
+const SETTLE_STEPS = 8
+const SETTLE_BASE_MS = 220
 const HOLD_LAST_MS = 500
-const INTRO_MS = 400
 const EXIT_MS = 400
 const SWAP_PROB = 0.7
+
+function fastPhaseGapMs(gapIndex: number): number {
+  if (gapIndex < 5) return 300
+  if (gapIndex < 10) return 200
+  return 120
+}
+
+const SUM_FAST_GAPS_MS = Array.from({ length: FAST_PHASE_STEPS - 1 }, (_, i) =>
+  fastPhaseGapMs(i),
+).reduce((a, b) => a + b, 0)
+
+/** After entrance: last letter finishes at (N−1)*stagger + all gaps between ticks */
+const FAST_PHASE_TOTAL_MS = (N - 1) * LETTER_STAGGER_MS + SUM_FAST_GAPS_MS
+
+function easeInQuad(t: number): number {
+  return t * t
+}
+
+function settleStepDelayMs(step: number): number {
+  const progress = step / (SETTLE_STEPS - 1)
+  return SETTLE_BASE_MS * (1 + easeInQuad(progress))
+}
 
 function randomBgPos(): string {
   const x = 50 + (Math.random() * 20 - 10)
@@ -102,19 +124,64 @@ function randomImage(): CycleUrl {
   return CYCLE_IMAGES[Math.floor(Math.random() * CYCLE_IMAGES.length)]!
 }
 
-function initialLetters(): { urls: CycleUrl[]; positions: string[] } {
+type LetterState = {
+  fUrl: CycleUrl
+  bUrl: CycleUrl
+  fOp: number
+  bOp: number
+  pos: string
+  opacityTransition: boolean
+}
+
+function initialLetter(): LetterState {
+  const u = randomImage()
+  const p = randomBgPos()
   return {
-    urls: Array.from({ length: N }, () => randomImage()),
-    positions: Array.from({ length: N }, () => randomBgPos()),
+    fUrl: u,
+    bUrl: u,
+    fOp: 1,
+    bOp: 0,
+    pos: p,
+    opacityTransition: true,
   }
 }
 
-function pickFiveRandomImages(): CycleUrl[] {
+function initialLetters(): LetterState[] {
+  return Array.from({ length: N }, () => initialLetter())
+}
+
+function pickSettleImages(count: number): CycleUrl[] {
   const out: CycleUrl[] = []
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < count; i++) {
     out.push(CYCLE_IMAGES[Math.floor(Math.random() * CYCLE_IMAGES.length)]!)
   }
   return out
+}
+
+function startCrossfade(L: LetterState, url: CycleUrl, pos: string): LetterState {
+  return {
+    ...L,
+    bUrl: url,
+    pos,
+    fOp: 0,
+    bOp: 1,
+    opacityTransition: true,
+  }
+}
+
+function finishCrossfade(L: LetterState): LetterState {
+  return {
+    fUrl: L.bUrl,
+    bUrl: L.fUrl,
+    fOp: 1,
+    bOp: 0,
+    pos: L.pos,
+    opacityTransition: false,
+  }
+}
+
+function bumpPositionOnly(L: LetterState, pos: string): LetterState {
+  return { ...L, pos, opacityTransition: false }
 }
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
@@ -150,17 +217,26 @@ function useLetterRotations(): number[] {
   return rotationsDeg
 }
 
+const clipTextStyle = {
+  WebkitTextFillColor: 'transparent' as const,
+  WebkitBackgroundClip: 'text' as const,
+  backgroundClip: 'text' as const,
+  backgroundSize: '200%' as const,
+}
+
 export default function IdentityCycle({ active, onComplete }: IdentityCycleProps) {
-  const [letters, setLetters] = useState(() => initialLetters())
+  const [letters, setLetters] = useState<LetterState[]>(() => initialLetters())
   const rotationsDeg = useLetterRotations()
   const [imagesReady, setImagesReady] = useState(false)
 
   const layerOpacity = 1
   const [introIn, setIntroIn] = useState(false)
   const [exitOut, setExitOut] = useState(false)
+  const [shellOpacity, setShellOpacity] = useState(0)
 
   const abortRef = useRef<AbortController | null>(null)
   const onCompleteRef = useRef(onComplete)
+  const crossfadeTimeoutsRef = useRef<number[]>([])
 
   useLayoutEffect(() => {
     onCompleteRef.current = onComplete
@@ -189,17 +265,23 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
     if (!active) {
       setIntroIn(false)
       setExitOut(false)
+      setShellOpacity(0)
       return
     }
     if (!imagesReady) {
       setIntroIn(false)
       setExitOut(false)
+      setShellOpacity(0)
       return
     }
     setIntroIn(false)
     setExitOut(false)
+    setShellOpacity(0)
     const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setIntroIn(true))
+      requestAnimationFrame(() => {
+        setShellOpacity(1)
+        setIntroIn(true)
+      })
     })
     return () => cancelAnimationFrame(id)
   }, [active, imagesReady])
@@ -211,46 +293,82 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
     abortRef.current = ac
     const { signal } = ac
 
+    const scheduleCrossfadeEnd = (index: number) => {
+      const tid = window.setTimeout(() => {
+        setLetters(prev =>
+          prev.map((L, j) => (j === index ? finishCrossfade(L) : L)),
+        )
+        crossfadeTimeoutsRef.current = crossfadeTimeoutsRef.current.filter(x => x !== tid)
+      }, CROSSFADE_MS)
+      crossfadeTimeoutsRef.current.push(tid)
+    }
+
     const tickLetter = (index: number) => {
-      setLetters(prev => {
-        const urls = [...prev.urls]
-        const positions = [...prev.positions]
-        if (Math.random() < SWAP_PROB) {
-          urls[index] = randomImage()
-        }
-        positions[index] = randomBgPos()
-        return { ...prev, urls, positions }
-      })
+      const pos = randomBgPos()
+      if (Math.random() < SWAP_PROB) {
+        const url = randomImage()
+        scheduleCrossfadeEnd(index)
+        setLetters(prev =>
+          prev.map((x, j) => (j === index ? startCrossfade(x, url, pos) : x)),
+        )
+      } else {
+        setLetters(prev =>
+          prev.map((x, j) => (j === index ? bumpPositionOnly(x, pos) : x)),
+        )
+      }
     }
 
     ;(async () => {
       try {
-        await delay(INTRO_MS, signal)
+        await delay(ENTRANCE_FADE_MS, signal)
 
         const letterCleanups: (() => void)[] = []
         for (let i = 0; i < N; i++) {
+          let gapCount = 0
+          const chainIds: number[] = []
+
+          const scheduleNext = () => {
+            if (signal.aborted) return
+            if (gapCount >= FAST_PHASE_STEPS - 1) return
+            const gap = fastPhaseGapMs(gapCount)
+            gapCount += 1
+            const tid = window.setTimeout(() => {
+              tickLetter(i)
+              scheduleNext()
+            }, gap)
+            chainIds.push(tid)
+          }
+
           const startId = window.setTimeout(() => {
-            const intervalId = window.setInterval(() => tickLetter(i), FAST_MS)
-            letterCleanups.push(() => clearInterval(intervalId))
+            tickLetter(i)
+            scheduleNext()
           }, i * LETTER_STAGGER_MS)
-          letterCleanups.push(() => clearTimeout(startId))
+
+          letterCleanups.push(() => {
+            clearTimeout(startId)
+            chainIds.forEach(id => clearTimeout(id))
+          })
         }
 
         try {
-          await delay(FAST_PHASE_MS, signal)
+          await delay(FAST_PHASE_TOTAL_MS, signal)
         } finally {
           letterCleanups.forEach(c => c())
         }
 
-        const finals = pickFiveRandomImages()
-        for (let step = 0; step < finals.length; step++) {
+        await delay(CROSSFADE_MS, signal)
+
+        const finals = pickSettleImages(SETTLE_STEPS)
+        for (let step = 0; step < SETTLE_STEPS; step++) {
           const img = finals[step]!
-          setLetters(prev => ({
-            ...prev,
-            urls: Array.from({ length: N }, () => img),
-            positions: Array.from({ length: N }, () => randomBgPos()),
-          }))
-          await delay(SETTLE_DELAYS_MS[step]!, signal)
+          const stepDelay = settleStepDelayMs(step)
+          setLetters(prev =>
+            prev.map(L => startCrossfade(L, img, randomBgPos())),
+          )
+          for (let i = 0; i < N; i++) {
+            scheduleCrossfadeEnd(i)
+          }
+          await delay(stepDelay, signal)
         }
 
         await delay(HOLD_LAST_MS, signal)
@@ -273,6 +391,8 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
 
     return () => {
       ac.abort()
+      crossfadeTimeoutsRef.current.forEach(t => clearTimeout(t))
+      crossfadeTimeoutsRef.current = []
       abortRef.current = null
     }
   }, [active, imagesReady])
@@ -289,6 +409,9 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
       ? 'translate(-50%, -50%) scale(1.05)'
       : 'translate(-50%, -50%) scale(1)'
 
+  const opacityEase = 'ease'
+  const crossfadeTransition = `opacity ${CROSSFADE_MS}ms ${opacityEase}`
+
   if (!active) return null
 
   return (
@@ -299,14 +422,27 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
           position: 'fixed',
           inset: 0,
           zIndex: 99,
-          background: 'rgba(0,0,0,0.3)',
-          opacity: scrimOpacity,
+          opacity: shellOpacity,
           transition: exitOut
             ? `opacity ${EXIT_MS}ms ${exitEase}`
-            : `opacity ${INTRO_MS}ms ease`,
+            : `opacity ${ENTRANCE_FADE_MS}ms ${opacityEase}`,
           pointerEvents: 'none',
         }}
-      />
+      >
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.3)',
+            opacity: scrimOpacity,
+            transition: exitOut
+              ? `opacity ${EXIT_MS}ms ${exitEase}`
+              : `opacity ${ENTRANCE_FADE_MS}ms ${opacityEase}`,
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
       <div
         aria-hidden
         className="identity-cycle-text-wrap"
@@ -316,10 +452,10 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
           left: '50%',
           zIndex: 100,
           transform: textTransform,
-          opacity: textOpacity,
+          opacity: textOpacity * shellOpacity,
           transition: exitOut
             ? exitTransition
-            : `transform ${INTRO_MS}ms ease, opacity ${INTRO_MS}ms ease`,
+            : `transform ${ENTRANCE_FADE_MS}ms ease, opacity ${ENTRANCE_FADE_MS}ms ease`,
           pointerEvents: 'none',
         }}
       >
@@ -337,33 +473,90 @@ export default function IdentityCycle({ active, onComplete }: IdentityCycleProps
             lineHeight: 0.85,
           }}
         >
-          {LETTERS.map((ch, i) => (
-            <div
-              key={`${ch}-${i}`}
-              style={{
-                display: 'inline-block',
-                margin: letterMargin,
-                transform: `rotate(${rotationsDeg[i]}deg)`,
-              }}
-            >
-              <span
-                className="identity-cycle-letter identity-cycle-h1"
+          {LETTERS.map((ch, i) => {
+            const L = letters[i]!
+            const opTrans = L.opacityTransition ? crossfadeTransition : 'none'
+            return (
+              <div
+                key={`${ch}-${i}`}
                 style={{
                   display: 'inline-block',
-                  WebkitTextFillColor: 'transparent',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  backgroundSize: '200%',
-                  backgroundPosition: letters.positions[i],
-                  backgroundImage: `url(${letters.urls[i]})`,
-                  fontSize: 'inherit',
-                  lineHeight: 0.85,
+                  margin: letterMargin,
+                  transform: `rotate(${rotationsDeg[i]}deg)`,
                 }}
               >
-                {ch}
-              </span>
-            </div>
-          ))}
+                <span
+                  className="identity-cycle-letter identity-cycle-h1"
+                  style={{
+                    position: 'relative',
+                    display: 'inline-block',
+                    fontSize: 'inherit',
+                    lineHeight: 0.85,
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      visibility: 'hidden',
+                      display: 'inline-block',
+                      fontSize: 'inherit',
+                      lineHeight: 0.85,
+                    }}
+                  >
+                    {ch}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="identity-cycle-h1"
+                    style={{
+                      ...clipTextStyle,
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundPosition: L.pos,
+                      backgroundImage: `url(${L.bUrl})`,
+                      opacity: L.bOp,
+                      transition: opTrans,
+                      zIndex: 1,
+                      fontSize: 'inherit',
+                      lineHeight: 0.85,
+                    }}
+                  >
+                    {ch}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="identity-cycle-h1"
+                    style={{
+                      ...clipTextStyle,
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundPosition: L.pos,
+                      backgroundImage: `url(${L.fUrl})`,
+                      opacity: L.fOp,
+                      transition: opTrans,
+                      zIndex: 2,
+                      fontSize: 'inherit',
+                      lineHeight: 0.85,
+                    }}
+                  >
+                    {ch}
+                  </span>
+                </span>
+              </div>
+            )
+          })}
         </div>
       </div>
     </>
