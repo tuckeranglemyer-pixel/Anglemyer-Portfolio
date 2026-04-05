@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from 'react'
 import PretextHero from './PretextHero'
+import UntrackedPlayer from './UntrackedPlayer'
 
 export type Mode = 'pro' | 'creative'
 
@@ -340,28 +341,14 @@ export default function MainContent({
               </h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
-                <div>
-                  <a
-                    className="main-project-title"
-                    href={PROJECT_LINKS.untracked}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Untracked
-                  </a>
-                  <p
-                    style={{
-                      fontFamily: '"Space Mono", monospace',
-                      fontSize: '14px',
-                      lineHeight: 1.55,
-                      color: 'rgba(255,255,255,0.38)',
-                      margin: 0,
-                      maxWidth: '550px',
-                      transition: 'color 0.6s ease',
-                    }}
-                  >
-                    {c.untrackedDesc}
-                  </p>
+                <div
+                  style={{
+                    width: '100vw',
+                    maxWidth: '100vw',
+                    marginLeft: 'calc(50% - 50vw)',
+                  }}
+                >
+                  <UntrackedPlayer active={active} />
                 </div>
 
                 <div>
