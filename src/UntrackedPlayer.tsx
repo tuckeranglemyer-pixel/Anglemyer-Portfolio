@@ -86,6 +86,8 @@ export default function UntrackedPlayer({
   const [sectionInView, setSectionInView] = useState(false)
   const [headerVisible, setHeaderVisible] = useState(false)
   const [playerVisible, setPlayerVisible] = useState(false)
+  const [brandMicroGlitch, setBrandMicroGlitch] = useState(false)
+  const brandGlitchChainRef = useRef(0)
 
   useEffect(() => {
     if (!active) return
@@ -113,6 +115,30 @@ export default function UntrackedPlayer({
       clearTimeout(t2)
     }
   }, [sectionInView])
+
+  useEffect(() => {
+    if (!headerVisible) return
+    let cancelled = false
+    const chain = () => {
+      const gap = 5000 + Math.random() * 3000
+      brandGlitchChainRef.current = window.setTimeout(() => {
+        if (cancelled) return
+        setBrandMicroGlitch(true)
+        window.setTimeout(() => {
+          if (!cancelled) setBrandMicroGlitch(false)
+        }, 200)
+        chain()
+      }, gap)
+    }
+    const boot = window.setTimeout(() => {
+      if (!cancelled) chain()
+    }, 1000)
+    return () => {
+      cancelled = true
+      clearTimeout(boot)
+      clearTimeout(brandGlitchChainRef.current)
+    }
+  }, [headerVisible])
 
   const [trackIndex, setTrackIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -233,12 +259,26 @@ export default function UntrackedPlayer({
             fontSize: 10,
             letterSpacing: '0.2em',
             textTransform: 'uppercase',
-            color: '#ffffff',
-            opacity: 0.35,
             margin: '0 0 12px',
           }}
         >
-          UNTRACKED
+          <span
+            className={[
+              'untracked-brand-label',
+              headerVisible ? 'untracked-brand-label--reveal' : '',
+              brandMicroGlitch ? 'untracked-brand-label--micro' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <span className="untracked-brand-label__ghost untracked-brand-label__ghost--c" aria-hidden>
+              UNTRACKED
+            </span>
+            <span className="untracked-brand-label__ghost untracked-brand-label__ghost--m" aria-hidden>
+              UNTRACKED
+            </span>
+            <span className="untracked-brand-label__base">UNTRACKED</span>
+          </span>
         </p>
         <p
           style={{

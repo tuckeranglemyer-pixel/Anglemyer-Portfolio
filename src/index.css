@@ -285,3 +285,217 @@ label[for],
   transform: translateY(-2px);
   border-bottom-color: rgba(255, 255, 255, 0.22);
 }
+
+/* UntrackedPlayer — brand label: chromatic + clip slices (no prior landing-page glitch in repo; aligns with digital/UV aesthetic) */
+.untracked-brand-label {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+}
+
+.untracked-brand-label__base {
+  position: relative;
+  z-index: 3;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.untracked-brand-label__ghost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+
+.untracked-brand-label__ghost--c {
+  color: rgba(120, 240, 255, 0.65);
+  mix-blend-mode: screen;
+  transform: translate(0, 0);
+  clip-path: inset(0 0 0 0);
+}
+
+.untracked-brand-label__ghost--m {
+  color: rgba(255, 120, 220, 0.55);
+  mix-blend-mode: screen;
+  transform: translate(0, 0);
+  clip-path: inset(0 0 0 0);
+  z-index: 2;
+}
+
+@keyframes untracked-brand-glitch-reveal-base {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.35;
+    filter: none;
+  }
+  6% {
+    transform: translate(-1px, 0);
+    opacity: 0.48;
+  }
+  12% {
+    transform: translate(1px, 0);
+    opacity: 0.28;
+  }
+  18% {
+    transform: translate(0, 0);
+    opacity: 0.4;
+  }
+  26% {
+    transform: translate(-1px, 1px);
+    opacity: 0.32;
+  }
+  40%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.35;
+  }
+}
+
+@keyframes untracked-brand-glitch-reveal-c {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 0 0);
+  }
+  7% {
+    opacity: 0.75;
+    transform: translate(-3px, 1px);
+    clip-path: inset(12% 0 62% 0);
+  }
+  14% {
+    opacity: 0.55;
+    transform: translate(2px, -1px);
+    clip-path: inset(58% 0 22% 0);
+  }
+  22% {
+    opacity: 0.7;
+    transform: translate(-2px, 0);
+    clip-path: inset(38% 0 48% 0);
+  }
+  30% {
+    opacity: 0.4;
+    transform: translate(1px, 1px);
+    clip-path: inset(0 0 72% 0);
+  }
+  38% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes untracked-brand-glitch-reveal-m {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 0 0);
+  }
+  8% {
+    opacity: 0.65;
+    transform: translate(3px, -1px);
+    clip-path: inset(48% 0 32% 0);
+  }
+  16% {
+    opacity: 0.5;
+    transform: translate(-2px, 1px);
+    clip-path: inset(8% 0 68% 0);
+  }
+  24% {
+    opacity: 0.68;
+    transform: translate(2px, 0);
+    clip-path: inset(70% 0 12% 0);
+  }
+  34% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.untracked-brand-label--reveal .untracked-brand-label__base {
+  animation: untracked-brand-glitch-reveal-base 0.75s ease forwards;
+}
+
+.untracked-brand-label--reveal .untracked-brand-label__ghost--c {
+  animation: untracked-brand-glitch-reveal-c 0.75s ease forwards;
+}
+
+.untracked-brand-label--reveal .untracked-brand-label__ghost--m {
+  animation: untracked-brand-glitch-reveal-m 0.75s ease forwards;
+}
+
+@keyframes untracked-brand-glitch-micro-base {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.35;
+  }
+  35% {
+    transform: translate(-1px, 0);
+    opacity: 0.44;
+  }
+  70% {
+    transform: translate(1px, 0);
+    opacity: 0.3;
+  }
+}
+
+@keyframes untracked-brand-glitch-micro-c {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 0 0);
+  }
+  40% {
+    opacity: 0.62;
+    transform: translate(-2px, 0);
+    clip-path: inset(42% 0 38% 0);
+  }
+  75% {
+    opacity: 0.35;
+    transform: translate(1px, 1px);
+    clip-path: inset(18% 0 62% 0);
+  }
+}
+
+@keyframes untracked-brand-glitch-micro-m {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+    clip-path: inset(0 0 0 0);
+  }
+  45% {
+    opacity: 0.52;
+    transform: translate(2px, 0);
+    clip-path: inset(28% 0 52% 0);
+  }
+  80% {
+    opacity: 0.28;
+    transform: translate(-1px, -1px);
+    clip-path: inset(65% 0 15% 0);
+  }
+}
+
+.untracked-brand-label--micro .untracked-brand-label__base {
+  animation: untracked-brand-glitch-micro-base 0.2s ease forwards;
+}
+
+.untracked-brand-label--micro .untracked-brand-label__ghost--c {
+  animation: untracked-brand-glitch-micro-c 0.2s ease forwards;
+}
+
+.untracked-brand-label--micro .untracked-brand-label__ghost--m {
+  animation: untracked-brand-glitch-micro-m 0.2s ease forwards;
+}
