@@ -86,7 +86,7 @@ const CYCLE_IMAGES = [
 
 type CycleUrl = (typeof CYCLE_IMAGES)[number]
 
-const LETTERS = ['A', 'N', 'G', 'L', 'E', 'M', 'Y', 'E', 'R'] as const
+const LETTERS = ['T', 'U', 'C', 'K', 'E', 'R'] as const
 const N = LETTERS.length
 
 const CYCLE_POOL_SIZE = 35
