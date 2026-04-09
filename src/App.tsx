@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import MainContent from './MainContent'
-import { fetchVisitors, saveVisitor, type Visitor } from './visitors'
+import { fetchVisitors, type Visitor } from './visitors'
 import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
 import HeroPlane from './HeroPlane'
 import BioParagraphPlane from './BioParagraphPlane'
@@ -94,116 +94,6 @@ function CursorGlow({ accent }: { accent: string }) {
         transition:    'background 0.6s ease',
       }}
     />
-  )
-}
-
-const PALETTE: { hex: string; name: string }[] = [
-  { hex: '#00d4ff', name: 'cyan'    },
-  { hex: '#ff3aff', name: 'magenta' },
-  { hex: '#ffb300', name: 'amber'   },
-  { hex: '#00c875', name: 'emerald' },
-  { hex: '#8b5cf6', name: 'violet'  },
-  { hex: '#ff6b6b', name: 'coral'   },
-  { hex: '#f0f0f0', name: 'white'   },
-  { hex: '#ffd700', name: 'gold'    },
-]
-
-// ─── ColorPicker (after main phase; above grain overlay z-index) ──────────────
-function ColorPicker({
-  onSelect,
-  isMobile,
-}: {
-  onSelect: (color: string) => void
-  isMobile: boolean
-}) {
-  const [entered, setEntered] = useState(false)
-  const [exiting, setExiting] = useState(false)
-
-  useEffect(() => {
-    const t = setTimeout(() => setEntered(true), 800)
-    return () => clearTimeout(t)
-  }, [])
-
-  const visible = entered && !exiting
-
-  const pick = (hex: string) => {
-    if (exiting) return
-    setExiting(true)
-    window.setTimeout(() => onSelect(hex), 500)
-  }
-
-  return (
-    <div
-      data-webgl-hit-ignore
-      style={{
-        position: 'fixed',
-        bottom: isMobile ? '1.25rem' : '2.5rem',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 110,
-        textAlign: 'center',
-        maxWidth: 'min(100vw - 2rem, 520px)',
-        padding: '0 16px',
-        opacity: visible ? 1 : 0,
-        transition: 'opacity 0.6s ease',
-        pointerEvents: entered && !exiting ? 'auto' : 'none',
-      }}
-    >
-      <p
-        style={{
-          fontFamily: '"Space Mono", monospace',
-          color: 'rgba(255,255,255,0.22)',
-          letterSpacing: '0.2em',
-          fontSize: '11px',
-          textTransform: 'uppercase',
-          margin: '0 0 24px',
-        }}
-      >
-        leave your mark
-      </p>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          flexWrap: 'nowrap',
-          gap: isMobile ? '0.5rem' : '0.75rem',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        {PALETTE.map(({ hex, name }) => (
-          <button
-            key={hex}
-            type="button"
-            title={name}
-            onClick={() => pick(hex)}
-            style={{
-              width: isMobile ? '1.5rem' : '1.75rem',
-              height: isMobile ? '1.5rem' : '1.75rem',
-              borderRadius: '50%',
-              background: hex,
-              border: '2px solid rgba(255,255,255,0.22)',
-              cursor: 'pointer',
-              padding: 0,
-              flexShrink: 0,
-              transition: 'transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget
-              el.style.transform = 'scale(1.3)'
-              el.style.borderColor = 'rgba(255,255,255,0.55)'
-              el.style.boxShadow = `0 0 10px 2px ${hex}66`
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget
-              el.style.transform = 'scale(1)'
-              el.style.borderColor = 'rgba(255,255,255,0.22)'
-              el.style.boxShadow = 'none'
-            }}
-          />
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -398,19 +288,6 @@ export default function App() {
   const [visitors,      setVisitors]      = useState<Visitor[]>([])
   const [visitorsReady, setVisitorsReady] = useState(skipAnimation)
 
-  const [hasChosen] = useState<boolean>(() => {
-    try {
-      return !!(
-        localStorage.getItem('visitorDocId') || localStorage.getItem('visitorColor')
-      )
-    } catch {
-      return false
-    }
-  })
-
-  const [pickerDismissed, setPickerDismissed] = useState(false)
-  const showPicker = phase === 'main' && !hasChosen && !pickerDismissed
-
   const [identityCycleOpen, setIdentityCycleOpen] = useState(false)
   const heroContainerRef = useRef<HTMLDivElement | null>(null)
 
@@ -482,22 +359,6 @@ export default function App() {
     setTimeout(() => waterSim.addRipple(cx, cy, 40.0), 500)
   }, [])
 
-  const handleColorSelect = async (color: string) => {
-    setPickerDismissed(true)
-    try {
-      const docId = await saveVisitor(color)
-      try {
-        localStorage.setItem('visitorDocId', docId)
-        localStorage.setItem('visitorColor', color)
-      } catch { /* storage blocked */ }
-    } catch {
-      try {
-        localStorage.setItem('visitorDocId', 'local_' + Date.now())
-        localStorage.setItem('visitorColor', color)
-      } catch { /* storage blocked */ }
-    }
-  }
-
   return (
     <>
       <FullscreenGradientCanvas
@@ -551,8 +412,6 @@ export default function App() {
       {identityCycleOpen && (
         <IdentityCycle active onComplete={handleIdentityCycleComplete} />
       )}
-
-      {showPicker && <ColorPicker onSelect={handleColorSelect} isMobile={isMobile} />}
 
       {phase === 'main' && visitorsReady && (
         <div

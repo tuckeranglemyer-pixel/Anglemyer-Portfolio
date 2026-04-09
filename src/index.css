@@ -286,6 +286,16 @@ label[for],
   border-bottom-color: rgba(255, 255, 255, 0.22);
 }
 
+.main-footer-social,
+.main-footer-email {
+  text-decoration: none;
+}
+
+.main-footer-social:hover,
+.main-footer-email:hover {
+  opacity: 0.9 !important;
+}
+
 /* UntrackedPlayer — brand label: chromatic + clip slices (no prior landing-page glitch in repo; aligns with digital/UV aesthetic) */
 .untracked-brand-label {
   position: relative;

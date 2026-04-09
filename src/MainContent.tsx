@@ -66,6 +66,227 @@ function ScrollReveal({
   )
 }
 
+const fullBleedWrap: CSSProperties = {
+  width: '100vw',
+  position: 'relative',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  boxSizing: 'border-box',
+}
+
+function ProjectDarkPanel({
+  active,
+  watermarkText,
+  readableTitle,
+  children,
+}: {
+  active: boolean
+  watermarkText: string
+  readableTitle: string
+  children: ReactNode
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [panelIn, setPanelIn] = useState(false)
+  const [watermarkIn, setWatermarkIn] = useState(false)
+  const [contentIn, setContentIn] = useState(false)
+
+  useEffect(() => {
+    if (!active) return
+    const el = rootRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setPanelIn(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.15 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [active])
+
+  useEffect(() => {
+    if (!panelIn) return
+    const t1 = window.setTimeout(() => setWatermarkIn(true), 200)
+    const t2 = window.setTimeout(() => setContentIn(true), 400)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+  }, [panelIn])
+
+  return (
+    <div ref={rootRef} style={{ ...fullBleedWrap, marginBottom: 0 }}>
+      <div
+        style={{
+          minHeight: '50vh',
+          padding: 'clamp(48px, 10vw, 80px)',
+          background: 'rgba(0, 0, 0, 0.3)',
+          backdropFilter: 'blur(30px)',
+          WebkitBackdropFilter: 'blur(30px)',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          position: 'relative',
+          overflow: 'hidden',
+          opacity: panelIn ? 1 : 0,
+          transform: panelIn ? 'translateY(0)' : 'translateY(30px)',
+          transition: 'opacity 0.75s ease, transform 0.75s ease',
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 0,
+            width: '100%',
+            padding: '0 12px',
+            boxSizing: 'border-box',
+            textAlign: 'center',
+            fontFamily: '"Space Mono", monospace',
+            fontSize: 'clamp(4rem, 12vw, 10rem)',
+            letterSpacing: '-0.02em',
+            textTransform: 'uppercase',
+            color: '#fff',
+            opacity: watermarkIn ? 0.15 : 0,
+            lineHeight: 0.9,
+            pointerEvents: 'none',
+            transition: 'opacity 0.6s ease',
+          }}
+        >
+          {watermarkText}
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h2
+            style={{
+              fontFamily: '"Instrument Serif", Georgia, serif',
+              fontSize: '32px',
+              fontStyle: 'italic',
+              fontWeight: 400,
+              margin: '0 0 clamp(32px, 5vw, 48px)',
+              opacity: contentIn ? 0.9 : 0,
+              color: '#fff',
+              transition: 'opacity 0.65s ease',
+            }}
+          >
+            {readableTitle}
+          </h2>
+          <div style={{ opacity: contentIn ? 1 : 0, transition: 'opacity 0.65s ease' }}>{children}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FooterPanel({ active }: { active: boolean }) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [panelIn, setPanelIn] = useState(false)
+  const [contentIn, setContentIn] = useState(false)
+
+  useEffect(() => {
+    if (!active) return
+    const el = rootRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setPanelIn(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.15 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [active])
+
+  useEffect(() => {
+    if (!panelIn) return
+    const t = window.setTimeout(() => setContentIn(true), 400)
+    return () => clearTimeout(t)
+  }, [panelIn])
+
+  const linkStyle: CSSProperties = {
+    fontFamily: '"Space Mono", monospace',
+    fontSize: '12px',
+    color: 'rgba(255,255,255,0.38)',
+    textDecoration: 'none',
+    transition: 'opacity 0.25s ease',
+  }
+
+  return (
+    <div ref={rootRef} style={fullBleedWrap}>
+      <div
+        style={{
+          padding: 'clamp(48px, 10vw, 80px)',
+          background: 'rgba(0, 0, 0, 0.3)',
+          backdropFilter: 'blur(30px)',
+          WebkitBackdropFilter: 'blur(30px)',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          opacity: panelIn ? 1 : 0,
+          transform: panelIn ? 'translateY(0)' : 'translateY(30px)',
+          transition: 'opacity 0.75s ease, transform 0.75s ease',
+        }}
+      >
+        <div style={{ opacity: contentIn ? 1 : 0, transition: 'opacity 0.65s ease' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '0.5rem 0.75rem',
+              marginBottom: '1.25rem',
+            }}
+          >
+            {SOCIAL.map((s, i) => (
+              <span key={s.href} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem' }}>
+                {i > 0 ? (
+                  <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '12px', userSelect: 'none' }}>
+                    ·
+                  </span>
+                ) : null}
+                <a
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="main-footer-social"
+                  style={linkStyle}
+                >
+                  {s.label}
+                </a>
+              </span>
+            ))}
+          </div>
+          <a
+            href="mailto:tucker@untrackedmusic.com"
+            className="main-footer-email"
+            style={{ ...linkStyle, display: 'inline-block', marginBottom: '1.5rem' }}
+          >
+            tucker@untrackedmusic.com
+          </a>
+          <p
+            style={{
+              fontFamily: '"Space Mono", monospace',
+              fontSize: '10px',
+              color: 'rgba(255,255,255,0.2)',
+              margin: 0,
+              lineHeight: 1.5,
+            }}
+          >
+            Built with WebGL, Three.js, and too much caffeine.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ModeToggle({
   mode,
   accent,
@@ -150,38 +371,23 @@ function ModeToggle({
 
 const COPY = {
   pro: {
-    hero: 'Tucker Anglemyer',
     subtitle:
       'Providence College · Accounting & Finance · Incoming PwC · Founder, Untracked',
-    bio: "Builder, founder, operator. Providence College double major in Accounting and Finance. Incoming PwC. Founded Untracked — an AI-powered music discovery platform for DJs. First place at the yconic New England Inter-Collegiate AI Hackathon. D1 athlete. Friars Club tour guide. Student Congress. The kind of person who debugs production on the bus home from giving a campus tour in a blazer.",
-    untrackedDesc:
-      'AI-powered music discovery for DJs. React, FastAPI, pgvector embeddings, MERT audio analysis. 800+ enriched tracks.',
-    warRoomDesc:
-      'Multi-agent adversarial AI product analysis engine. 1st place, yconic New England AI Hackathon. Built in 24 hours.',
-    footer: 'React · TypeScript · Python · FastAPI · PostgreSQL · Firestore · pgvector · Vercel · Railway',
   },
   creative: {
-    hero: 'ANGLEMYER',
     subtitle: 'Underground house · AI at 2am · Solo shows · The range is the resume',
-    bio: 'I go to shows alone and talk to strangers about 4/4 kicks. I code agents at 2am and give campus tours in a blazer. I can explain deferred tax assets and why UK garage never got American respect — same breath.',
-    untrackedDesc:
-      'The infrastructure underground music deserves. Building the tool I wish existed when I started digging for tracks.',
-    warRoomDesc:
-      'Two people. 24 hours. First place. Competing with CS masters students while holding a conversation about cutting edge AI.',
-    footer: 'Radius Chicago · Royale Boston · Solo dolo',
   },
 } as const
 
-const PROJECT_LINKS = {
-  untracked: 'https://untrackedmusic.com',
-  warRoom: 'https://frontend-pi-seven-13.vercel.app/',
-} as const
+const UNTRACKED_SITE = 'https://untrackedmusic.com'
 
 const SOCIAL = [
   { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
   { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
   { label: 'TikTok', href: 'https://www.tiktok.com/@untrackedmusic' },
 ] as const
+
+const WAR_BADGES = ['CrewAI', 'ChromaDB', 'DGX Spark'] as const
 
 export type ContentPhase = 'entry' | 'main'
 
@@ -288,7 +494,7 @@ export default function MainContent({
             }}
           >
             <ScrollReveal active={active}>
-              <header style={{ marginBottom: '48px' }}>
+              <header style={{ marginBottom: 'clamp(40px, 8vw, 64px)' }}>
                 <p
                   className="main-subtitle"
                   style={{
@@ -308,122 +514,78 @@ export default function MainContent({
               </header>
             </ScrollReveal>
 
-            <ScrollReveal active={active}>
-              <p
+            <ProjectDarkPanel
+              active={active}
+              watermarkText="UNTRACKED"
+              readableTitle="Untracked"
+            >
+              <UntrackedPlayer active={active} />
+              <a
+                href={UNTRACKED_SITE}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
-                  fontFamily: isPro ? '"Instrument Serif", Georgia, serif' : '"Space Mono", monospace',
-                  fontSize: '18px',
-                  lineHeight: isPro ? 1.72 : 1.65,
-                  fontWeight: 400,
-                  color: 'rgba(255,255,255,0.55)',
-                  margin: '0 0 96px',
-                  maxWidth: '550px',
-                  transition: 'font-size 0.6s ease, color 0.6s ease',
-                }}
-              >
-                {c.bio}
-              </p>
-            </ScrollReveal>
-
-          <ScrollReveal active={active}>
-            <section style={{ marginBottom: '96px' }}>
-              <h2
-                style={{
+                  display: 'inline-block',
+                  marginTop: '28px',
                   fontFamily: '"Space Mono", monospace',
                   fontSize: '11px',
-                  letterSpacing: '0.28em',
-                  textTransform: 'uppercase',
-                  color: 'rgba(255,255,255,0.22)',
-                  margin: '0 0 24px',
+                  color: 'rgba(255,255,255,0.38)',
+                  textDecoration: 'none',
+                  transition: 'opacity 0.2s ease',
                 }}
               >
-                Projects
-              </h2>
+                untrackedmusic.com →
+              </a>
+            </ProjectDarkPanel>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
-                <div
-                  style={{
-                    width: '100vw',
-                    maxWidth: '100vw',
-                    marginLeft: 'calc(50% - 50vw)',
-                  }}
-                >
-                  <UntrackedPlayer active={active} />
-                </div>
-
-                <div>
-                  <a
-                    className="main-project-title"
-                    href={PROJECT_LINKS.warRoom}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    The War Room
-                  </a>
-                  <p
+            <ProjectDarkPanel
+              active={active}
+              watermarkText="THE WAR ROOM"
+              readableTitle="The War Room"
+            >
+              <p
+                style={{
+                  fontFamily: '"Space Mono", monospace',
+                  fontSize: '14px',
+                  color: 'rgba(255,255,255,0.55)',
+                  margin: '0 0 20px',
+                  lineHeight: 1.5,
+                }}
+              >
+                2 people · 24 hours · 1st place
+              </p>
+              <p
+                style={{
+                  fontFamily: '"Instrument Serif", Georgia, serif',
+                  fontSize: '18px',
+                  lineHeight: 1.55,
+                  color: 'rgba(255,255,255,0.7)',
+                  margin: '0 0 28px',
+                  maxWidth: '520px',
+                }}
+              >
+                Multi-agent adversarial debate engine. Three LLMs arguing about your product until they find the truth.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {WAR_BADGES.map(name => (
+                  <span
+                    key={name}
                     style={{
                       fontFamily: '"Space Mono", monospace',
-                      fontSize: '14px',
-                      lineHeight: 1.55,
-                      color: 'rgba(255,255,255,0.38)',
-                      margin: 0,
-                      maxWidth: '550px',
-                      transition: 'color 0.6s ease',
+                      fontSize: '9px',
+                      color: 'rgba(255,255,255,0.45)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '4px',
+                      padding: '4px 12px',
                     }}
                   >
-                    {c.warRoomDesc}
-                  </p>
-                </div>
-              </div>
-            </section>
-          </ScrollReveal>
-
-          <ScrollReveal active={active}>
-            <p
-              style={{
-                fontFamily: '"Space Mono", monospace',
-                fontSize: '14px',
-                lineHeight: 1.6,
-                letterSpacing: '0.06em',
-                color: 'rgba(255,255,255,0.38)',
-                margin: '0 0 24px',
-                maxWidth: '550px',
-                transition: 'color 0.6s ease',
-              }}
-            >
-              {c.footer}
-            </p>
-          </ScrollReveal>
-
-          <ScrollReveal active={active}>
-            <div
-              style={{
-                fontFamily: '"Space Mono", monospace',
-                fontSize: '14px',
-                lineHeight: 1.6,
-                color: 'rgba(255,255,255,0.38)',
-              }}
-            >
-              <div style={{ marginBottom: '24px' }}>
-                {SOCIAL.map((s, i) => (
-                  <span key={s.href}>
-                    {i > 0 && <span style={{ color: 'rgba(255,255,255,0.22)' }}>  </span>}
-                    <a
-                      href={s.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="main-social-link"
-                    >
-                      {s.label}
-                    </a>
+                    {name}
                   </span>
                 ))}
               </div>
-              <a href="mailto:tucker@untrackedmusic.com" className="main-email-link">
-                tucker@untrackedmusic.com
-              </a>
-            </div>
-          </ScrollReveal>
+            </ProjectDarkPanel>
+
+            <FooterPanel active={active} />
           </div>
         </div>
       </div>

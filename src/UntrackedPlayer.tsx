@@ -82,16 +82,13 @@ export default function UntrackedPlayer({
   const isMobile = useIsNarrow()
   const barCount = isMobile ? 60 : 80
 
-  const sectionRef = useRef<HTMLElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const [sectionInView, setSectionInView] = useState(false)
-  const [headerVisible, setHeaderVisible] = useState(false)
   const [playerVisible, setPlayerVisible] = useState(false)
-  const [brandMicroGlitch, setBrandMicroGlitch] = useState(false)
-  const brandGlitchChainRef = useRef(0)
 
   useEffect(() => {
     if (!active) return
-    const el = sectionRef.current
+    const el = wrapRef.current
     if (!el) return
     const io = new IntersectionObserver(
       ([e]) => {
@@ -100,7 +97,7 @@ export default function UntrackedPlayer({
           io.disconnect()
         }
       },
-      { threshold: 0.2 },
+      { threshold: 0.15 },
     )
     io.observe(el)
     return () => io.disconnect()
@@ -108,37 +105,9 @@ export default function UntrackedPlayer({
 
   useEffect(() => {
     if (!sectionInView) return
-    const t1 = window.setTimeout(() => setHeaderVisible(true), 0)
-    const t2 = window.setTimeout(() => setPlayerVisible(true), 200)
-    return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
-    }
+    const t = window.setTimeout(() => setPlayerVisible(true), 0)
+    return () => clearTimeout(t)
   }, [sectionInView])
-
-  useEffect(() => {
-    if (!headerVisible) return
-    let cancelled = false
-    const chain = () => {
-      const gap = 5000 + Math.random() * 3000
-      brandGlitchChainRef.current = window.setTimeout(() => {
-        if (cancelled) return
-        setBrandMicroGlitch(true)
-        window.setTimeout(() => {
-          if (!cancelled) setBrandMicroGlitch(false)
-        }, 200)
-        chain()
-      }, gap)
-    }
-    const boot = window.setTimeout(() => {
-      if (!cancelled) chain()
-    }, 1000)
-    return () => {
-      cancelled = true
-      clearTimeout(boot)
-      clearTimeout(brandGlitchChainRef.current)
-    }
-  }, [headerVisible])
 
   const [trackIndex, setTrackIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -231,95 +200,13 @@ export default function UntrackedPlayer({
   const titleFontSize = isMobile ? 32 : 48
 
   return (
-    <section
-      ref={sectionRef}
-      style={{
-        width: '100%',
-        minHeight: '60vh',
-        boxSizing: 'border-box',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        padding: isMobile ? '64px 24px 80px' : '96px 80px',
-        marginBottom: isMobile ? '64px' : '96px',
-      }}
-    >
+    <div ref={wrapRef} style={{ width: '100%', maxWidth: '800px' }}>
       <audio ref={audioRef} preload="none" />
-
-      <header
-        style={{
-          opacity: headerVisible ? 1 : 0,
-          transform: headerVisible ? 'translateY(0)' : 'translateY(20px)',
-          transition: 'opacity 0.7s ease, transform 0.7s ease',
-          marginBottom: isMobile ? '48px' : '64px',
-          maxWidth: '800px',
-        }}
-      >
-        <p
-          style={{
-            fontFamily: '"Space Mono", monospace',
-            fontSize: 10,
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            margin: '0 0 12px',
-          }}
-        >
-          <span
-            className={[
-              'untracked-brand-label',
-              headerVisible ? 'untracked-brand-label--reveal' : '',
-              brandMicroGlitch ? 'untracked-brand-label--micro' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <span className="untracked-brand-label__ghost untracked-brand-label__ghost--c" aria-hidden>
-              UNTRACKED
-            </span>
-            <span className="untracked-brand-label__ghost untracked-brand-label__ghost--m" aria-hidden>
-              UNTRACKED
-            </span>
-            <span className="untracked-brand-label__base">UNTRACKED</span>
-          </span>
-        </p>
-        <p
-          style={{
-            fontFamily: '"Instrument Serif", Georgia, serif',
-            fontSize: 20,
-            fontStyle: 'italic',
-            lineHeight: 1.35,
-            color: '#ffffff',
-            opacity: 0.7,
-            maxWidth: 400,
-            margin: 0,
-          }}
-        >
-          The infrastructure underground music deserves.
-        </p>
-        <a
-          href="https://untrackedmusic.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-block',
-            marginTop: 20,
-            fontFamily: '"Space Mono", monospace',
-            fontSize: 10,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.28)',
-            textDecoration: 'none',
-            transition: 'color 0.25s ease',
-          }}
-        >
-          untrackedmusic.com →
-        </a>
-      </header>
 
       <div
         style={{
           opacity: playerVisible ? 1 : 0,
           transition: 'opacity 0.6s ease',
-          maxWidth: 800,
-          margin: '0 auto',
         }}
       >
         <div
@@ -573,6 +460,6 @@ export default function UntrackedPlayer({
           background: rgba(255,255,255,0.9) !important;
         }
       `}</style>
-    </section>
+    </div>
   )
 }
