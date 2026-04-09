@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { RootState } from '@react-three/fiber'
+import { Environment } from '@react-three/drei'
 import * as THREE from 'three'
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 
@@ -69,14 +70,15 @@ export default function PilowlavaHero3D() {
 
   const material = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        color: '#ffffff',
-        emissive: '#ffffff',
-        emissiveIntensity: 0.8,
-        metalness: 0.3,
-        roughness: 0.2,
+      new THREE.MeshPhysicalMaterial({
+        color: '#c0c0c0',
+        metalness: 1.0,
+        roughness: 0.05,
+        reflectivity: 1.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        envMapIntensity: 2.0,
         side: THREE.DoubleSide,
-        wireframe: false,
       }),
     [],
   )
@@ -221,10 +223,12 @@ export default function PilowlavaHero3D() {
 
   return (
     <>
-      <ambientLight intensity={0.5} />
+      <ambientLight intensity={0.3} />
       <directionalLight position={[5, 5, 5]} intensity={3} />
-      <directionalLight position={[-3, -2, 4]} intensity={1.5} />
+      <directionalLight position={[-5, -2, 3]} intensity={1} />
+      <directionalLight position={[0, 5, -5]} intensity={2} />
       <group ref={groupRef} position={[0, 0, 1]} renderOrder={1}>
+        <Environment preset="city" />
         {geoms.map((geom, i) => (
           <mesh
             key={LETTER_OBJECT_NAMES[i]}
