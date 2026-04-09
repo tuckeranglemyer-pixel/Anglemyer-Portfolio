@@ -12,7 +12,7 @@ export const BIO_PRO = {
 
 export const BIO_CREATIVE = {
   text:
-    'I go to shows alone and talk to strangers about 4/4 kicks. I code agents at 2am and give campus tours in a blazer. I can explain deferred tax assets and why UK garage never got American respect — same breath.',
+    'Underground house, agents at 2am, campus tours in a blazer. I can explain deferred tax assets and why UK garage never got American respect — same breath.',
   font: '400 16px "Space Mono"',
   lineHeight: 27,
   fontSizePx: 16,

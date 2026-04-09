@@ -1,188 +1,92 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import type { RootState } from '@react-three/fiber'
-import { Environment } from '@react-three/drei'
+import { Text3D, Center, Environment } from '@react-three/drei'
 import * as THREE from 'three'
-import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 
-/** ANGLEMYER — object names from pilowlava3d.obj */
-const LETTER_OBJECT_NAMES = [
-  'pilowlava_a1_for_sds',
-  'pilowlava_n1_for_sds',
-  'pilowlava_g1_for_sds',
-  'pilowlava_l_for_sds',
-  'pilowlava_e1_for_sds',
-  'pilowlava_m1_for_sds',
-  'pilowlava_y_for_sds',
-  'pilowlava_e2_for_sds',
-  'pilowlava_r_for_sds',
-] as const
+const FONT_URL = '/fonts/pilowlava.json'
 
-function extractGeometry(root: THREE.Group, name: string): THREE.BufferGeometry | null {
-  const o = root.getObjectByName(name)
-  if (!o) return null
-  if (o instanceof THREE.Mesh && o.geometry) {
-    return o.geometry.clone()
-  }
-  let found: THREE.BufferGeometry | null = null
-  o.traverse(child => {
-    if (found) return
-    if (child instanceof THREE.Mesh && child.geometry) {
-      found = child.geometry.clone()
-    }
-  })
-  return found
-}
-
-function centerGeometryAndGetWidth(g: THREE.BufferGeometry): number {
-  g.computeBoundingBox()
-  const box = g.boundingBox
-  if (!box) return 1
-  const cx = (box.min.x + box.max.x) / 2
-  const cy = (box.min.y + box.max.y) / 2
-  const cz = (box.min.z + box.max.z) / 2
-  g.translate(-cx, -cy, -cz)
-  g.computeBoundingBox()
-  const b = g.boundingBox
-  if (!b) return 1
-  return b.max.x - b.min.x
-}
-
-const OBJ_URL = '/fonts/pilowlava3d.obj'
-
-export default function PilowlavaHero3D() {
-  const { camera, gl, viewport } = useThree()
-  const groupRef = useRef<THREE.Group>(null)
-  const meshRefs = useRef<(THREE.Mesh | null)[]>([])
-  const [ready, setReady] = useState(false)
-
-  const homesRef = useRef<THREE.Vector3[]>([])
-  const pushRef = useRef<THREE.Vector3[]>([])
-  const geometriesRef = useRef<THREE.BufferGeometry[]>([])
-  const totalWidthRef = useRef(1)
-
-  const mouseWorldRef = useRef(new THREE.Vector3(0, 0, 0))
-  const ndcRef = useRef(new THREE.Vector2())
-  const planeRef = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0))
-  const raycasterRef = useRef(new THREE.Raycaster())
-  const tmpWorld = useRef(new THREE.Vector3())
-  const tmpDir = useRef(new THREE.Vector3())
-  const mainLightRef = useRef<THREE.DirectionalLight>(null)
-  const rimLightRef = useRef<THREE.DirectionalLight>(null)
-
-  const material = useMemo(
-    () =>
-      new THREE.MeshPhysicalMaterial({
-        color: '#c0c0c0',
-        metalness: 1.0,
-        roughness: 0.05,
-        reflectivity: 1.0,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.05,
-        envMapIntensity: 2.0,
-        side: THREE.DoubleSide,
-      }),
-    [],
-  )
+function ChromeAnglemyerText() {
+  const { viewport } = useThree()
+  const matRef = useRef<THREE.MeshPhysicalMaterial>(null)
 
   useEffect(() => {
-    return () => {
-      material.dispose()
+    const applyOpacity = () => {
+      const m = matRef.current
+      if (!m) return
+      const y = window.scrollY
+      const h = window.innerHeight
+      let o = 1
+      if (y > h * 0.7) o = 0
+      else if (y > h * 0.5) o = 1 - (y - h * 0.5) / (h * 0.2)
+      m.transparent = o < 1
+      m.opacity = o
     }
-  }, [material])
-
-  useEffect(() => {
-    let cancelled = false
-    const loader = new OBJLoader()
-    loader.load(
-      OBJ_URL,
-      (obj: THREE.Group) => {
-        if (cancelled) return
-        const geoms: THREE.BufferGeometry[] = []
-        const widths: number[] = []
-
-        for (const name of LETTER_OBJECT_NAMES) {
-          const g = extractGeometry(obj, name)
-          if (!g) {
-            console.warn('[PilowlavaHero3D] missing object:', name)
-            continue
-          }
-          const w = centerGeometryAndGetWidth(g)
-          geoms.push(g)
-          widths.push(w)
-        }
-
-        if (geoms.length === 0) {
-          setReady(false)
-          return
-        }
-
-        const avgW = widths.reduce((a, b) => a + b, 0) / widths.length
-        const gap = avgW * 0.05
-        let totalW = 0
-        for (let i = 0; i < widths.length; i++) {
-          totalW += widths[i]!
-          if (i < widths.length - 1) totalW += gap
-        }
-        totalWidthRef.current = Math.max(totalW, 1e-6)
-
-        const homes: THREE.Vector3[] = []
-        const pushes: THREE.Vector3[] = []
-        let x = -totalW / 2
-        for (let i = 0; i < geoms.length; i++) {
-          const w = widths[i]!
-          const cx = x + w / 2
-          homes.push(new THREE.Vector3(cx, 0, 0))
-          pushes.push(new THREE.Vector3(0, 0, 0))
-          x += w + gap
-        }
-
-        homesRef.current = homes
-        pushRef.current = pushes
-        geometriesRef.current = geoms
-        meshRefs.current = new Array(geoms.length).fill(null)
-        console.log('[Pilowlava3D] loaded letters:', geoms.length, 'group z:', 1.0)
-        if (!cancelled) setReady(true)
-      },
-      undefined,
-      (err: unknown) => console.error('[PilowlavaHero3D] OBJ load failed', err),
-    )
-    return () => {
-      cancelled = true
-      geometriesRef.current.forEach(g => g.dispose())
-      geometriesRef.current = []
-    }
+    applyOpacity()
+    window.addEventListener('scroll', applyOpacity, { passive: true })
+    return () => window.removeEventListener('scroll', applyOpacity)
   }, [])
 
+  return (
+    <Center>
+      <Text3D
+        font={FONT_URL}
+        size={viewport.width * 0.07}
+        height={viewport.width * 0.012}
+        bevelEnabled
+        bevelThickness={viewport.width * 0.002}
+        bevelSize={viewport.width * 0.0015}
+        bevelSegments={5}
+        curveSegments={32}
+      >
+        ANGLEMYER
+        <meshPhysicalMaterial
+          ref={matRef}
+          color="#c0c0c0"
+          metalness={1.0}
+          roughness={0.05}
+          reflectivity={1.0}
+          clearcoat={1.0}
+          clearcoatRoughness={0.05}
+          envMapIntensity={2.0}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={1}
+        />
+      </Text3D>
+    </Center>
+  )
+}
+
+export default function PilowlavaHero3D() {
+  const { viewport } = useThree()
+  const groupRef = useRef<THREE.Group>(null)
+  const mainLightRef = useRef<THREE.DirectionalLight>(null)
+  const rimLightRef = useRef<THREE.DirectionalLight>(null)
+  const mouseRef = useRef({ x: 0.5, y: 0.5 })
+
   useEffect(() => {
-    const plane = planeRef.current
-    const raycaster = raycasterRef.current
     const onMove = (e: MouseEvent) => {
-      const rect = gl.domElement.getBoundingClientRect()
-      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1
-      const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1
-      ndcRef.current.set(nx, ny)
-      raycaster.setFromCamera(ndcRef.current, camera)
-      const hit = new THREE.Vector3()
-      if (raycaster.ray.intersectPlane(plane, hit)) {
-        mouseWorldRef.current.copy(hit)
-      }
+      mouseRef.current.x = e.clientX / window.innerWidth
+      mouseRef.current.y = e.clientY / window.innerHeight
     }
     window.addEventListener('mousemove', onMove, { passive: true })
     return () => window.removeEventListener('mousemove', onMove)
-  }, [camera, gl])
+  }, [])
 
-  useFrame((state: RootState, delta: number) => {
+  useFrame((state) => {
     const group = groupRef.current
-    if (!group || !ready) return
-
-    const totalW = totalWidthRef.current
-    const targetWorldWidth = viewport.width * 0.8
-    const s = targetWorldWidth / totalW
-    group.scale.setScalar(s)
-    group.position.set(0, viewport.height * 0.15, 1)
+    if (!group) return
 
     const t = state.clock.elapsedTime
+    const baseY = viewport.height * 0.15
+
+    group.position.set(0, baseY + Math.sin(t * 0.5) * 0.1, 1)
+    group.scale.setScalar(1 + Math.sin(t * 0.6) * 0.01)
+
+    const mx = mouseRef.current.x
+    const my = mouseRef.current.y
+    group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, (mx - 0.5) * 0.3, 0.05)
+    group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, (my - 0.5) * -0.15, 0.05)
 
     const mainL = mainLightRef.current
     const rimL = rimLightRef.current
@@ -192,47 +96,7 @@ export default function PilowlavaHero3D() {
     if (rimL) {
       rimL.position.set(3 * Math.sin(t * 0.15), 5, -5 * Math.cos(t * 0.15))
     }
-    const mouse = mouseWorldRef.current
-    const dt = Math.min(delta, 0.05)
-
-    const homes = homesRef.current
-    const pushes = pushRef.current
-
-    for (let i = 0; i < homes.length; i++) {
-      const mesh = meshRefs.current[i]
-      if (!mesh) continue
-      const home = homes[i]!
-      let push = pushes[i]!
-
-      const floatY = Math.sin(t * 0.5 + i * 0.7) * 0.15
-      const floatRotZ = Math.sin(t * 0.3 + i * 0.5) * 0.03
-
-      mesh.getWorldPosition(tmpWorld.current)
-      const wx = tmpWorld.current.x
-      const wy = tmpWorld.current.y
-      const dist = Math.hypot(wx - mouse.x, wy - mouse.y)
-
-      if (dist < 2 && dist > 0.02) {
-        tmpDir.current.set(wx - mouse.x, wy - mouse.y, 0).normalize()
-        const force = (1 / Math.max(dist, 0.15)) * 0.02 * (dt * 60)
-        push.add(tmpDir.current.multiplyScalar(force))
-      } else {
-        push.lerp(new THREE.Vector3(0, 0, 0), 0.03)
-      }
-
-      mesh.position.x = home.x + push.x
-      mesh.position.y = home.y + floatY + push.y
-      mesh.position.z = home.z + push.z
-      mesh.rotation.x = Math.sin(t * 0.3 + i * 0.6) * 0.08
-      mesh.rotation.y = Math.sin(t * 0.4 + i * 0.8) * 0.15
-      mesh.rotation.z = floatRotZ
-      mesh.scale.setScalar(1 + Math.sin(t * 0.6 + i * 1.1) * 0.02)
-    }
   })
-
-  if (!ready || geometriesRef.current.length === 0) return null
-
-  const geoms = geometriesRef.current
 
   return (
     <>
@@ -240,18 +104,11 @@ export default function PilowlavaHero3D() {
       <directionalLight ref={mainLightRef} position={[5, 5, 5]} intensity={3} />
       <directionalLight position={[-5, -2, 3]} intensity={1} />
       <directionalLight ref={rimLightRef} position={[0, 5, -5]} intensity={2} />
-      <group ref={groupRef} position={[0, 0, 1]} renderOrder={1}>
-        <Environment preset="city" />
-        {geoms.map((geom, i) => (
-          <mesh
-            key={LETTER_OBJECT_NAMES[i]}
-            ref={el => {
-              meshRefs.current[i] = el
-            }}
-            geometry={geom}
-            material={material}
-          />
-        ))}
+      <group ref={groupRef} position={[0, viewport.height * 0.15, 1]} renderOrder={1}>
+        <Suspense fallback={null}>
+          <ChromeAnglemyerText />
+          <Environment preset="city" />
+        </Suspense>
       </group>
     </>
   )
