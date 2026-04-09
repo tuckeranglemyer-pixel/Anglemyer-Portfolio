@@ -67,6 +67,8 @@ export default function PilowlavaHero3D() {
   const raycasterRef = useRef(new THREE.Raycaster())
   const tmpWorld = useRef(new THREE.Vector3())
   const tmpDir = useRef(new THREE.Vector3())
+  const mainLightRef = useRef<THREE.DirectionalLight>(null)
+  const rimLightRef = useRef<THREE.DirectionalLight>(null)
 
   const material = useMemo(
     () =>
@@ -178,8 +180,18 @@ export default function PilowlavaHero3D() {
     const targetWorldWidth = viewport.width * 0.8
     const s = targetWorldWidth / totalW
     group.scale.setScalar(s)
+    group.position.set(0, viewport.height * 0.15, 1)
 
     const t = state.clock.elapsedTime
+
+    const mainL = mainLightRef.current
+    const rimL = rimLightRef.current
+    if (mainL) {
+      mainL.position.set(5 * Math.cos(t * 0.2), 5, 5 * Math.sin(t * 0.2))
+    }
+    if (rimL) {
+      rimL.position.set(3 * Math.sin(t * 0.15), 5, -5 * Math.cos(t * 0.15))
+    }
     const mouse = mouseWorldRef.current
     const dt = Math.min(delta, 0.05)
 
@@ -211,9 +223,10 @@ export default function PilowlavaHero3D() {
       mesh.position.x = home.x + push.x
       mesh.position.y = home.y + floatY + push.y
       mesh.position.z = home.z + push.z
-      mesh.rotation.x = 0
-      mesh.rotation.y = 0
+      mesh.rotation.x = Math.sin(t * 0.3 + i * 0.6) * 0.08
+      mesh.rotation.y = Math.sin(t * 0.4 + i * 0.8) * 0.15
       mesh.rotation.z = floatRotZ
+      mesh.scale.setScalar(1 + Math.sin(t * 0.6 + i * 1.1) * 0.02)
     }
   })
 
@@ -224,9 +237,9 @@ export default function PilowlavaHero3D() {
   return (
     <>
       <ambientLight intensity={0.3} />
-      <directionalLight position={[5, 5, 5]} intensity={3} />
+      <directionalLight ref={mainLightRef} position={[5, 5, 5]} intensity={3} />
       <directionalLight position={[-5, -2, 3]} intensity={1} />
-      <directionalLight position={[0, 5, -5]} intensity={2} />
+      <directionalLight ref={rimLightRef} position={[0, 5, -5]} intensity={2} />
       <group ref={groupRef} position={[0, 0, 1]} renderOrder={1}>
         <Environment preset="city" />
         {geoms.map((geom, i) => (

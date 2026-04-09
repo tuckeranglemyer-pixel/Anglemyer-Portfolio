@@ -212,6 +212,11 @@ export default function BioParagraphPlane({ mode, visible = true, materialOpacit
     }
   }, [])
 
+  useEffect(() => {
+    const mesh = meshRef.current
+    if (mesh) mesh.visible = visible
+  }, [visible, texture])
+
   useLayoutEffect(() => {
     const mesh = meshRef.current
     if (!mesh || !texture) return
