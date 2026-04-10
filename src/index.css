@@ -20,11 +20,10 @@ body,
 #root {
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
-/* Prevent horizontal scroll on small screens */
 body {
-  overflow-x: hidden;
   cursor: none;
 }
 

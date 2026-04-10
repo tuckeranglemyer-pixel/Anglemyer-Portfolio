@@ -7,24 +7,6 @@ const FONT_URL = '/fonts/pilowlava.json'
 
 function ChromeAnglemyerText() {
   const { viewport } = useThree()
-  const matRef = useRef<THREE.MeshPhysicalMaterial>(null)
-
-  useEffect(() => {
-    const applyOpacity = () => {
-      const m = matRef.current
-      if (!m) return
-      const y = window.scrollY
-      const h = window.innerHeight
-      let o = 1
-      if (y > h * 0.7) o = 0
-      else if (y > h * 0.5) o = 1 - (y - h * 0.5) / (h * 0.2)
-      m.transparent = o < 1
-      m.opacity = o
-    }
-    applyOpacity()
-    window.addEventListener('scroll', applyOpacity, { passive: true })
-    return () => window.removeEventListener('scroll', applyOpacity)
-  }, [])
 
   return (
     <Center>
@@ -40,7 +22,6 @@ function ChromeAnglemyerText() {
       >
         ANGLEMYER
         <meshPhysicalMaterial
-          ref={matRef}
           color="#c0c0c0"
           metalness={1.0}
           roughness={0.05}
@@ -53,7 +34,6 @@ function ChromeAnglemyerText() {
           iridescenceThicknessRange={[100, 400]}
           side={THREE.DoubleSide}
           transparent
-          opacity={1}
         />
       </Text3D>
     </Center>
@@ -65,6 +45,7 @@ export default function PilowlavaHero3D() {
   const groupRef = useRef<THREE.Group>(null)
   const mainLightRef = useRef<THREE.DirectionalLight>(null)
   const rimLightRef = useRef<THREE.DirectionalLight>(null)
+  const sweepLightRef = useRef<THREE.DirectionalLight>(null)
   const mouseRef = useRef({ x: 0.5, y: 0.5 })
 
   useEffect(() => {
@@ -81,23 +62,28 @@ export default function PilowlavaHero3D() {
     if (!group) return
 
     const t = state.clock.elapsedTime
-    const baseY = viewport.height * 0.15
+    const baseY = viewport.height * 0.1
 
-    group.position.set(0, baseY + Math.sin(t * 0.5) * 0.1, 1)
-    group.scale.setScalar(1 + Math.sin(t * 0.6) * 0.01)
+    group.position.set(0, baseY + Math.sin(t * 0.55) * 0.08, 1)
+    group.scale.setScalar(1 + Math.sin(t * 0.6) * 0.012)
 
     const mx = mouseRef.current.x
     const my = mouseRef.current.y
-    group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, (mx - 0.5) * 0.3, 0.05)
-    group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, (my - 0.5) * -0.15, 0.05)
+    group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, (mx - 0.5) * 0.28, 0.06)
+    group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, (my - 0.5) * -0.14, 0.06)
 
     const mainL = mainLightRef.current
     const rimL = rimLightRef.current
+    const sweepL = sweepLightRef.current
     if (mainL) {
-      mainL.position.set(5 * Math.cos(t * 0.2), 5, 5 * Math.sin(t * 0.2))
+      mainL.position.set(5 * Math.cos(t * 0.22), 5, 5 * Math.sin(t * 0.22))
     }
     if (rimL) {
-      rimL.position.set(3 * Math.sin(t * 0.15), 5, -5 * Math.cos(t * 0.15))
+      rimL.position.set(3 * Math.sin(t * 0.17), 5, -5 * Math.cos(t * 0.17))
+    }
+    if (sweepL) {
+      const r = 7
+      sweepL.position.set(r * Math.cos(t * 0.31), 3.5 + Math.sin(t * 0.4) * 1.2, r * Math.sin(t * 0.31))
     }
   })
 
@@ -105,9 +91,9 @@ export default function PilowlavaHero3D() {
     <>
       <ambientLight intensity={0.3} />
       <directionalLight ref={mainLightRef} position={[5, 5, 5]} intensity={3} />
-      <directionalLight position={[-5, -2, 3]} intensity={1} />
       <directionalLight ref={rimLightRef} position={[0, 5, -5]} intensity={2} />
-      <group ref={groupRef} position={[0, viewport.height * 0.15, 1]} renderOrder={1}>
+      <directionalLight ref={sweepLightRef} position={[-6, 4, 6]} intensity={1.4} />
+      <group ref={groupRef} position={[0, viewport.height * 0.1, 1]} renderOrder={1}>
         <Suspense fallback={null}>
           <ChromeAnglemyerText />
           <Environment preset="city" />

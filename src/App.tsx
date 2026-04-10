@@ -5,10 +5,6 @@ import * as THREE from 'three'
 import MainContent from './MainContent'
 import { fetchVisitors, type Visitor } from './visitors'
 import { gradientFragmentShader, gradientVertexShader } from './shaders/gradientBg'
-import HeroPlane from './HeroPlane'
-import BioParagraphPlane from './BioParagraphPlane'
-import ProjectsPlane from './ProjectsPlane'
-import SocialLinksPlane from './SocialLinksPlane'
 import WebGLInteractionProvider from './WebGLInteractionProvider'
 import { waterSim } from './WaterSimSingleton'
 import {
@@ -197,29 +193,11 @@ function FullscreenGradientCanvas({
   mode,
   heroVisible,
   waterPostEnabled,
-  planesVisible,
-  planeOpacity,
-  webGLTextVisible,
 }: {
   mode: Mode
   heroVisible: boolean
   waterPostEnabled: boolean
-  planesVisible: boolean
-  planeOpacity: number
-  webGLTextVisible: boolean
 }) {
-  const renderCountRef = useRef(0)
-  renderCountRef.current += 1
-  console.log('[FullscreenGradientCanvas] render #', renderCountRef.current)
-
-  useEffect(() => {
-    console.log('[Canvas] mounted')
-    return () => {
-      console.log('[Canvas] unmounted')
-    }
-  }, [])
-
-  const showTextPlanes = planesVisible && webGLTextVisible
   return (
     <Canvas
       orthographic
@@ -239,22 +217,6 @@ function FullscreenGradientCanvas({
       <WebGLInteractionProvider visible={heroVisible}>
         <GradientBackgroundPlane mode={mode} />
         {mode === 'creative' && heroVisible && <PilowlavaHero3D />}
-        <HeroPlane
-          mode={mode}
-          visible={showTextPlanes}
-          materialOpacity={planeOpacity}
-        />
-        <BioParagraphPlane
-          mode={mode}
-          visible={showTextPlanes}
-          materialOpacity={planeOpacity}
-        />
-        <ProjectsPlane
-          mode={mode}
-          visible={showTextPlanes}
-          materialOpacity={planeOpacity}
-        />
-        <SocialLinksPlane visible={showTextPlanes} materialOpacity={planeOpacity} />
       </WebGLInteractionProvider>
       <WaterSimPostFx enabled={waterPostEnabled} />
     </Canvas>
@@ -338,10 +300,6 @@ export default function App() {
     return () => { cancelled = true; clearTimeout(timeout) }
   }, [visitorsReady])
 
-  const planeOpacity = phase === 'main' ? 1 : 0
-
-  const planesVisible = phase === 'main'
-  const webGLTextVisible = false
   const waterPostEnabled = true
 
   const handleInkDropImpact = useCallback(() => {
@@ -365,9 +323,6 @@ export default function App() {
         mode={mode}
         heroVisible={phase === 'main'}
         waterPostEnabled={waterPostEnabled}
-        planesVisible={planesVisible}
-        planeOpacity={planeOpacity}
-        webGLTextVisible={webGLTextVisible}
       />
 
       {phase === 'entry' && visitorsReady && (
@@ -391,7 +346,10 @@ export default function App() {
         style={{
           position:      'relative',
           zIndex:        5,
-          minHeight:     '100vh',
+          width:         '100%',
+          height:        '100vh',
+          maxHeight:       '100vh',
+          overflow:      'hidden',
           opacity:       phase === 'main' ? 1 : 0,
           pointerEvents: phase === 'main' ? 'auto' : 'none',
           transition:    'opacity 0.9s ease',

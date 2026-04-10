@@ -3,11 +3,11 @@ import {
   useEffect,
   useRef,
   type CSSProperties,
-  type ReactNode,
   type RefObject,
 } from 'react'
 import PretextHero from './PretextHero'
 import UntrackedPlayer from './UntrackedPlayer'
+import { waterSim } from './WaterSimSingleton'
 
 export type Mode = 'pro' | 'creative'
 
@@ -23,101 +23,116 @@ function useIsMobile(breakpoint = 768) {
   return is
 }
 
-function ScrollReveal({
-  children,
-  delay = 0,
-  active = true,
-}: {
-  children: ReactNode
-  delay?: number
-  active?: boolean
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [show, setShow] = useState(false)
+type SurfaceZone = 'left' | 'right' | 'bottom' | 'center'
 
-  useEffect(() => {
-    if (!active) return
-    const el = ref.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShow(true)
-          io.disconnect()
-        }
-      },
-      { threshold: 0.1 },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [active])
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        opacity: show ? 1 : 0,
-        transform: show ? 'translateY(0)' : 'translateY(30px)',
-        transition: `opacity 600ms ease-out ${delay}ms, transform 600ms ease-out ${delay}ms`,
-      }}
-    >
-      {children}
-    </div>
-  )
+function computeSurfaceZone(clientX: number, clientY: number, w: number, h: number): SurfaceZone {
+  if (clientY > h * 0.8) return 'bottom'
+  if (clientX < w * 0.33) return 'left'
+  if (clientX > w * 0.67) return 'right'
+  return 'center'
 }
 
-function useSectionReveal(active: boolean) {
-  const ref = useRef<HTMLDivElement | null>(null)
-  const [inView, setInView] = useState(false)
+function useDebouncedSurfaceZone(active: boolean) {
+  const posRef = useRef({ x: 0, y: 0 })
+  const [activeZone, setActiveZone] = useState<null | 'left' | 'right' | 'bottom'>(null)
+  const activeZoneRef = useRef<null | 'left' | 'right' | 'bottom'>(null)
+  const enterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastRawZoneRef = useRef<SurfaceZone | null>(null)
 
   useEffect(() => {
-    if (!active) return
-    const el = ref.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          io.disconnect()
+    activeZoneRef.current = activeZone
+  }, [activeZone])
+
+  useEffect(() => {
+    if (!active) {
+      setActiveZone(null)
+      activeZoneRef.current = null
+      lastRawZoneRef.current = null
+      if (enterTimerRef.current) {
+        clearTimeout(enterTimerRef.current)
+        enterTimerRef.current = null
+      }
+      return
+    }
+
+    const onMove = (e: MouseEvent) => {
+      posRef.current = { x: e.clientX, y: e.clientY }
+      const w = window.innerWidth
+      const h = window.innerHeight
+      const z = computeSurfaceZone(e.clientX, e.clientY, w, h)
+
+      const prev = lastRawZoneRef.current
+      lastRawZoneRef.current = z
+      if (z === prev) return
+
+      if (enterTimerRef.current) {
+        clearTimeout(enterTimerRef.current)
+        enterTimerRef.current = null
+      }
+
+      if (z === 'center') {
+        if (activeZoneRef.current !== null) {
+          activeZoneRef.current = null
+          setActiveZone(null)
         }
-      },
-      { threshold: 0.1 },
-    )
-    io.observe(el)
-    return () => io.disconnect()
+        return
+      }
+
+      if (activeZoneRef.current === z) return
+
+      if (activeZoneRef.current !== null) {
+        activeZoneRef.current = null
+        setActiveZone(null)
+      }
+
+      enterTimerRef.current = setTimeout(() => {
+        setActiveZone(z)
+        activeZoneRef.current = z
+        waterSim.addRipple(posRef.current.x, posRef.current.y, 3.0)
+        enterTimerRef.current = null
+      }, 400)
+    }
+
+    window.addEventListener('mousemove', onMove, { passive: true })
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      if (enterTimerRef.current) clearTimeout(enterTimerRef.current)
+    }
   }, [active])
 
-  return { ref, inView }
+  return activeZone
 }
 
-function RevealLine({
-  show,
+function ZoneRevealLayer({
+  revealed,
   delayMs,
   children,
 }: {
-  show: boolean
+  revealed: boolean
   delayMs: number
-  children: ReactNode
+  children: React.ReactNode
 }) {
+  const wasRevealed = useRef(false)
+  useEffect(() => {
+    if (revealed) wasRevealed.current = true
+  }, [revealed])
+
+  const hiddenY = wasRevealed.current && !revealed ? 30 : 60
+
   return (
     <div
       style={{
-        opacity: show ? 1 : 0,
-        transform: show ? 'translateY(0)' : 'translateY(30px)',
-        transition: `opacity 600ms ease-out ${delayMs}ms, transform 600ms ease-out ${delayMs}ms`,
+        opacity: revealed ? 1 : 0,
+        transform: revealed ? 'translateY(0)' : `translateY(${hiddenY}px)`,
+        transition: revealed
+          ? `opacity 500ms cubic-bezier(0.33, 1, 0.68, 1) ${delayMs}ms, transform 500ms cubic-bezier(0.33, 1, 0.68, 1) ${delayMs}ms`
+          : 'opacity 400ms ease-in, transform 400ms ease-in',
+        pointerEvents: revealed ? 'auto' : 'none',
       }}
     >
       {children}
     </div>
   )
-}
-
-const fullBleedWrap: CSSProperties = {
-  width: '100vw',
-  position: 'relative',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  boxSizing: 'border-box',
 }
 
 const SUBTITLE =
@@ -133,39 +148,25 @@ const SOCIAL = [
 
 const WAR_BADGES = ['CrewAI', 'ChromaDB', 'DGX Spark'] as const
 
-const watermarkScene: CSSProperties = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  zIndex: 0,
-  width: '100%',
-  padding: '0 12px',
-  boxSizing: 'border-box',
-  textAlign: 'center',
+const edgeLabel: CSSProperties = {
+  position: 'fixed',
+  zIndex: 8,
   fontFamily: '"Space Mono", monospace',
-  fontSize: 'clamp(5rem, 15vw, 12rem)',
-  letterSpacing: '-0.02em',
+  fontSize: '9px',
+  letterSpacing: '0.2em',
   textTransform: 'uppercase',
-  color: 'rgba(255,255,255,0.08)',
-  lineHeight: 0.9,
+  color: 'rgba(255,255,255,0.92)',
+  opacity: 0.1,
   pointerEvents: 'none',
+  userSelect: 'none',
 }
 
-const watermarkFooter: CSSProperties = {
-  position: 'relative',
-  width: '100%',
-  padding: '0 12px',
-  boxSizing: 'border-box',
-  textAlign: 'center',
+const linkMuted: CSSProperties = {
   fontFamily: '"Space Mono", monospace',
-  fontSize: 'clamp(5rem, 15vw, 12rem)',
-  letterSpacing: '-0.02em',
-  textTransform: 'uppercase',
-  color: 'rgba(255,255,255,0.06)',
-  lineHeight: 0.9,
-  pointerEvents: 'none',
-  marginBottom: 'clamp(24px, 4vw, 40px)',
+  fontSize: '12px',
+  color: 'rgba(255,255,255,0.35)',
+  textDecoration: 'none',
+  transition: 'opacity 0.2s ease',
 }
 
 export type ContentPhase = 'entry' | 'main'
@@ -194,37 +195,20 @@ export default function MainContent({
   const isMobile = useIsMobile()
   const chromeVisible = phase === 'main'
 
-  const hPad = isMobile ? '16px' : '48px'
-  const vPad = isMobile ? '24px' : '80px'
-
-  const accentVar: CSSProperties & { '--accent-color': string } = {
-    '--accent-color': accent,
-  }
-
   const mainOpacity =
     !chromeVisible ? 0 : identityCycleHidesContent ? 0 : 1
   const mainPointer =
     chromeVisible && !identityCycleHidesContent ? 'auto' : 'none'
 
-  const {
-    ref: untrackedSectionRef,
-    inView: untrackedVisible,
-  } = useSectionReveal(!!active)
-  const {
-    ref: warRoomSectionRef,
-    inView: warRoomVisible,
-  } = useSectionReveal(!!active)
-  const {
-    ref: footerSectionRef,
-    inView: footerVisible,
-  } = useSectionReveal(!!active)
+  const surfaceActive = !!(active && chromeVisible && !identityCycleHidesContent)
+  const activeZone = useDebouncedSurfaceZone(surfaceActive)
 
-  const linkMuted: CSSProperties = {
-    fontFamily: '"Space Mono", monospace',
-    fontSize: '12px',
-    color: 'rgba(255,255,255,0.35)',
-    textDecoration: 'none',
-    transition: 'opacity 0.2s ease',
+  const leftOn = activeZone === 'left'
+  const rightOn = activeZone === 'right'
+  const bottomOn = activeZone === 'bottom'
+
+  const accentVar: CSSProperties & { '--accent-color': string } = {
+    '--accent-color': accent,
   }
 
   return (
@@ -245,331 +229,342 @@ export default function MainContent({
         <ModeToggle mode={mode} accent={accent} onToggle={onToggleMode} isMobile={isMobile} />
       </div>
 
+      {/* Fixed full-viewport surface — no scroll */}
       <div
         style={{
-          width: '100%',
+          ...accentVar,
+          position: 'fixed',
+          inset: 0,
+          width: '100vw',
+          height: '100vh',
+          maxHeight: '100vh',
+          overflow: 'hidden',
           boxSizing: 'border-box',
-          overflowX: 'hidden',
-          paddingTop: vPad,
-          paddingBottom: isMobile ? '140px' : '96px',
-          pointerEvents: 'auto',
+          zIndex: 5,
+          pointerEvents: mainPointer,
         }}
       >
-        <div style={{ ...accentVar }}>
-          <ScrollReveal active={active}>
+        {/* Zone edge breadcrumbs */}
+        <span
+          aria-hidden
+          style={{
+            ...edgeLabel,
+            left: 14,
+            top: '50%',
+            transform: 'translateY(-50%) rotate(-90deg)',
+            transformOrigin: 'center center',
+          }}
+        >
+          UNTRACKED
+        </span>
+        <span
+          aria-hidden
+          style={{
+            ...edgeLabel,
+            right: 14,
+            top: '50%',
+            transform: 'translateY(-50%) rotate(90deg)',
+            transformOrigin: 'center center',
+          }}
+        >
+          WAR ROOM
+        </span>
+        <span
+          aria-hidden
+          style={{
+            ...edgeLabel,
+            left: '50%',
+            bottom: 14,
+            transform: 'translateX(-50%)',
+            letterSpacing: '0.25em',
+          }}
+        >
+          CONTACT
+        </span>
+
+        {/* TOP CENTER — DAY: Instrument Serif hero + subtitle; NIGHT: subtitle only (3D name in canvas) */}
+        <div
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            top: 0,
+            paddingTop: mode === 'creative' ? 'clamp(120px, 20vh, 220px)' : 'max(88px, 10vh)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            zIndex: 6,
+          }}
+        >
+          {mode === 'pro' && (
             <div
-              className="pretext-hero-strip"
               style={{
-                paddingLeft: hPad,
-                position: 'relative',
+                width: 'min(92vw, 900px)',
+                pointerEvents: 'auto',
               }}
             >
-              <PretextHero
-                mode={mode}
-                active={active}
-                isMobile={isMobile}
-                heroLayout="main"
-                heroMeasureRef={heroContainerRef}
-                hiddenDuringIdentityCycle={hideHeroDuringIdentityCycle}
-                hideFlatCreativeHero={mode === 'creative'}
-              />
+              <div style={{ width: '100%', marginBottom: 8 }}>
+                <PretextHero
+                  mode={mode}
+                  active={!!active && chromeVisible}
+                  isMobile={isMobile}
+                  heroLayout="main"
+                  heroMeasureRef={heroContainerRef}
+                  hiddenDuringIdentityCycle={hideHeroDuringIdentityCycle}
+                  hideFlatCreativeHero={false}
+                />
+              </div>
             </div>
-          </ScrollReveal>
+          )}
 
-          <div
+          <p
+            className="main-subtitle"
             style={{
-              maxWidth: '600px',
-              width: '100%',
-              marginLeft: hPad,
-              marginRight: 'auto',
-              paddingLeft: 0,
-              paddingRight: hPad,
-              boxSizing: 'border-box',
+              margin: mode === 'pro' ? '8px 0 0' : '0',
+              maxWidth: 'min(92vw, 560px)',
+              padding: '0 16px',
+              fontFamily: '"Space Mono", monospace',
+              fontSize: '11px',
+              lineHeight: 1.5,
+              letterSpacing: '0.04em',
+              opacity: 0.35,
+              color: 'rgba(255,255,255,0.9)',
             }}
           >
-            <ScrollReveal active={active}>
-              <header style={{ marginBottom: 'clamp(40px, 8vw, 64px)' }}>
-                <p
-                  className="main-subtitle"
-                  style={{
-                    marginTop: 0,
-                    fontFamily: '"Space Mono", monospace',
-                    fontSize: '24px',
-                    lineHeight: 1.5,
-                    letterSpacing: '0.04em',
-                    opacity: 0.3,
-                    color: 'rgba(255,255,255,0.55)',
-                    maxWidth: '520px',
-                    transition: 'opacity 0.6s ease',
-                  }}
-                >
-                  {SUBTITLE}
-                </p>
-              </header>
-            </ScrollReveal>
-          </div>
+            {SUBTITLE}
+          </p>
+        </div>
 
-          {/* Untracked — scene layout */}
-          <div
-            ref={untrackedSectionRef}
-            role="region"
-            aria-label="Untracked"
-            style={{
-              ...fullBleedWrap,
-              position: 'relative',
-              marginTop: 'clamp(32px, 6vw, 56px)',
-              marginBottom: 0,
-              minHeight: 'min(70vh, 720px)',
-              paddingTop: 'clamp(48px, 8vw, 96px)',
-              paddingBottom: 'clamp(48px, 8vw, 96px)',
-            }}
-          >
-            <RevealLine show={untrackedVisible} delayMs={0}>
-              <div aria-hidden style={watermarkScene}>
+        {/* LEFT ZONE 0–33% */}
+        <div
+          role="region"
+          aria-label="Untracked"
+          style={{
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            width: '33%',
+            height: '100%',
+            zIndex: 7,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '24px 20px',
+            boxSizing: 'border-box',
+            pointerEvents: 'auto',
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: 360 }}>
+            <ZoneRevealLayer revealed={leftOn} delayMs={0}>
+              <div
+                aria-hidden
+                style={{
+                  fontFamily: '"Space Mono", monospace',
+                  fontSize: 'clamp(3rem, 8vw, 6rem)',
+                  letterSpacing: '-0.02em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.92)',
+                  lineHeight: 0.9,
+                  textAlign: 'center',
+                  marginBottom: 16,
+                }}
+              >
                 UNTRACKED
               </div>
-            </RevealLine>
-
-            <div
-              style={{
-                position: 'relative',
-                zIndex: 1,
-                paddingLeft: hPad,
-                paddingRight: hPad,
-              }}
-            >
-              <RevealLine show={untrackedVisible} delayMs={200}>
-                <h2
-                  style={{
-                    fontFamily: '"Instrument Serif", Georgia, serif',
-                    fontSize: '28px',
-                    fontStyle: 'italic',
-                    fontWeight: 400,
-                    margin: '0 0 12px',
-                    opacity: 0.9,
-                    color: '#fff',
-                  }}
-                >
-                  Untracked
-                </h2>
-              </RevealLine>
-              <RevealLine show={untrackedVisible} delayMs={350}>
-                <p
-                  style={{
-                    fontFamily: '"Instrument Serif", Georgia, serif',
-                    fontSize: '16px',
-                    lineHeight: 1.5,
-                    margin: '0 0 32px',
-                    opacity: 0.5,
-                    color: 'rgba(255,255,255,0.92)',
-                    maxWidth: '560px',
-                  }}
-                >
-                  The infrastructure underground music deserves.
-                </p>
-              </RevealLine>
-            </div>
-
-            <RevealLine show={untrackedVisible} delayMs={500}>
-              <div style={{ width: '100%', marginTop: 0, marginBottom: '24px' }}>
-                <UntrackedPlayer active={active} revealSequence={untrackedVisible} />
+            </ZoneRevealLayer>
+            <ZoneRevealLayer revealed={leftOn} delayMs={150}>
+              <p
+                style={{
+                  fontFamily: '"Instrument Serif", Georgia, serif',
+                  fontSize: '16px',
+                  lineHeight: 1.5,
+                  margin: '0 0 20px',
+                  opacity: 0.85,
+                  color: 'rgba(255,255,255,0.92)',
+                  textAlign: 'center',
+                }}
+              >
+                The infrastructure underground music deserves.
+              </p>
+            </ZoneRevealLayer>
+            <ZoneRevealLayer revealed={leftOn} delayMs={300}>
+              <div style={{ width: '100%', marginBottom: 16 }}>
+                <UntrackedPlayer
+                  active={active && chromeVisible}
+                  revealSequence={leftOn}
+                />
               </div>
-            </RevealLine>
-
-            <div
-              style={{
-                position: 'relative',
-                zIndex: 1,
-                paddingLeft: hPad,
-                paddingRight: hPad,
-              }}
-            >
-              <RevealLine show={untrackedVisible} delayMs={650}>
-                <a
-                  href={UNTRACKED_SITE}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-block',
-                    fontFamily: '"Space Mono", monospace',
-                    fontSize: '11px',
-                    color: 'rgba(255,255,255,0.35)',
-                    textDecoration: 'none',
-                  }}
-                >
-                  untrackedmusic.com →
-                </a>
-              </RevealLine>
-            </div>
+            </ZoneRevealLayer>
+            <ZoneRevealLayer revealed={leftOn} delayMs={450}>
+              <a
+                href={UNTRACKED_SITE}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  textAlign: 'center',
+                  fontFamily: '"Space Mono", monospace',
+                  fontSize: '11px',
+                  color: 'rgba(255,255,255,0.35)',
+                  textDecoration: 'none',
+                }}
+              >
+                untrackedmusic.com →
+              </a>
+            </ZoneRevealLayer>
           </div>
+        </div>
 
-          <div
-            style={{
-              width: '60px',
-              height: '1px',
-              margin: '80px auto',
-              background: 'rgba(255,255,255,0.08)',
-            }}
-            aria-hidden
-          />
-
-          {/* War Room — scene layout */}
-          <div
-            ref={warRoomSectionRef}
-            role="region"
-            aria-label="The War Room"
-            style={{
-              ...fullBleedWrap,
-              position: 'relative',
-              marginBottom: 0,
-              minHeight: 'min(55vh, 560px)',
-              paddingTop: 'clamp(32px, 6vw, 64px)',
-              paddingBottom: 'clamp(48px, 8vw, 96px)',
-            }}
-          >
-            <RevealLine show={warRoomVisible} delayMs={0}>
-              <div aria-hidden style={watermarkScene}>
+        {/* RIGHT ZONE 67–100% */}
+        <div
+          role="region"
+          aria-label="War Room"
+          style={{
+            position: 'fixed',
+            right: 0,
+            top: 0,
+            width: '33%',
+            height: '100%',
+            zIndex: 7,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '24px 20px',
+            boxSizing: 'border-box',
+            pointerEvents: 'auto',
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: 380 }}>
+            <ZoneRevealLayer revealed={rightOn} delayMs={0}>
+              <div
+                aria-hidden
+                style={{
+                  fontFamily: '"Space Mono", monospace',
+                  fontSize: 'clamp(3rem, 8vw, 6rem)',
+                  letterSpacing: '-0.02em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.92)',
+                  lineHeight: 0.9,
+                  textAlign: 'center',
+                  marginBottom: 16,
+                }}
+              >
                 WAR ROOM
               </div>
-            </RevealLine>
-
-            <div
-              style={{
-                position: 'relative',
-                zIndex: 1,
-                paddingLeft: hPad,
-                paddingRight: hPad,
-              }}
-            >
-              <RevealLine show={warRoomVisible} delayMs={200}>
-                <h2
-                  style={{
-                    fontFamily: '"Instrument Serif", Georgia, serif',
-                    fontSize: '28px',
-                    fontStyle: 'italic',
-                    fontWeight: 400,
-                    margin: '0 0 16px',
-                    opacity: 0.9,
-                    color: '#fff',
-                  }}
-                >
-                  The War Room
-                </h2>
-              </RevealLine>
-              <RevealLine show={warRoomVisible} delayMs={350}>
-                <p
-                  style={{
-                    fontFamily: '"Space Mono", monospace',
-                    fontSize: '13px',
-                    lineHeight: 1.5,
-                    margin: '0 0 16px',
-                    opacity: 0.55,
-                    color: 'rgba(255,255,255,0.85)',
-                  }}
-                >
-                  2 people · 24 hours · 1st place
-                </p>
-                <p
-                  style={{
-                    fontFamily: '"Instrument Serif", Georgia, serif',
-                    fontSize: '16px',
-                    lineHeight: 1.55,
-                    margin: '0 0 28px',
-                    opacity: 0.5,
-                    color: 'rgba(255,255,255,0.92)',
-                    maxWidth: '500px',
-                  }}
-                >
-                  Multi-agent adversarial debate engine. Three LLMs argue about your product until they
-                  find the truth.
-                </p>
-              </RevealLine>
-              <RevealLine show={warRoomVisible} delayMs={500}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                  {WAR_BADGES.map(name => (
-                    <span
-                      key={name}
-                      style={{
-                        fontFamily: '"Space Mono", monospace',
-                        fontSize: '9px',
-                        color: 'rgba(255,255,255,0.55)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: '4px',
-                        padding: '4px 12px',
-                      }}
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              </RevealLine>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div
-            ref={footerSectionRef}
-            role="contentinfo"
-            style={{
-              ...fullBleedWrap,
-              position: 'relative',
-              paddingTop: '120px',
-              paddingBottom: '80px',
-              textAlign: 'center',
-            }}
-          >
-            <RevealLine show={footerVisible} delayMs={0}>
-              <div aria-hidden style={watermarkFooter}>
-                ANGLEMYER
-              </div>
-            </RevealLine>
-
-            <RevealLine show={footerVisible} delayMs={200}>
+            </ZoneRevealLayer>
+            <ZoneRevealLayer revealed={rightOn} delayMs={150}>
+              <p
+                style={{
+                  fontFamily: '"Space Mono", monospace',
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                  margin: '0 0 12px',
+                  opacity: 0.65,
+                  color: 'rgba(255,255,255,0.9)',
+                  textAlign: 'center',
+                }}
+              >
+                2 people · 24 hours · 1st place
+              </p>
+            </ZoneRevealLayer>
+            <ZoneRevealLayer revealed={rightOn} delayMs={300}>
+              <p
+                style={{
+                  fontFamily: '"Instrument Serif", Georgia, serif',
+                  fontSize: '16px',
+                  lineHeight: 1.55,
+                  margin: '0 0 20px',
+                  opacity: 0.85,
+                  color: 'rgba(255,255,255,0.92)',
+                  textAlign: 'center',
+                }}
+              >
+                Three LLMs arguing about your product until they find the truth.
+              </p>
+            </ZoneRevealLayer>
+            <ZoneRevealLayer revealed={rightOn} delayMs={450}>
               <div
                 style={{
                   display: 'flex',
                   flexWrap: 'wrap',
-                  alignItems: 'center',
+                  gap: '10px',
                   justifyContent: 'center',
-                  gap: '0.5rem 0.75rem',
-                  marginBottom: '1rem',
                 }}
               >
-                {SOCIAL.map((s, i) => (
-                  <span key={s.href} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {i > 0 ? (
-                      <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '12px', userSelect: 'none' }}>
-                        ·
-                      </span>
-                    ) : null}
-                    <a href={s.href} target="_blank" rel="noopener noreferrer" style={linkMuted}>
-                      {s.label}
-                    </a>
+                {WAR_BADGES.map((name) => (
+                  <span
+                    key={name}
+                    style={{
+                      fontFamily: '"Space Mono", monospace',
+                      fontSize: '9px',
+                      color: 'rgba(255,255,255,0.55)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '4px',
+                      padding: '4px 12px',
+                    }}
+                  >
+                    {name}
                   </span>
                 ))}
               </div>
-            </RevealLine>
-
-            <RevealLine show={footerVisible} delayMs={350}>
-              <a href="mailto:tucker@untrackedmusic.com" style={{ ...linkMuted, display: 'inline-block' }}>
-                tucker@untrackedmusic.com
-              </a>
-            </RevealLine>
-
-            <RevealLine show={footerVisible} delayMs={450}>
-              <p
-                style={{
-                  fontFamily: '"Space Mono", monospace',
-                  fontSize: '9px',
-                  color: 'rgba(255,255,255,0.15)',
-                  margin: '48px 0 0',
-                  lineHeight: 1.5,
-                }}
-              >
-                Built with WebGL, Three.js, and too much caffeine.
-              </p>
-            </RevealLine>
+            </ZoneRevealLayer>
           </div>
+        </div>
+
+        {/* BOTTOM ZONE — bottom 20% */}
+        <div
+          role="contentinfo"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: '20%',
+            minHeight: 120,
+            zIndex: 7,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '12px 16px',
+            boxSizing: 'border-box',
+            pointerEvents: 'auto',
+          }}
+        >
+          <ZoneRevealLayer revealed={bottomOn} delayMs={0}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem 0.75rem',
+                marginBottom: '0.75rem',
+              }}
+            >
+              {SOCIAL.map((s, i) => (
+                <span key={s.href} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {i > 0 ? (
+                    <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '12px', userSelect: 'none' }}>
+                      ·
+                    </span>
+                  ) : null}
+                  <a href={s.href} target="_blank" rel="noopener noreferrer" style={linkMuted}>
+                    {s.label}
+                  </a>
+                </span>
+              ))}
+            </div>
+          </ZoneRevealLayer>
+          <ZoneRevealLayer revealed={bottomOn} delayMs={150}>
+            <a href="mailto:tucker@untrackedmusic.com" style={{ ...linkMuted, display: 'inline-block' }}>
+              tucker@untrackedmusic.com
+            </a>
+          </ZoneRevealLayer>
         </div>
       </div>
     </div>
