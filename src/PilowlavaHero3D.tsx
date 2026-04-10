@@ -5,44 +5,14 @@ import * as THREE from 'three'
 
 const FONT_URL = '/fonts/pilowlava.json'
 
-function ChromeAnglemyerText() {
-  const { viewport } = useThree()
-
-  return (
-    <Center>
-      <Text3D
-        font={FONT_URL}
-        size={viewport.width * 0.07}
-        height={viewport.width * 0.012}
-        bevelEnabled
-        bevelThickness={viewport.width * 0.002}
-        bevelSize={viewport.width * 0.0015}
-        bevelSegments={5}
-        curveSegments={32}
-      >
-        ANGLEMYER
-        <meshPhysicalMaterial
-          color="#c0c0c0"
-          metalness={1.0}
-          roughness={0.05}
-          reflectivity={1.0}
-          clearcoat={1.0}
-          clearcoatRoughness={0.05}
-          envMapIntensity={2.0}
-          iridescence={1.0}
-          iridescenceIOR={1.5}
-          iridescenceThicknessRange={[100, 400]}
-          side={THREE.DoubleSide}
-          transparent
-        />
-      </Text3D>
-    </Center>
-  )
-}
-
+/**
+ * Night-mode hero: single Text3D mesh (drei) + city env for reflections.
+ * No OBJ, no per-letter meshes, no scroll/zone-driven visibility.
+ */
 export default function PilowlavaHero3D() {
   const { viewport } = useThree()
   const groupRef = useRef<THREE.Group>(null)
+  const ambientRef = useRef<THREE.AmbientLight>(null)
   const mainLightRef = useRef<THREE.DirectionalLight>(null)
   const rimLightRef = useRef<THREE.DirectionalLight>(null)
   const sweepLightRef = useRef<THREE.DirectionalLight>(null)
@@ -72,6 +42,11 @@ export default function PilowlavaHero3D() {
     group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, (mx - 0.5) * 0.28, 0.06)
     group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, (my - 0.5) * -0.14, 0.06)
 
+    const ambient = ambientRef.current
+    if (ambient) {
+      ambient.intensity = 0.3 + Math.sin(t * 0.4) * 0.025
+    }
+
     const mainL = mainLightRef.current
     const rimL = rimLightRef.current
     const sweepL = sweepLightRef.current
@@ -89,13 +64,41 @@ export default function PilowlavaHero3D() {
 
   return (
     <>
-      <ambientLight intensity={0.3} />
+      <ambientLight ref={ambientRef} intensity={0.3} />
       <directionalLight ref={mainLightRef} position={[5, 5, 5]} intensity={3} />
       <directionalLight ref={rimLightRef} position={[0, 5, -5]} intensity={2} />
       <directionalLight ref={sweepLightRef} position={[-6, 4, 6]} intensity={1.4} />
       <group ref={groupRef} position={[0, viewport.height * 0.1, 1]} renderOrder={1}>
         <Suspense fallback={null}>
-          <ChromeAnglemyerText />
+          <Center>
+            <Text3D
+              font={FONT_URL}
+              size={viewport.width * 0.07}
+              height={viewport.width * 0.012}
+              bevelEnabled
+              bevelThickness={viewport.width * 0.002}
+              bevelSize={viewport.width * 0.0015}
+              bevelSegments={5}
+              curveSegments={32}
+            >
+              ANGLEMYER
+              <meshPhysicalMaterial
+                color="#c0c0c0"
+                metalness={1.0}
+                roughness={0.05}
+                reflectivity={1.0}
+                clearcoat={1.0}
+                clearcoatRoughness={0.05}
+                envMapIntensity={2.0}
+                iridescence={1.0}
+                iridescenceIOR={1.5}
+                iridescenceThicknessRange={[100, 400]}
+                side={THREE.DoubleSide}
+                transparent
+                opacity={1}
+              />
+            </Text3D>
+          </Center>
           <Environment preset="city" />
         </Suspense>
       </group>
