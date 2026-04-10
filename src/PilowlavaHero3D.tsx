@@ -48,6 +48,9 @@ function ChromeAnglemyerText() {
           clearcoat={1.0}
           clearcoatRoughness={0.05}
           envMapIntensity={2.0}
+          iridescence={1.0}
+          iridescenceIOR={1.5}
+          iridescenceThicknessRange={[100, 400]}
           side={THREE.DoubleSide}
           transparent
           opacity={1}
