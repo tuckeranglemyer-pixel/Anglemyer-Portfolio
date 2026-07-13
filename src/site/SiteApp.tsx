@@ -1,14 +1,10 @@
-import { useEffect, useRef, useState, Fragment } from 'react'
-import MagneticName from './MagneticName'
+import { useEffect, useRef, useState } from 'react'
 import {
   PROFILE,
   WORK,
   CODE,
   TIKTOK,
   VENTURES,
-  type WorkItem,
-  type CodeItem,
-  type Venture,
 } from './content'
 import './site.css'
 
@@ -16,7 +12,7 @@ const reducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// ── scroll-reveal ────────────────────────────────────────────────────────────
+// ── scroll reveal ────────────────────────────────────────────────────────────
 function useReveal() {
   const ref = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -35,7 +31,7 @@ function useReveal() {
           }
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' },
+      { threshold: 0.08, rootMargin: '0px 0px -8% 0px' },
     )
     io.observe(el)
     return () => io.disconnect()
@@ -64,7 +60,7 @@ function CountUp({ value }: { value: string }) {
         for (const e of entries) {
           if (e.isIntersecting && !started) {
             started = true
-            const dur = 1500
+            const dur = 1600
             const start = performance.now()
             const tick = (now: number) => {
               const t = Math.min(1, (now - start) / dur)
@@ -81,7 +77,7 @@ function CountUp({ value }: { value: string }) {
           }
         }
       },
-      { threshold: 0.4 },
+      { threshold: 0.5 },
     )
     io.observe(el)
     return () => io.disconnect()
@@ -89,7 +85,6 @@ function CountUp({ value }: { value: string }) {
   return <span ref={ref}>{display}</span>
 }
 
-// ── live broadcast clock ─────────────────────────────────────────────────────
 function fmtTime() {
   try {
     return (
@@ -114,9 +109,8 @@ function LiveClock() {
   return <span className="clock">{t}</span>
 }
 
-// ── custom cursor (fine pointers only) ───────────────────────────────────────
-function CustomCursor() {
-  const dot = useRef<HTMLDivElement>(null)
+// ── thin ring cursor (fine pointers only) ────────────────────────────────────
+function RingCursor() {
   const ring = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches) return
@@ -129,16 +123,14 @@ function CustomCursor() {
     const move = (e: MouseEvent) => {
       mx = e.clientX
       my = e.clientY
-      if (dot.current)
-        dot.current.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`
     }
     const over = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null
       ring.current?.classList.toggle('hovering', !!t?.closest('a, button, [data-cursor]'))
     }
     const loop = () => {
-      rx += (mx - rx) * 0.2
-      ry += (my - ry) * 0.2
+      rx += (mx - rx) * 0.22
+      ry += (my - ry) * 0.22
       if (ring.current)
         ring.current.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`
       raf = requestAnimationFrame(loop)
@@ -153,137 +145,70 @@ function CustomCursor() {
       document.body.classList.remove('has-custom-cursor')
     }
   }, [])
-  return (
-    <>
-      <div ref={dot} className="cursor-dot" aria-hidden />
-      <div ref={ring} className="cursor-ring" aria-hidden />
-    </>
-  )
+  return <div ref={ring} className="cursor-ring" aria-hidden />
 }
 
-const Eq = () => (
-  <span className="eq" aria-hidden>
-    <span />
-    <span />
-    <span />
-    <span />
-    <span />
-  </span>
-)
-
-function Marquee({ items }: { items: string[] }) {
-  const group = (
-    <div className="marquee-item">
-      {items.map((it, i) => (
-        <Fragment key={i}>
-          {it}
-          <span>✳</span>
-        </Fragment>
+function Monument({ lines }: { lines: string[] }) {
+  const layer = (cls: string, hidden = false) => (
+    <div className={`monument-layer ${cls}`} {...(hidden ? { 'aria-hidden': true } : {})}>
+      {lines.map((l, i) => (
+        <span className="monument-line" key={i}>
+          <span>{l}</span>
+        </span>
       ))}
     </div>
   )
   return (
-    <div className="marquee" aria-hidden>
-      <div className="marquee-track">
-        {group}
-        {group}
-      </div>
-    </div>
+    <h1 className="monument" aria-label={lines.join(' ')}>
+      {layer('monument-ghost', true)}
+      {layer('monument-fore', true)}
+    </h1>
   )
 }
 
-function SectionHeader({ index, label, note }: { index: string; label: string; note: string }) {
-  return (
-    <div className="section-head">
-      <span className="section-index">{index}</span>
-      <h2 className="section-label">{label}</h2>
-      <span className="section-note">{note}</span>
-    </div>
-  )
-}
-
-function monogram(s: string) {
-  return s.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '—'
-}
-
-function WorkCard({ item, n }: { item: WorkItem; n: number }) {
-  const isLink = item.url && item.url !== '#'
-  const Tag = isLink ? 'a' : 'div'
+// ── generic brutalist index row ──────────────────────────────────────────────
+function IndexRow({
+  num,
+  name,
+  sub,
+  meta,
+  href,
+  placeholder,
+  flag,
+  nameSm,
+}: {
+  num: string
+  name: string
+  sub?: string
+  meta?: string[]
+  href?: string
+  placeholder?: boolean
+  flag?: string
+  nameSm?: boolean
+}) {
+  const Tag = href ? 'a' : 'div'
   return (
     <Tag
-      className={`work-card${item.placeholder ? ' is-placeholder' : ''}`}
-      {...(isLink ? { href: item.url, target: '_blank', rel: 'noreferrer' } : {})}
+      className={`index-row${placeholder ? ' index-placeholder' : ''}`}
+      {...(href ? { href, target: '_blank', rel: 'noreferrer' } : {})}
     >
-      <span className="work-num">{String(n).padStart(2, '0')}</span>
-      <div className="work-thumb">
-        {item.image ? (
-          <img src={item.image} alt={item.title} loading="lazy" />
-        ) : (
-          <span className="work-monogram">{monogram(item.client || item.title)}</span>
-        )}
-        {item.placeholder && <span className="placeholder-flag">replace me</span>}
+      <span className="index-num">{num}</span>
+      <div className="index-main">
+        <h3 className={`index-name${nameSm ? ' sm' : ''}`}>{name}</h3>
+        {sub && <p className="index-sub">{sub}</p>}
       </div>
-      <div className="work-body">
-        <div className="work-top">
-          <h3 className="work-title">{item.title}</h3>
-          <span className="work-year">{item.year}</span>
-        </div>
-        <p className="work-meta">
-          {item.client} · {item.role}
-        </p>
-        <p className="work-blurb">{item.blurb}</p>
-        <div className="tag-row">
-          {item.tags.map((t) => (
-            <span className="tag" key={t}>
-              {t}
-            </span>
-          ))}
-        </div>
-        {isLink && <span className="work-cta">Visit site →</span>}
+      <div className="index-meta">
+        {flag && <span className="index-flag">{flag}</span>}
+        {meta?.map((m, i) => (
+          <span key={i}>{m}</span>
+        ))}
+        {href && <span className="index-arrow">↗</span>}
       </div>
     </Tag>
   )
 }
 
-function CodeRow({ item }: { item: CodeItem }) {
-  return (
-    <a
-      className={`code-row${item.placeholder ? ' is-placeholder' : ''}`}
-      href={item.url}
-      target="_blank"
-      rel="noreferrer"
-    >
-      <span className="code-kind">{item.kind}</span>
-      <div className="code-main">
-        <h3 className="code-title">{item.title}</h3>
-        <p className="code-repo">{item.repo}</p>
-        <p className="code-desc">{item.description}</p>
-      </div>
-      <span className="code-arrow">↗</span>
-    </a>
-  )
-}
-
-function VentureCard({ v }: { v: Venture }) {
-  return (
-    <a className="venture-card" href={v.url} target="_blank" rel="noreferrer">
-      <div className="venture-top">
-        <h3 className="venture-name">{v.name}</h3>
-        <span className="venture-meta">{v.meta}</span>
-      </div>
-      <p className="venture-tagline">{v.tagline}</p>
-      <p className="venture-desc">{v.description}</p>
-      <div className="tag-row">
-        {v.tags.map((t) => (
-          <span className="tag" key={t}>
-            {t}
-          </span>
-        ))}
-      </div>
-      <span className="venture-cta">Open →</span>
-    </a>
-  )
-}
+const pad2 = (n: number) => String(n).padStart(2, '0')
 
 export default function SiteApp() {
   const workRef = useReveal()
@@ -302,14 +227,10 @@ export default function SiteApp() {
   return (
     <div className="site">
       <div className="site-bg" aria-hidden />
-      <div className="aurora a1" aria-hidden />
-      <div className="aurora a2" aria-hidden />
-      <div className="site-grain" aria-hidden />
-      <CustomCursor />
+      <RingCursor />
 
       <header className="site-nav">
         <a className="nav-brand" href="#top">
-          <span className="nav-dot" />
           TUCKER ANGLEMYER
         </a>
         <nav className="nav-links">
@@ -323,125 +244,128 @@ export default function SiteApp() {
       <main className="site-main">
         {/* ── Hero ── */}
         <section className="hero" id="top">
-          <div className="hero-status">
+          <div className="hero-top">
             <span className="live">
-              <span className="nav-dot" />
+              <span className="dot" />
               Available for work
             </span>
-            <span className="sep">/</span>
-            <span>Providence, RI</span>
-            <span className="sep">/</span>
-            <LiveClock />
-            <span className="sep">/</span>
-            <Eq />
+            <span>
+              Providence, RI &nbsp;/&nbsp; <LiveClock />
+            </span>
           </div>
-          <MagneticName text={PROFILE.name} />
-          <p className="hero-lede">{PROFILE.lede}</p>
-          <div className="hero-cta">
-            <a className="btn btn-primary" href="#work">
-              View the work
-            </a>
-            <a className="btn" href={PROFILE.socials[0].href} target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-            <a className="btn" href={TIKTOK.url} target="_blank" rel="noreferrer">
-              TikTok
-            </a>
+
+          <Monument lines={['Tucker', 'Anglemyer']} />
+
+          <div className="hero-bottom">
+            <p className="hero-lede">{PROFILE.lede}</p>
+            <span className="hero-cue">Scroll ↓</span>
           </div>
-          <div className="hero-scrollcue">Scroll to explore</div>
         </section>
-      </main>
 
-      <Marquee
-        items={['Client Sites', 'Open Source', 'Underground Music', 'Building in Public', 'Design & Code']}
-      />
-
-      <main className="site-main">
         {/* ── Selected Work ── */}
         <section className="section reveal" id="work" ref={workRef}>
-          <SectionHeader index="01" label="Selected Work" note="Websites designed & built" />
-          <div className="work-grid">
+          <div className="section-head">
+            <span className="tag-label">01 — Websites, designed &amp; built</span>
+            <h2 className="section-label">Selected Work</h2>
+          </div>
+          <div className="index-list">
             {WORK.map((w, i) => (
-              <WorkCard item={w} n={i + 1} key={i} />
+              <IndexRow
+                key={i}
+                num={pad2(i + 1)}
+                name={w.title}
+                sub={w.blurb}
+                meta={[`${w.role} · ${w.year}`, w.tags.join(' · ')]}
+                href={w.url && w.url !== '#' ? w.url : undefined}
+                placeholder={w.placeholder}
+                flag={w.placeholder ? 'Add site' : undefined}
+              />
             ))}
           </div>
         </section>
 
         {/* ── Code & Fixes ── */}
         <section className="section reveal" id="code" ref={codeRef}>
-          <SectionHeader
-            index="02"
-            label="Code & Fixes"
-            note="770 contributions this year · guides, repos & fixes"
-          />
-          <div className="code-list">
+          <div className="section-head">
+            <span className="tag-label">02 — 770 contributions this year</span>
+            <h2 className="section-label">Code &amp; Fixes</h2>
+          </div>
+          <div className="index-list">
             {CODE.map((c, i) => (
-              <CodeRow item={c} key={i} />
+              <IndexRow
+                key={i}
+                num={pad2(i + 1)}
+                name={c.title}
+                nameSm
+                sub={c.description}
+                meta={[c.kind, c.repo]}
+                href={c.url}
+              />
             ))}
           </div>
         </section>
 
         {/* ── TikTok ── */}
         <section className="section reveal" id="tiktok" ref={tiktokRef}>
-          <SectionHeader index="03" label="TikTok" note="Where I blew up building in public" />
-          <div className="tiktok-feature">
-            <div className="tiktok-stats">
-              <a className="tiktok-handle" href={TIKTOK.url} target="_blank" rel="noreferrer">
-                {TIKTOK.handle}
-              </a>
-              <div className="stat-row">
-                <div className="stat">
-                  <span className="stat-num">
-                    <CountUp value={TIKTOK.likes} />
-                  </span>
-                  <span className="stat-label">likes</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-num">
-                    <CountUp value={TIKTOK.followers} />
-                  </span>
-                  <span className="stat-label">followers</span>
-                </div>
+          <div className="section-head">
+            <span className="tag-label">03 — Where I blew up building in public</span>
+            <h2 className="section-label">TikTok</h2>
+          </div>
+          <div className="tiktok-body">
+            <div className="tiktok-stat">
+              <span className="tiktok-bignum">
+                <CountUp value={TIKTOK.likes} />
+              </span>
+              <div className="tiktok-statmeta">
+                Likes
+                <br />
+                {TIKTOK.followers} followers
+                <br />
+                <a href={TIKTOK.url} target="_blank" rel="noreferrer">
+                  {TIKTOK.handle}
+                </a>
               </div>
-              <p className="tiktok-blurb">{TIKTOK.blurb}</p>
-              <a className="btn btn-primary" href={TIKTOK.url} target="_blank" rel="noreferrer">
-                Watch on TikTok →
-              </a>
             </div>
-            <a
-              className="tiktok-featured"
-              href={TIKTOK.featured.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span className="tiktok-featured-label">Went viral</span>
-              <span className="tiktok-play">▶</span>
-              <p className="tiktok-featured-caption">“{TIKTOK.featured.caption}”</p>
+            <p className="tiktok-quote">“{TIKTOK.featured.caption}”</p>
+            <a className="tiktok-watch" href={TIKTOK.featured.url} target="_blank" rel="noreferrer">
+              Watch the video ↗
             </a>
           </div>
         </section>
 
         {/* ── Ventures ── */}
         <section className="section reveal" id="ventures" ref={venturesRef}>
-          <SectionHeader index="04" label="Ventures" note="What I'm building" />
-          <div className="venture-grid">
+          <div className="section-head">
+            <span className="tag-label">04 — What I'm building</span>
+            <h2 className="section-label">Ventures</h2>
+          </div>
+          <div className="index-list">
             {VENTURES.map((v, i) => (
-              <VentureCard v={v} key={i} />
+              <IndexRow
+                key={i}
+                num={pad2(i + 1)}
+                name={v.name}
+                sub={`${v.tagline} — ${v.description}`}
+                meta={[v.meta, v.tags.join(' · ')]}
+                href={v.url}
+              />
             ))}
           </div>
         </section>
 
         {/* ── Contact ── */}
-        <section className="section contact reveal" id="contact" ref={contactRef}>
-          <SectionHeader index="05" label="Contact" note="Let's build something" />
-          <p className="contact-lead">Have a site to build, or just want to talk music?</p>
+        <section className="section reveal" id="contact" ref={contactRef}>
+          <div className="section-head">
+            <span className="tag-label">05 — Available for work</span>
+          </div>
+          <p className="contact-lead">Let's build something.</p>
           <a className="contact-email" href={`mailto:${PROFILE.email}`}>
             {PROFILE.email}
           </a>
           <div className="contact-socials">
             {PROFILE.socials.map((s) => (
               <a href={s.href} target="_blank" rel="noreferrer" key={s.label}>
-                {s.label}
+                {s.label} ↗
               </a>
             ))}
           </div>
@@ -450,7 +374,7 @@ export default function SiteApp() {
 
       <footer className="site-footer">
         <span>© {new Date().getFullYear()} Tucker Anglemyer</span>
-        <span>Providence, RI · {'◉'} Untracked</span>
+        <span>Providence, RI — 41.82°N 71.41°W</span>
       </footer>
     </div>
   )
