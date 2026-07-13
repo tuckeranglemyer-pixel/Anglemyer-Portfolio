@@ -200,7 +200,7 @@ export default function SiteApp() {
 
         {/* ── Code & Fixes ── */}
         <section className="section reveal" id="code" ref={codeRef}>
-          <SectionHeader index="02" label="Code & Fixes" note="Repos, merged PRs, and things I've fixed" />
+          <SectionHeader index="02" label="Code & Fixes" note="770 contributions this year · guides, repos & fixes" />
           <div className="code-list">
             {CODE.map((c, i) => (
               <CodeRow item={c} key={i} />
@@ -218,12 +218,12 @@ export default function SiteApp() {
               </a>
               <div className="stat-row">
                 <div className="stat">
-                  <span className="stat-num">{TIKTOK.followers}</span>
-                  <span className="stat-label">followers</span>
-                </div>
-                <div className="stat">
                   <span className="stat-num">{TIKTOK.likes}</span>
                   <span className="stat-label">likes</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-num">{TIKTOK.followers}</span>
+                  <span className="stat-label">followers</span>
                 </div>
               </div>
               <p className="tiktok-blurb">{TIKTOK.blurb}</p>
@@ -231,24 +231,16 @@ export default function SiteApp() {
                 Watch on TikTok →
               </a>
             </div>
-            <div className="tiktok-grid">
-              {TIKTOK.videos.map((vid, i) => (
-                <a
-                  className={`tiktok-video${vid.placeholder ? ' is-placeholder' : ''}`}
-                  href={vid.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  key={i}
-                >
-                  {vid.thumb ? (
-                    <img src={vid.thumb} alt={vid.caption} loading="lazy" />
-                  ) : (
-                    <span className="tiktok-play">▶</span>
-                  )}
-                  <span className="tiktok-views">{vid.views} views</span>
-                </a>
-              ))}
-            </div>
+            <a
+              className="tiktok-featured"
+              href={TIKTOK.featured.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span className="tiktok-featured-label">Went viral</span>
+              <span className="tiktok-play">▶</span>
+              <p className="tiktok-featured-caption">“{TIKTOK.featured.caption}”</p>
+            </a>
           </div>
         </section>
 

@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  content.ts — the single source of truth for everything on the site.
 //
-//  This is the ONLY file you need to edit to update the portfolio. Swap the
-//  placeholder entries (marked `placeholder: true`) for your real work.
-//  Anything with `placeholder: true` renders with a subtle "replace me" look
-//  so you can see at a glance what still needs real content.
+//  Edit this file to update the portfolio. Entries marked `placeholder: true`
+//  render with a subtle dashed "replace me" look so you can see what still needs
+//  real content. To add a screenshot to a work card, drop an image in
+//  /public/work/<name>.jpg and set `image: '/work/<name>.jpg'`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Profile {
@@ -47,21 +47,13 @@ export interface Venture {
   tags: string[]
 }
 
-export interface TikTokVideo {
-  url: string
-  caption: string
-  views: string
-  thumb?: string
-  placeholder?: boolean
-}
-
 export interface TikTok {
   handle: string
   url: string
-  followers: string
   likes: string
+  followers: string
   blurb: string
-  videos: TikTokVideo[]
+  featured: { caption: string; url: string }
 }
 
 // ── Profile ──────────────────────────────────────────────────────────────────
@@ -69,101 +61,101 @@ export const PROFILE: Profile = {
   name: 'Tucker Anglemyer',
   eyebrow: 'Providence College · Accounting & Finance · Incoming PwC · Founder, Untracked',
   lede:
-    'I design and build websites, ship code, and run Untracked. This is a running record of the work — client sites, the code behind them, and the things I make on the internet.',
+    'I design and build websites, ship code, and run Untracked — a tool for finding music almost nobody has. This is the work: client sites, open-source fixes, and the things I make online.',
   email: 'tucker@untrackedmusic.com',
   socials: [
     { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
+    { label: 'TikTok', href: 'https://www.tiktok.com/@tuck.angle' },
+    { label: 'SoundCloud', href: 'https://soundcloud.com/tuckerq' },
     { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
-    { label: 'TikTok', href: 'https://www.tiktok.com/@untrackedmusic' },
   ],
 }
 
-// ── Selected Work — client websites you've designed & built ──────────────────
-//  TODO: replace these three placeholders with your real client sites.
-//  For each: a title, the client name, your role, year, the live URL, and
-//  ideally a screenshot dropped in /public/work/<name>.jpg referenced via `image`.
+// ── Selected Work — websites designed & built ────────────────────────────────
 export const WORK: WorkItem[] = [
   {
-    title: 'Client Site One',
+    title: 'TWO THIRTY',
+    client: 'twothirty.fm',
+    role: 'Design & build',
+    year: '2025',
+    url: 'https://twothirty.fm',
+    tags: ['Web design', 'Event site'],
+    blurb:
+      'Site for the Bushwick techno & UK-garage night — lineup, venue details, and RA ticketing behind a stripped-back, raw identity.',
+  },
+  {
+    title: 'Untracked',
+    client: 'untrackedmusic.com',
+    role: 'Design & build',
+    year: '2025',
+    url: 'https://untrackedmusic.com',
+    tags: ['React', 'WebGL', 'Terminal UI'],
+    blurb:
+      'The Untracked landing — a terminal-style “signal scanner” that decodes tracks in real time. “Almost nobody has this.”',
+  },
+  {
+    // TODO: add another client site — name, live URL, your role, year, one-line outcome.
+    title: 'Your next client site',
     client: 'Client name',
     role: 'Design & build',
     year: '2025',
     url: '#',
     tags: ['Web design', 'Development'],
-    blurb:
-      'One or two lines on what you built for them and the outcome — “a full redesign that doubled their inbound bookings,” etc.',
-    placeholder: true,
-  },
-  {
-    title: 'Client Site Two',
-    client: 'Client name',
-    role: 'Development',
-    year: '2025',
-    url: '#',
-    tags: ['Next.js', 'CMS'],
-    blurb: 'What the site does and why it mattered to the client.',
-    placeholder: true,
-  },
-  {
-    title: 'Client Site Three',
-    client: 'Client name',
-    role: 'Design & build',
-    year: '2024',
-    url: '#',
-    tags: ['Landing page', 'Branding'],
-    blurb: 'The problem, what you shipped, and the result.',
+    blurb: 'Add a client site here: what you built and the outcome it drove.',
     placeholder: true,
   },
 ]
 
-// ── Code & Fixes — GitHub work, open-source contributions, PRs ───────────────
-//  TODO: replace with your real repos / merged PRs / notable fixes.
+// ── Code & Fixes — open-source contributions, repos, and fixes ───────────────
 export const CODE: CodeItem[] = [
   {
-    title: 'Bug fix title',
-    repo: 'owner/repo',
+    title: 'Running ACE-Step 1.5 on AMD (ROCm) — working setup + fixes',
+    repo: 'ace-step/ACE-Step · Discussion #404',
     description:
-      'What was broken, what you changed, and the impact. Link goes straight to the merged PR or commit.',
-    url: 'https://github.com/tuckeranglemyer-pixel',
-    kind: 'Merged PR',
-    placeholder: true,
-  },
-  {
-    title: 'Project or library',
-    repo: 'tuckeranglemyer-pixel/repo',
-    description: 'A repo you own — what it does and the stack.',
-    url: 'https://github.com/tuckeranglemyer-pixel',
+      'Four fixes to get the ACE-Step AI music model training on AMD GPUs via ROCm on Windows. Multiple users replicated the setup and trained their own LoRA models — 9 comments, 16 replies.',
+    url: 'https://github.com/ace-step/ACE-Step/discussions/404',
     kind: 'Open source',
-    placeholder: true,
   },
   {
-    title: 'Notable contribution',
-    repo: 'owner/repo',
-    description: 'A fix or feature you contributed upstream.',
-    url: 'https://github.com/tuckeranglemyer-pixel',
-    kind: 'Fix',
-    placeholder: true,
+    title: 'LoKr training on AMD RX 7900 XT + an undocumented instability',
+    repo: 'ace-step/ACE-Step-1.5 · Discussion #1232',
+    description:
+      'A 16-minute working LoKr training config on AMD ROCm, plus the first documentation of a numerical instability in the Kronecker-factored path that nobody had reported.',
+    url: 'https://github.com/ace-step/ACE-Step-1.5/discussions/1232',
+    kind: 'Guide + bug report',
+  },
+  {
+    title: 'untracked-audio-engine',
+    repo: 'tuckeranglemyer-pixel/untracked-audio-engine',
+    description: 'The audio-analysis engine behind Untracked’s music discovery. JavaScript.',
+    url: 'https://github.com/tuckeranglemyer-pixel/untracked-audio-engine',
+    kind: 'Repo',
+  },
+  {
+    title: 'PokemonIsland',
+    repo: 'tuckeranglemyer-pixel/PokemonIsland',
+    description: 'So everyone can have a little Pokémon on their iPhone island. Swift.',
+    url: 'https://github.com/tuckeranglemyer-pixel/PokemonIsland',
+    kind: 'Repo',
   },
 ]
 
-// ── TikTok — you blew up here, so lead with the numbers ──────────────────────
-//  TODO: update followers/likes and swap in your best-performing videos.
+// ── TikTok — 90 followers, 73.7K likes: the videos travel further than the follow ─
 export const TIKTOK: TikTok = {
-  handle: '@untrackedmusic',
-  url: 'https://www.tiktok.com/@untrackedmusic',
-  followers: '000K',
-  likes: '0.0M',
+  handle: '@tuck.angle',
+  url: 'https://www.tiktok.com/@tuck.angle',
+  likes: '73.7K',
+  followers: '90',
   blurb:
-    'Building Untracked in public — the videos that took off and put the project on the map.',
-  videos: [
-    { url: 'https://www.tiktok.com/@untrackedmusic', caption: 'Top video', views: '0.0M', placeholder: true },
-    { url: 'https://www.tiktok.com/@untrackedmusic', caption: 'Top video', views: '000K', placeholder: true },
-    { url: 'https://www.tiktok.com/@untrackedmusic', caption: 'Top video', views: '000K', placeholder: true },
-    { url: 'https://www.tiktok.com/@untrackedmusic', caption: 'Top video', views: '000K', placeholder: true },
-  ],
+    'Trying to find music you haven’t heard. 90 followers, 73.7K likes — the videos travel a lot further than the follower count.',
+  featured: {
+    caption:
+      'went to kettama alone thinking I was gonna find my wife — it was 400 dudes w/ y2k sunglasses.',
+    url: 'https://www.tiktok.com/@tuck.angle/video/7625370801780428045',
+  },
 }
 
-// ── Ventures — the two things you're actually building (real copy) ───────────
+// ── Ventures — the two things you're building ────────────────────────────────
 export const VENTURES: Venture[] = [
   {
     name: 'Untracked',
