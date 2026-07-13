@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, Fragment } from 'react'
 import MagneticName from './MagneticName'
 import {
   PROFILE,
@@ -12,16 +12,17 @@ import {
 } from './content'
 import './site.css'
 
-// ── scroll-reveal: fade sections up as they enter view ───────────────────────
+const reducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// ── scroll-reveal ────────────────────────────────────────────────────────────
 function useReveal() {
   const ref = useRef<HTMLElement>(null)
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    if (
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ) {
+    if (reducedMotion()) {
       el.classList.add('in')
       return
     }
@@ -34,12 +35,161 @@ function useReveal() {
           }
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' },
     )
     io.observe(el)
     return () => io.disconnect()
   }, [])
   return ref
+}
+
+// ── count-up on reveal ───────────────────────────────────────────────────────
+function CountUp({ value }: { value: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [display, setDisplay] = useState(value)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const m = value.match(/^([\d.]+)(.*)$/)
+    if (!m || reducedMotion()) {
+      setDisplay(value)
+      return
+    }
+    const target = parseFloat(m[1])
+    const suffix = m[2]
+    const decimals = (m[1].split('.')[1] || '').length
+    let started = false
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && !started) {
+            started = true
+            const dur = 1500
+            const start = performance.now()
+            const tick = (now: number) => {
+              const t = Math.min(1, (now - start) / dur)
+              const eased = 1 - Math.pow(1 - t, 3)
+              if (t < 1) {
+                setDisplay((target * eased).toFixed(decimals) + suffix)
+                requestAnimationFrame(tick)
+              } else {
+                setDisplay(value)
+              }
+            }
+            requestAnimationFrame(tick)
+            io.unobserve(e.target)
+          }
+        }
+      },
+      { threshold: 0.4 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [value])
+  return <span ref={ref}>{display}</span>
+}
+
+// ── live broadcast clock ─────────────────────────────────────────────────────
+function fmtTime() {
+  try {
+    return (
+      new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        timeZone: 'America/New_York',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }) + ' ET'
+    )
+  } catch {
+    return ''
+  }
+}
+function LiveClock() {
+  const [t, setT] = useState(fmtTime)
+  useEffect(() => {
+    const id = setInterval(() => setT(fmtTime()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span className="clock">{t}</span>
+}
+
+// ── custom cursor (fine pointers only) ───────────────────────────────────────
+function CustomCursor() {
+  const dot = useRef<HTMLDivElement>(null)
+  const ring = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return
+    document.body.classList.add('has-custom-cursor')
+    let mx = window.innerWidth / 2
+    let my = window.innerHeight / 2
+    let rx = mx
+    let ry = my
+    let raf = 0
+    const move = (e: MouseEvent) => {
+      mx = e.clientX
+      my = e.clientY
+      if (dot.current)
+        dot.current.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`
+    }
+    const over = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null
+      ring.current?.classList.toggle('hovering', !!t?.closest('a, button, [data-cursor]'))
+    }
+    const loop = () => {
+      rx += (mx - rx) * 0.2
+      ry += (my - ry) * 0.2
+      if (ring.current)
+        ring.current.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`
+      raf = requestAnimationFrame(loop)
+    }
+    window.addEventListener('mousemove', move, { passive: true })
+    window.addEventListener('mouseover', over, { passive: true })
+    raf = requestAnimationFrame(loop)
+    return () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseover', over)
+      cancelAnimationFrame(raf)
+      document.body.classList.remove('has-custom-cursor')
+    }
+  }, [])
+  return (
+    <>
+      <div ref={dot} className="cursor-dot" aria-hidden />
+      <div ref={ring} className="cursor-ring" aria-hidden />
+    </>
+  )
+}
+
+const Eq = () => (
+  <span className="eq" aria-hidden>
+    <span />
+    <span />
+    <span />
+    <span />
+    <span />
+  </span>
+)
+
+function Marquee({ items }: { items: string[] }) {
+  const group = (
+    <div className="marquee-item">
+      {items.map((it, i) => (
+        <Fragment key={i}>
+          {it}
+          <span>✳</span>
+        </Fragment>
+      ))}
+    </div>
+  )
+  return (
+    <div className="marquee" aria-hidden>
+      <div className="marquee-track">
+        {group}
+        {group}
+      </div>
+    </div>
+  )
 }
 
 function SectionHeader({ index, label, note }: { index: string; label: string; note: string }) {
@@ -56,8 +206,7 @@ function monogram(s: string) {
   return s.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '—'
 }
 
-// ── Work card ────────────────────────────────────────────────────────────────
-function WorkCard({ item }: { item: WorkItem }) {
+function WorkCard({ item, n }: { item: WorkItem; n: number }) {
   const isLink = item.url && item.url !== '#'
   const Tag = isLink ? 'a' : 'div'
   return (
@@ -65,6 +214,7 @@ function WorkCard({ item }: { item: WorkItem }) {
       className={`work-card${item.placeholder ? ' is-placeholder' : ''}`}
       {...(isLink ? { href: item.url, target: '_blank', rel: 'noreferrer' } : {})}
     >
+      <span className="work-num">{String(n).padStart(2, '0')}</span>
       <div className="work-thumb">
         {item.image ? (
           <img src={item.image} alt={item.title} loading="lazy" />
@@ -95,7 +245,6 @@ function WorkCard({ item }: { item: WorkItem }) {
   )
 }
 
-// ── Code row ─────────────────────────────────────────────────────────────────
 function CodeRow({ item }: { item: CodeItem }) {
   return (
     <a
@@ -115,7 +264,6 @@ function CodeRow({ item }: { item: CodeItem }) {
   )
 }
 
-// ── Venture card ─────────────────────────────────────────────────────────────
 function VentureCard({ v }: { v: Venture }) {
   return (
     <a className="venture-card" href={v.url} target="_blank" rel="noreferrer">
@@ -145,7 +293,6 @@ export default function SiteApp() {
   const contactRef = useReveal()
 
   useEffect(() => {
-    // hide the index.html fast-load screen once mounted
     const el = document.getElementById('loading')
     if (el) el.remove()
     const w = window as Window & { _loaderTimer?: ReturnType<typeof setTimeout> }
@@ -155,11 +302,15 @@ export default function SiteApp() {
   return (
     <div className="site">
       <div className="site-bg" aria-hidden />
+      <div className="aurora a1" aria-hidden />
+      <div className="aurora a2" aria-hidden />
       <div className="site-grain" aria-hidden />
+      <CustomCursor />
 
       <header className="site-nav">
         <a className="nav-brand" href="#top">
-          TA
+          <span className="nav-dot" />
+          TUCKER ANGLEMYER
         </a>
         <nav className="nav-links">
           <a href="#work">Work</a>
@@ -172,12 +323,23 @@ export default function SiteApp() {
       <main className="site-main">
         {/* ── Hero ── */}
         <section className="hero" id="top">
-          <p className="hero-eyebrow">{PROFILE.eyebrow}</p>
+          <div className="hero-status">
+            <span className="live">
+              <span className="nav-dot" />
+              Available for work
+            </span>
+            <span className="sep">/</span>
+            <span>Providence, RI</span>
+            <span className="sep">/</span>
+            <LiveClock />
+            <span className="sep">/</span>
+            <Eq />
+          </div>
           <MagneticName text={PROFILE.name} />
           <p className="hero-lede">{PROFILE.lede}</p>
           <div className="hero-cta">
             <a className="btn btn-primary" href="#work">
-              View work
+              View the work
             </a>
             <a className="btn" href={PROFILE.socials[0].href} target="_blank" rel="noreferrer">
               GitHub
@@ -186,21 +348,32 @@ export default function SiteApp() {
               TikTok
             </a>
           </div>
+          <div className="hero-scrollcue">Scroll to explore</div>
         </section>
+      </main>
 
+      <Marquee
+        items={['Client Sites', 'Open Source', 'Underground Music', 'Building in Public', 'Design & Code']}
+      />
+
+      <main className="site-main">
         {/* ── Selected Work ── */}
         <section className="section reveal" id="work" ref={workRef}>
-          <SectionHeader index="01" label="Selected Work" note="Websites I've designed & built" />
+          <SectionHeader index="01" label="Selected Work" note="Websites designed & built" />
           <div className="work-grid">
             {WORK.map((w, i) => (
-              <WorkCard item={w} key={i} />
+              <WorkCard item={w} n={i + 1} key={i} />
             ))}
           </div>
         </section>
 
         {/* ── Code & Fixes ── */}
         <section className="section reveal" id="code" ref={codeRef}>
-          <SectionHeader index="02" label="Code & Fixes" note="770 contributions this year · guides, repos & fixes" />
+          <SectionHeader
+            index="02"
+            label="Code & Fixes"
+            note="770 contributions this year · guides, repos & fixes"
+          />
           <div className="code-list">
             {CODE.map((c, i) => (
               <CodeRow item={c} key={i} />
@@ -218,11 +391,15 @@ export default function SiteApp() {
               </a>
               <div className="stat-row">
                 <div className="stat">
-                  <span className="stat-num">{TIKTOK.likes}</span>
+                  <span className="stat-num">
+                    <CountUp value={TIKTOK.likes} />
+                  </span>
                   <span className="stat-label">likes</span>
                 </div>
                 <div className="stat">
-                  <span className="stat-num">{TIKTOK.followers}</span>
+                  <span className="stat-num">
+                    <CountUp value={TIKTOK.followers} />
+                  </span>
                   <span className="stat-label">followers</span>
                 </div>
               </div>
@@ -257,6 +434,7 @@ export default function SiteApp() {
         {/* ── Contact ── */}
         <section className="section contact reveal" id="contact" ref={contactRef}>
           <SectionHeader index="05" label="Contact" note="Let's build something" />
+          <p className="contact-lead">Have a site to build, or just want to talk music?</p>
           <a className="contact-email" href={`mailto:${PROFILE.email}`}>
             {PROFILE.email}
           </a>
@@ -272,7 +450,7 @@ export default function SiteApp() {
 
       <footer className="site-footer">
         <span>© {new Date().getFullYear()} Tucker Anglemyer</span>
-        <span>Providence, RI</span>
+        <span>Providence, RI · {'◉'} Untracked</span>
       </footer>
     </div>
   )
