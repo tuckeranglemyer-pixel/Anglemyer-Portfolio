@@ -363,7 +363,7 @@ export default function SiteApp() {
         {/* ── Selected Work ── */}
         <section className="section reveal" id="work" ref={workRef}>
           <div className="section-head">
-            <span className="tag-label">01 — Websites, designed &amp; built</span>
+            <span className="tag-label">01 · Websites, designed &amp; built</span>
             <h2 className="section-label">Selected Work</h2>
           </div>
           <div className="index-list">
@@ -385,7 +385,7 @@ export default function SiteApp() {
         {/* ── Code & Fixes ── */}
         <section className="section reveal" id="code" ref={codeRef}>
           <div className="section-head">
-            <span className="tag-label">02 — 770 contributions this year</span>
+            <span className="tag-label">02 · 770 contributions this year</span>
             <h2 className="section-label">Code &amp; Fixes</h2>
           </div>
           <div className="index-list">
@@ -406,7 +406,7 @@ export default function SiteApp() {
         {/* ── TikTok ── */}
         <section className="section reveal" id="tiktok" ref={tiktokRef}>
           <div className="section-head">
-            <span className="tag-label">03 — Where I blew up building in public</span>
+            <span className="tag-label">03 · Where I blew up building in public</span>
             <h2 className="section-label">TikTok</h2>
           </div>
           <div className="tiktok-body">
@@ -434,7 +434,7 @@ export default function SiteApp() {
         {/* ── Ventures ── */}
         <section className="section reveal" id="ventures" ref={venturesRef}>
           <div className="section-head">
-            <span className="tag-label">04 — What I'm building</span>
+            <span className="tag-label">04 · What I'm building</span>
             <h2 className="section-label">Ventures</h2>
           </div>
           <div className="index-list">
@@ -443,7 +443,7 @@ export default function SiteApp() {
                 key={i}
                 num={pad2(i + 1)}
                 name={v.name}
-                sub={`${v.tagline} — ${v.description}`}
+                sub={`${v.tagline} ${v.description}`}
                 meta={[v.meta, v.tags.join(' · ')]}
                 href={v.url}
               />
@@ -454,7 +454,7 @@ export default function SiteApp() {
         {/* ── Contact ── */}
         <section className="section reveal" id="contact" ref={contactRef}>
           <div className="section-head">
-            <span className="tag-label">05 — Available for work</span>
+            <span className="tag-label">05 · Available for work</span>
           </div>
           <p className="contact-lead">Let's build something.</p>
           <a className="contact-email" href={`mailto:${PROFILE.email}`}>
@@ -472,7 +472,7 @@ export default function SiteApp() {
 
       <footer className="site-footer">
         <span>© {new Date().getFullYear()} Tucker Anglemyer</span>
-        <span>Providence, RI — 41.82°N 71.41°W</span>
+        <span>Providence, RI · 41.82°N 71.41°W</span>
       </footer>
     </div>
   )

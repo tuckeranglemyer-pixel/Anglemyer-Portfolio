@@ -59,9 +59,9 @@ export interface TikTok {
 // ── Profile ──────────────────────────────────────────────────────────────────
 export const PROFILE: Profile = {
   name: 'Tucker Anglemyer',
-  eyebrow: 'Providence College — Incoming PwC — Founder, Untracked',
+  eyebrow: 'Providence College · Incoming PwC · Founder, Untracked',
   lede:
-    'I build sites and ship code. I run Untracked — working to surface the underground.',
+    'I build sites and ship code. I run Untracked, working to surface the underground.',
   email: 'tucker@untrackedmusic.com',
   socials: [
     { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
@@ -81,7 +81,7 @@ export const WORK: WorkItem[] = [
     url: 'https://twothirty.fm',
     tags: ['Web design', 'Event site'],
     blurb:
-      'Site for a Bushwick techno & UK garage night. Lineup, venue, RA tickets — stripped back and raw, like the night.',
+      'Site for a Bushwick techno & UK garage night. Lineup, venue, RA tickets. Stripped back and raw, like the night.',
   },
   {
     title: 'Untracked',
@@ -91,7 +91,7 @@ export const WORK: WorkItem[] = [
     url: 'https://untrackedmusic.com',
     tags: ['React', 'WebGL', 'Terminal UI'],
     blurb:
-      'The Untracked landing — a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
+      'The Untracked landing, a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
   },
   {
     title: 'Perks Beer Garden',
@@ -101,17 +101,17 @@ export const WORK: WorkItem[] = [
     url: 'https://perks-harwich-port.vercel.app/',
     tags: ['Web design', 'Hospitality'],
     blurb:
-      'A Cape Cod coffee shop, raw bar & beer garden — three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
+      'A Cape Cod coffee shop, raw bar & beer garden. Three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
   },
 ]
 
 // ── Code & Fixes — open-source contributions, repos, and fixes ───────────────
 export const CODE: CodeItem[] = [
   {
-    title: 'Running ACE-Step 1.5 on AMD (ROCm) — working setup + fixes',
+    title: 'Running ACE-Step 1.5 on AMD (ROCm): working setup + fixes',
     repo: 'ace-step/ACE-Step · Discussion #404',
     description:
-      'Four fixes to get the ACE-Step AI music model training on AMD GPUs (ROCm, Windows) — the stuff nobody had written down. People actually used it to train their own models. 9 comments, 16 replies.',
+      'Four fixes to get the ACE-Step AI music model training on AMD GPUs (ROCm, Windows). The stuff nobody had written down. People actually used it to train their own models. 9 comments, 16 replies.',
     url: 'https://github.com/ace-step/ACE-Step/discussions/404',
     kind: 'Open source',
   },
@@ -119,7 +119,7 @@ export const CODE: CodeItem[] = [
     title: 'LoKr training on AMD RX 7900 XT + an undocumented instability',
     repo: 'ace-step/ACE-Step-1.5 · Discussion #1232',
     description:
-      'A 16-minute LoKr training setup on AMD ROCm — plus the first writeup of a numerical bug in the Kronecker path that nobody had caught.',
+      'A 16-minute LoKr training setup on AMD ROCm, plus the first writeup of a numerical bug in the Kronecker path that nobody had caught.',
     url: 'https://github.com/ace-step/ACE-Step-1.5/discussions/1232',
     kind: 'Guide + bug report',
   },
@@ -148,7 +148,7 @@ export const TIKTOK: TikTok = {
   blurb: 'The videos go a lot further than the follow count.',
   featured: {
     caption:
-      'went to kettama alone thinking I was gonna find my wife — it was 400 dudes w/ y2k sunglasses.',
+      'went to kettama alone thinking I was gonna find my wife. it was 400 dudes w/ y2k sunglasses.',
     url: 'https://www.tiktok.com/@tuck.angle/video/7625370801780428045',
   },
 }
