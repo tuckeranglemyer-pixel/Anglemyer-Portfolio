@@ -263,8 +263,26 @@ a {
 }
 .monument-fore {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   color: var(--bone);
+}
+/* violet ink fringe — invisible until the name is hovered (JS drives opacity) */
+.monument-viol {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  color: var(--accent);
+  transform: translate(5px, -3px);
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  will-change: opacity, filter;
+}
+.ink-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 .monument-ghost {
   position: absolute;

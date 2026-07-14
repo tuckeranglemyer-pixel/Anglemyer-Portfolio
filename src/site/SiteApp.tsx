@@ -150,6 +150,12 @@ function RingCursor() {
 
 function Monument({ lines }: { lines: string[] }) {
   const ghostRef = useRef<HTMLDivElement>(null)
+  const foreRef = useRef<HTMLDivElement>(null)
+  const violRef = useRef<HTMLDivElement>(null)
+  const dispRef = useRef<SVGFEDisplacementMapElement>(null)
+  const turbRef = useRef<SVGFETurbulenceElement>(null)
+  const hovering = useRef(false)
+
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches || reducedMotion()) return
     let raf = 0
@@ -157,15 +163,47 @@ function Monument({ lines }: { lines: string[] }) {
     let ty = 0
     let cx = 0
     let cy = 0
+    let ink = 0 // 0 = pristine plain name, 1 = fully awake
     const onMove = (e: MouseEvent) => {
       cx = e.clientX / window.innerWidth - 0.5
       cy = e.clientY / window.innerHeight - 0.5
     }
     const loop = () => {
+      const now = performance.now() / 1000
+      // dark ghost layer keeps its gentle mouse parallax
       tx += (cx * 46 - tx) * 0.06
       ty += (cy * 26 - ty) * 0.06
       if (ghostRef.current)
         ghostRef.current.style.transform = `scale(1.1) translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px)`
+
+      // slight ink displacement — dead until the cursor is over the name
+      const target = hovering.current ? 1 : 0
+      ink += (target - ink) * 0.08
+      const disp = dispRef.current
+      const turb = turbRef.current
+      const fore = foreRef.current
+      const viol = violRef.current
+      if (disp && turb && fore) {
+        if (ink > 0.01) {
+          // a slow, living wobble so the ink flows rather than sits still
+          const bx = (0.011 + 0.004 * Math.sin(now * 0.9)).toFixed(4)
+          const by = (0.017 + 0.005 * Math.sin(now * 0.7 + 1.3)).toFixed(4)
+          turb.setAttribute('baseFrequency', `${bx} ${by}`)
+          disp.setAttribute('scale', (ink * 7).toFixed(2))
+          fore.style.filter = 'url(#ink)'
+          if (viol) {
+            viol.style.filter = 'url(#ink)'
+            viol.style.opacity = (ink * 0.8).toFixed(3)
+          }
+        } else {
+          disp.setAttribute('scale', '0')
+          fore.style.filter = 'none'
+          if (viol) {
+            viol.style.filter = 'none'
+            viol.style.opacity = '0'
+          }
+        }
+      }
       raf = requestAnimationFrame(loop)
     }
     window.addEventListener('mousemove', onMove, { passive: true })
@@ -175,18 +213,48 @@ function Monument({ lines }: { lines: string[] }) {
       cancelAnimationFrame(raf)
     }
   }, [])
+
   const renderLines = () =>
     lines.map((l, i) => (
       <span className="monument-line" key={i}>
         <span>{l}</span>
       </span>
     ))
+
   return (
-    <h1 className="monument" aria-label={lines.join(' ')}>
+    <h1
+      className="monument"
+      aria-label={lines.join(' ')}
+      onMouseEnter={() => (hovering.current = true)}
+      onMouseLeave={() => (hovering.current = false)}
+    >
+      <svg className="ink-defs" width="0" height="0" aria-hidden focusable="false">
+        <filter id="ink" x="-15%" y="-15%" width="130%" height="130%">
+          <feTurbulence
+            ref={turbRef}
+            type="fractalNoise"
+            baseFrequency="0.011 0.017"
+            numOctaves={2}
+            seed={7}
+            result="n"
+          />
+          <feDisplacementMap
+            ref={dispRef}
+            in="SourceGraphic"
+            in2="n"
+            scale="0"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
       <div className="monument-layer monument-ghost" aria-hidden ref={ghostRef}>
         {renderLines()}
       </div>
-      <div className="monument-layer monument-fore" aria-hidden>
+      <div className="monument-layer monument-viol" aria-hidden ref={violRef}>
+        {renderLines()}
+      </div>
+      <div className="monument-layer monument-fore" aria-hidden ref={foreRef}>
         {renderLines()}
       </div>
     </h1>

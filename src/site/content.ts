@@ -74,16 +74,6 @@ export const PROFILE: Profile = {
 // ── Selected Work — websites designed & built ────────────────────────────────
 export const WORK: WorkItem[] = [
   {
-    title: 'Perks Beer Garden',
-    client: 'Harwich Port, MA',
-    role: 'Design & build',
-    year: '2025',
-    url: 'https://perks-harwich-port.vercel.app/',
-    tags: ['Web design', 'Hospitality'],
-    blurb:
-      'A Cape Cod coffee shop, raw bar & beer garden — three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
-  },
-  {
     title: 'TWO THIRTY',
     client: 'twothirty.fm',
     role: 'Design & build',
@@ -102,6 +92,16 @@ export const WORK: WorkItem[] = [
     tags: ['React', 'WebGL', 'Terminal UI'],
     blurb:
       'The Untracked landing — a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
+  },
+  {
+    title: 'Perks Beer Garden',
+    client: 'Harwich Port, MA',
+    role: 'Design & build',
+    year: '2025',
+    url: 'https://perks-harwich-port.vercel.app/',
+    tags: ['Web design', 'Hospitality'],
+    blurb:
+      'A Cape Cod coffee shop, raw bar & beer garden — three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
   },
 ]
 
