@@ -30,3 +30,4 @@ dist-ssr
 .iflow/
 .loupe/
 skills/
+public/audio/*.mp3

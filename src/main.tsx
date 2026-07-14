@@ -1,9 +1,13 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
-import SiteApp from './site/SiteApp.tsx'
+
+// ?v=terrain -> the SUMMIT TO BUNKER draft; default -> the current site.
+const isTerrain = new URLSearchParams(window.location.search).get('v') === 'terrain'
+const SiteApp = lazy(() => import('./site/SiteApp.tsx'))
+const TerrainApp = lazy(() => import('./terrain/TerrainApp.tsx'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <SiteApp />
+    <Suspense fallback={null}>{isTerrain ? <TerrainApp /> : <SiteApp />}</Suspense>
   </StrictMode>,
 )
