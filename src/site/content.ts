@@ -59,9 +59,9 @@ export interface TikTok {
 // ── Profile ──────────────────────────────────────────────────────────────────
 export const PROFILE: Profile = {
   name: 'Tucker Anglemyer',
-  eyebrow: 'Providence College · Accounting & Finance · Incoming PwC · Founder, Untracked',
+  eyebrow: 'Providence College — Incoming PwC — Founder, Untracked',
   lede:
-    'I design and build websites, ship code, and run Untracked — a tool for finding music almost nobody has. This is the work: client sites, open-source fixes, and the things I make online.',
+    'I build sites and ship code. I run Untracked. If it’s underground, I’m probably already digging for it.',
   email: 'tucker@untrackedmusic.com',
   socials: [
     { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
@@ -81,7 +81,7 @@ export const WORK: WorkItem[] = [
     url: 'https://twothirty.fm',
     tags: ['Web design', 'Event site'],
     blurb:
-      'Site for the Bushwick techno & UK-garage night — lineup, venue details, and RA ticketing behind a stripped-back, raw identity.',
+      'Site for a Bushwick techno & UK garage night. Lineup, venue, RA tickets — stripped back and raw, like the night.',
   },
   {
     title: 'Untracked',
@@ -91,7 +91,7 @@ export const WORK: WorkItem[] = [
     url: 'https://untrackedmusic.com',
     tags: ['React', 'WebGL', 'Terminal UI'],
     blurb:
-      'The Untracked landing — a terminal-style “signal scanner” that decodes tracks in real time. “Almost nobody has this.”',
+      'The Untracked landing — a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
   },
   {
     // TODO: add another client site — name, live URL, your role, year, one-line outcome.
@@ -101,7 +101,7 @@ export const WORK: WorkItem[] = [
     year: '2025',
     url: '#',
     tags: ['Web design', 'Development'],
-    blurb: 'Add a client site here: what you built and the outcome it drove.',
+    blurb: 'Your site goes here. Tell me what to build.',
     placeholder: true,
   },
 ]
@@ -112,7 +112,7 @@ export const CODE: CodeItem[] = [
     title: 'Running ACE-Step 1.5 on AMD (ROCm) — working setup + fixes',
     repo: 'ace-step/ACE-Step · Discussion #404',
     description:
-      'Four fixes to get the ACE-Step AI music model training on AMD GPUs via ROCm on Windows. Multiple users replicated the setup and trained their own LoRA models — 9 comments, 16 replies.',
+      'Four fixes to get the ACE-Step AI music model training on AMD GPUs (ROCm, Windows) — the stuff nobody had written down. People actually used it to train their own models. 9 comments, 16 replies.',
     url: 'https://github.com/ace-step/ACE-Step/discussions/404',
     kind: 'Open source',
   },
@@ -120,21 +120,21 @@ export const CODE: CodeItem[] = [
     title: 'LoKr training on AMD RX 7900 XT + an undocumented instability',
     repo: 'ace-step/ACE-Step-1.5 · Discussion #1232',
     description:
-      'A 16-minute working LoKr training config on AMD ROCm, plus the first documentation of a numerical instability in the Kronecker-factored path that nobody had reported.',
+      'A 16-minute LoKr training setup on AMD ROCm — plus the first writeup of a numerical bug in the Kronecker path that nobody had caught.',
     url: 'https://github.com/ace-step/ACE-Step-1.5/discussions/1232',
     kind: 'Guide + bug report',
   },
   {
     title: 'untracked-audio-engine',
     repo: 'tuckeranglemyer-pixel/untracked-audio-engine',
-    description: 'The audio-analysis engine behind Untracked’s music discovery. JavaScript.',
+    description: 'The audio engine behind Untracked. It’s what does the listening. JavaScript.',
     url: 'https://github.com/tuckeranglemyer-pixel/untracked-audio-engine',
     kind: 'Repo',
   },
   {
     title: 'PokemonIsland',
     repo: 'tuckeranglemyer-pixel/PokemonIsland',
-    description: 'So everyone can have a little Pokémon on their iPhone island. Swift.',
+    description: 'So everyone can have a little Pokémon on their iPhone island. Swift, for fun.',
     url: 'https://github.com/tuckeranglemyer-pixel/PokemonIsland',
     kind: 'Repo',
   },
@@ -147,7 +147,7 @@ export const TIKTOK: TikTok = {
   likes: '73.7K',
   followers: '90',
   blurb:
-    'Trying to find music you haven’t heard. 90 followers, 73.7K likes — the videos travel a lot further than the follower count.',
+    '90 followers, 73.7K likes. Turns out the videos go a lot further than the follow count.',
   featured: {
     caption:
       'went to kettama alone thinking I was gonna find my wife — it was 400 dudes w/ y2k sunglasses.',
@@ -162,7 +162,7 @@ export const VENTURES: Venture[] = [
     meta: 'Founder · untrackedmusic.com',
     tagline: 'The infrastructure underground music deserves.',
     description:
-      'AI-powered music discovery for DJs. React, FastAPI, pgvector embeddings, and MERT audio analysis over 800+ enriched tracks.',
+      'AI music discovery for DJs. React, FastAPI, pgvector, MERT audio analysis, 800+ tracks and counting.',
     url: 'https://untrackedmusic.com',
     tags: ['React', 'FastAPI', 'pgvector', 'MERT'],
   },
@@ -171,7 +171,7 @@ export const VENTURES: Venture[] = [
     meta: '1st place · yconic New England AI Hackathon · 24 hours',
     tagline: 'Three LLMs arguing about your product until they find the truth.',
     description:
-      'A multi-agent adversarial product-analysis engine. Two people, 24 hours, first place — built against CS masters teams.',
+      'Multi-agent product analysis. Two of us, 24 hours, first place — against CS masters teams.',
     url: 'https://frontend-pi-seven-13.vercel.app/',
     tags: ['CrewAI', 'ChromaDB', 'DGX Spark'],
   },

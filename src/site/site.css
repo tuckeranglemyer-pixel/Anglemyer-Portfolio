@@ -12,6 +12,10 @@
   --bone-ghost: rgba(236, 233, 225, 0.16);
   --line: rgba(236, 233, 225, 0.14);
 
+  /* the one accent — muted violet. Signal / live / interactive only. Never decoration. */
+  --accent: #a794e8;
+  --accent-dim: rgba(167, 148, 232, 0.5);
+
   --grotesk: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
   --mono: 'Space Mono', 'Courier New', monospace;
 
@@ -39,7 +43,7 @@ a {
   text-decoration: none;
 }
 ::selection {
-  background: var(--bone);
+  background: var(--accent);
   color: var(--bg);
 }
 @media (pointer: fine) {
@@ -65,7 +69,7 @@ a {
   content: '';
   width: 34px;
   height: 1px;
-  background: var(--bone-faint);
+  background: var(--accent);
 }
 
 /* ── Background: near-black + faint broadcast scanlines ────────────────────── */
@@ -175,15 +179,27 @@ a {
   margin: 0;
 }
 
-/* reveal: restrained clip-up */
+/* reveal: kinetic, layered rise */
 .reveal {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s ease, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(40px);
+  transition: opacity 0.6s ease, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .reveal.in {
   opacity: 1;
   transform: none;
+}
+/* section headers rise a beat later than their section — layered motion */
+.reveal .section-label,
+.reveal .contact-lead {
+  transform: translateY(64px);
+  opacity: 0;
+  transition: opacity 0.6s ease 0.06s, transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.06s;
+}
+.reveal.in .section-label,
+.reveal.in .contact-lead {
+  transform: none;
+  opacity: 1;
 }
 
 /* ── Hero ─────────────────────────────────────────────────────────────────── */
@@ -216,7 +232,8 @@ a {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--bone);
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-dim);
   animation: blink 1.8s steps(1) infinite;
 }
 @keyframes blink {
@@ -283,6 +300,20 @@ a {
   align-items: flex-end;
   gap: 40px;
   flex-wrap: wrap;
+}
+.hero-lede-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 52ch;
+}
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+  margin: 0;
 }
 .hero-lede {
   font-family: var(--mono);
@@ -381,6 +412,12 @@ a {
 }
 .index-arrow {
   font-size: 16px;
+  color: var(--accent);
+  transition: transform 0.25s ease;
+}
+.index-row:hover .index-arrow {
+  color: var(--bg);
+  transform: translate(4px, -4px);
 }
 .index-tags {
   display: flex;
@@ -456,14 +493,15 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--bone-faint);
+  border-bottom: 1px solid var(--accent-dim);
   padding-bottom: 6px;
-  transition: gap 0.2s ease, border-color 0.2s ease;
+  transition: gap 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   align-self: flex-start;
 }
 .tiktok-watch:hover {
   gap: 20px;
-  border-color: var(--bone);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ── Contact ──────────────────────────────────────────────────────────────── */
@@ -488,7 +526,7 @@ a {
   transition: opacity 0.2s ease;
 }
 .contact-email:hover {
-  opacity: 0.55;
+  color: var(--accent);
 }
 .contact-socials {
   display: flex;
@@ -505,7 +543,7 @@ a {
   transition: color 0.2s ease;
 }
 .contact-socials a:hover {
-  color: var(--bone);
+  color: var(--accent);
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
@@ -555,8 +593,13 @@ a {
   .hero-top .dot {
     animation: none;
   }
-  .reveal {
+  .reveal,
+  .reveal .section-label,
+  .reveal .contact-lead {
     transition: opacity 0.4s ease;
     transform: none;
+  }
+  .monument-ghost {
+    transform: scale(1.1) !important;
   }
 }

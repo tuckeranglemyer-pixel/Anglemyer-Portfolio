@@ -149,19 +149,46 @@ function RingCursor() {
 }
 
 function Monument({ lines }: { lines: string[] }) {
-  const layer = (cls: string, hidden = false) => (
-    <div className={`monument-layer ${cls}`} {...(hidden ? { 'aria-hidden': true } : {})}>
-      {lines.map((l, i) => (
-        <span className="monument-line" key={i}>
-          <span>{l}</span>
-        </span>
-      ))}
-    </div>
-  )
+  const ghostRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches || reducedMotion()) return
+    let raf = 0
+    let tx = 0
+    let ty = 0
+    let cx = 0
+    let cy = 0
+    const onMove = (e: MouseEvent) => {
+      cx = e.clientX / window.innerWidth - 0.5
+      cy = e.clientY / window.innerHeight - 0.5
+    }
+    const loop = () => {
+      tx += (cx * 46 - tx) * 0.06
+      ty += (cy * 26 - ty) * 0.06
+      if (ghostRef.current)
+        ghostRef.current.style.transform = `scale(1.1) translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px)`
+      raf = requestAnimationFrame(loop)
+    }
+    window.addEventListener('mousemove', onMove, { passive: true })
+    raf = requestAnimationFrame(loop)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      cancelAnimationFrame(raf)
+    }
+  }, [])
+  const renderLines = () =>
+    lines.map((l, i) => (
+      <span className="monument-line" key={i}>
+        <span>{l}</span>
+      </span>
+    ))
   return (
     <h1 className="monument" aria-label={lines.join(' ')}>
-      {layer('monument-ghost', true)}
-      {layer('monument-fore', true)}
+      <div className="monument-layer monument-ghost" aria-hidden ref={ghostRef}>
+        {renderLines()}
+      </div>
+      <div className="monument-layer monument-fore" aria-hidden>
+        {renderLines()}
+      </div>
     </h1>
   )
 }
@@ -257,7 +284,10 @@ export default function SiteApp() {
           <Monument lines={['Tucker', 'Anglemyer']} />
 
           <div className="hero-bottom">
-            <p className="hero-lede">{PROFILE.lede}</p>
+            <div className="hero-lede-wrap">
+              <p className="hero-eyebrow">{PROFILE.eyebrow}</p>
+              <p className="hero-lede">{PROFILE.lede}</p>
+            </div>
             <span className="hero-cue">Scroll ↓</span>
           </div>
         </section>
