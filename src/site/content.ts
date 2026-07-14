@@ -74,6 +74,16 @@ export const PROFILE: Profile = {
 // ── Selected Work — websites designed & built ────────────────────────────────
 export const WORK: WorkItem[] = [
   {
+    title: 'Perks Beer Garden',
+    client: 'Harwich Port, MA',
+    role: 'Design & build',
+    year: '2025',
+    url: 'https://perks-harwich-port.vercel.app/',
+    tags: ['Web design', 'Hospitality'],
+    blurb:
+      'A Cape Cod coffee shop, raw bar & beer garden — three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
+  },
+  {
     title: 'TWO THIRTY',
     client: 'twothirty.fm',
     role: 'Design & build',
@@ -92,17 +102,6 @@ export const WORK: WorkItem[] = [
     tags: ['React', 'WebGL', 'Terminal UI'],
     blurb:
       'The Untracked landing — a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
-  },
-  {
-    // TODO: add another client site — name, live URL, your role, year, one-line outcome.
-    title: 'Your next client site',
-    client: 'Client name',
-    role: 'Design & build',
-    year: '2025',
-    url: '#',
-    tags: ['Web design', 'Development'],
-    blurb: 'Your site goes here. Tell me what to build.',
-    placeholder: true,
   },
 ]
 
@@ -146,8 +145,7 @@ export const TIKTOK: TikTok = {
   url: 'https://www.tiktok.com/@tuck.angle',
   likes: '73.7K',
   followers: '90',
-  blurb:
-    '90 followers, 73.7K likes. Turns out the videos go a lot further than the follow count.',
+  blurb: 'The videos go a lot further than the follow count.',
   featured: {
     caption:
       'went to kettama alone thinking I was gonna find my wife — it was 400 dudes w/ y2k sunglasses.',
@@ -168,10 +166,10 @@ export const VENTURES: Venture[] = [
   },
   {
     name: 'The War Room',
-    meta: '1st place · yconic New England AI Hackathon · 24 hours',
+    meta: 'yconic New England AI Hackathon · 24 hours',
     tagline: 'Three LLMs arguing about your product until they find the truth.',
     description:
-      'Multi-agent product analysis. Two of us, 24 hours, first place — against CS masters teams.',
+      'Multi-agent product analysis. Two of us, 24 hours, built against CS masters teams.',
     url: 'https://frontend-pi-seven-13.vercel.app/',
     tags: ['CrewAI', 'ChromaDB', 'DGX Spark'],
   },

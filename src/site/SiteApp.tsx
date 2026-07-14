@@ -258,7 +258,7 @@ export default function SiteApp() {
 
       <header className="site-nav">
         <a className="nav-brand" href="#top">
-          TUCKER ANGLEMYER
+          TUCKER ANGLEMYER©
         </a>
         <nav className="nav-links">
           <a href="#work">Work</a>
@@ -356,9 +356,9 @@ export default function SiteApp() {
                 </a>
               </div>
             </div>
-            <p className="tiktok-quote">“{TIKTOK.featured.caption}”</p>
-            <a className="tiktok-watch" href={TIKTOK.featured.url} target="_blank" rel="noreferrer">
-              Watch the video ↗
+            <p className="tiktok-quote">{TIKTOK.blurb}</p>
+            <a className="tiktok-watch" href={TIKTOK.url} target="_blank" rel="noreferrer">
+              Watch on TikTok ↗
             </a>
           </div>
         </section>
