@@ -11,8 +11,8 @@ export const world = {
   beacon: { x: 0, z: 0, i: 0 },
 }
 
-/** the t value at which the floor pierces */
-export const PIERCE_T = 5.0
+/** the t value at which the floor pierces (section index of the pierce band) */
+export const PIERCE_T = 3.0
 
 export interface Terra {
   size: number

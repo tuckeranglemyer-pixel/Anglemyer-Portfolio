@@ -4,7 +4,7 @@ import './terrain.css'
 
 const TerrainScene = lazy(() => import('./TerrainScene'))
 
-// ── static content ────────────────────────────────────────────────────────────
+// ── content ───────────────────────────────────────────────────────────────────
 const WORK = [
   { name: 'TWO THIRTY', cls: 'Event site', year: '2025', url: 'https://twothirty.fm', beacon: { x: -14, z: -2 } },
   { name: 'UNTRACKED', cls: 'Product', year: '2025', url: 'https://untrackedmusic.com', beacon: { x: 6, z: -16 } },
@@ -16,11 +16,12 @@ const CODE = [
   { name: 'LoKr instability writeup', meta: 'Discussion #1232 · first report of the Kronecker-path bug', url: 'https://github.com/ace-step/ACE-Step-1.5/discussions/1232' },
   { name: 'untracked-audio-engine', meta: 'The part of Untracked that does the listening', url: 'https://github.com/tuckeranglemyer-pixel/untracked-audio-engine' },
 ]
-const TRACKS = [
+const BUNKER_ROWS = [
   { name: 'tuck 003', meta: 'House · 59:42', url: 'https://soundcloud.com/tuckerq/tuck-003' },
   { name: 'bay st (tucker remix)', meta: 'Deep House · 3:00', url: 'https://soundcloud.com/tuckerq' },
   { name: 'Foggy', meta: 'Dance · 1:30', url: 'https://soundcloud.com/tuckerq' },
-  { name: 'Temperature x Melon (tucker remix)', meta: 'Dance · 3:00', url: 'https://soundcloud.com/tuckerq' },
+  { name: '73.7K likes', meta: '90 followers · @tuck.angle', url: 'https://www.tiktok.com/@tuck.angle' },
+  { name: 'Untracked', meta: 'Surfacing the underground · 800+ tracks', url: 'https://untrackedmusic.com' },
 ]
 const SOCIALS = [
   { label: 'Email', href: 'mailto:tucker@untrackedmusic.com' },
@@ -30,31 +31,9 @@ const SOCIALS = [
   { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
 ]
 
-const fmtClock = () => {
-  try {
-    return (
-      new Date().toLocaleTimeString('en-US', {
-        hour12: false,
-        timeZone: 'America/New_York',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }) + ' ET'
-    )
-  } catch {
-    return ''
-  }
-}
-
-const fmtTime = (s: number) => {
-  const m = Math.floor(s / 60)
-  const ss = Math.floor(s % 60)
-  return `${m}:${String(ss).padStart(2, '0')}`
-}
-
-// ── contributions ridgeline (data as geology, 2D) ────────────────────────────
+// ── contributions ridgeline ───────────────────────────────────────────────────
 function Ridgeline({ contrib }: { contrib: Contrib }) {
-  const { path, peakX, peakLabel } = useMemo(() => {
+  const { path, peakX } = useMemo(() => {
     const days = contrib.days
     const W = 1000
     const H = 120
@@ -68,12 +47,7 @@ function Ridgeline({ contrib }: { contrib: Contrib }) {
       if (d.c === max) px = x
     })
     pts.push(`${W},${H}`)
-    const peak = days.find((d) => d.c === max)
-    return {
-      path: pts.join(' '),
-      peakX: px,
-      peakLabel: peak ? `${peak.c} commits · the hackathon` : '',
-    }
+    return { path: pts.join(' '), peakX: px }
   }, [contrib])
   return (
     <div className="ridgeline">
@@ -85,7 +59,6 @@ function Ridgeline({ contrib }: { contrib: Contrib }) {
         <span>
           {contrib.total} contributions · {contrib.days.filter((d) => d.c > 0).length} days on
         </span>
-        <span className="viol">{peakLabel}</span>
       </div>
     </div>
   )
@@ -148,7 +121,18 @@ export default function TerrainApp() {
   const [peaks, setPeaks] = useState<Peaks | null>(null)
   const [contrib, setContrib] = useState<Contrib | null>(null)
   const [audioOn, setAudioOn] = useState(false)
-  const [clock, setClock] = useState(fmtClock)
+  const [counted, setCounted] = useState(false)
+  const [gateGone, setGateGone] = useState(false)
+  const ready = counted && !!terra
+
+  // unmount the gate after its fade: overlay-killing browser extensions
+  // (cookie-banner blockers) can pin a fixed overlay's styles with
+  // !important, so removal must not depend on CSS.
+  useEffect(() => {
+    if (!ready) return
+    const id = setTimeout(() => setGateGone(true), 900)
+    return () => clearTimeout(id)
+  }, [ready])
 
   const lite = useMemo(
     () =>
@@ -158,11 +142,9 @@ export default function TerrainApp() {
     [],
   )
 
-  // refs driven at rAF speed without React renders
   const sections = useRef<(HTMLElement | null)[]>([])
   const elevEl = useRef<HTMLSpanElement>(null)
-  const sigEl = useRef<HTMLDivElement>(null)
-  const hzEl = useRef<HTMLSpanElement>(null)
+  const loaderEl = useRef<HTMLSpanElement>(null)
   const pierceEl = useRef<HTMLDivElement>(null)
   const audioEl = useRef<HTMLAudioElement>(null)
   const playProg = useRef(0)
@@ -178,13 +160,51 @@ export default function TerrainApp() {
     fetch('/terrain/costigan.json').then((r) => r.json()).then(setTerra)
     fetch('/terrain/tuck004-peaks.json').then((r) => r.json()).then(setPeaks)
     fetch('/terrain/contributions.json').then((r) => r.json()).then(setContrib)
-    const id = setInterval(() => setClock(fmtClock()), 1000)
     const loading = document.getElementById('loading')
     if (loading) loading.remove()
-    return () => clearInterval(id)
   }, [])
 
-  // scroll → world.t + HUD + pierce overlay + audio depth
+  // preloader: ELEV counts 0 -> 2,973 while the terrain loads behind it
+  useEffect(() => {
+    const dur = 1500
+    const start = performance.now()
+    let raf = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur)
+      const eased = 1 - Math.pow(1 - t, 3)
+      if (loaderEl.current)
+        loaderEl.current.textContent = `ELEV ${Math.round(2973 * eased).toLocaleString()} M`
+      if (t < 1) raf = requestAnimationFrame(tick)
+      else setCounted(true)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // staggered band reveals
+  useEffect(() => {
+    if (!ready) return
+    const els = document.querySelectorAll('.band-inner')
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      els.forEach((el) => el.classList.add('in'))
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('in')
+            io.unobserve(e.target)
+          }
+        }
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -6% 0px' },
+    )
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
+  }, [ready])
+
+  // scroll -> world.t, HUD, pierce blackout, audio depth
   useEffect(() => {
     let raf = 0
     const tick = () => {
@@ -206,7 +226,6 @@ export default function TerrainApp() {
         world.t = t
         world.underground = t >= PIERCE_T
 
-        // HUD: altitude / depth
         if (elevEl.current) {
           if (t < PIERCE_T) {
             const elev = Math.round(2973 - (t / PIERCE_T) * (2973 - 1475))
@@ -218,42 +237,25 @@ export default function TerrainApp() {
             elevEl.current.classList.add('neg')
           }
         }
-        // HUD: signal meter
-        if (sigEl.current) {
-          const sig = Math.min(1, t / PIERCE_T)
-          const blocks = sigEl.current.children
-          const lit = world.underground ? blocks.length : Math.round(sig * blocks.length)
-          for (let i = 0; i < blocks.length; i++)
-            blocks[i].classList.toggle('on', i < lit)
-          sigEl.current.classList.toggle('lock', world.underground)
-        }
-        // pierce blackout: full cover through the camera flip
         if (pierceEl.current) {
-          const rise = Math.min(1, Math.max(0, (t - (PIERCE_T - 0.45)) / 0.3))
+          const rise = Math.min(1, Math.max(0, (t - (PIERCE_T - 0.62)) / 0.34))
           const fall = 1 - Math.min(1, Math.max(0, (t - (PIERCE_T + 0.08)) / 0.3))
           pierceEl.current.style.opacity = String(Math.min(rise, fall))
         }
-        // audio: the rock filter opens with depth, level rises
         const c = chain.current
         if (c) {
           const depthProg = Math.min(1, t / PIERCE_T)
-          const freq = world.underground ? 18000 : 120 * Math.pow(150, depthProg)
-          c.filter.frequency.value = freq
+          c.filter.frequency.value = world.underground ? 18000 : 120 * Math.pow(150, depthProg)
           c.gain.gain.value = 0.14 + 0.8 * Math.pow(depthProg, 1.4)
-          if (hzEl.current)
-            hzEl.current.textContent =
-              freq >= 1000 ? `LP ${(freq / 1000).toFixed(1)}KHZ` : `LP ${Math.round(freq)}HZ`
         }
       }
-      // analyser → world.bass + play progress
       const c = chain.current
       const audio = audioEl.current
       if (c && audio && !audio.paused) {
         c.analyser.getByteFrequencyData(c.bins)
         let sum = 0
         for (let i = 1; i <= 6; i++) sum += c.bins[i]
-        const bass = sum / 6 / 255
-        world.bass += (bass - world.bass) * 0.25
+        world.bass += (sum / 6 / 255 - world.bass) * 0.25
         playProg.current = audio.currentTime / (audio.duration || 1)
       } else {
         world.bass *= 0.94
@@ -325,10 +327,18 @@ export default function TerrainApp() {
         </div>
       )}
 
+      {/* the gate: elevation counts up while the mountain arrives */}
+      {!gateGone && (
+        <div className={`summit-gate${ready ? ' done' : ''}`} aria-hidden={ready}>
+          <span className="gate-line">
+            MOUNT COSTIGAN ▸ <span ref={loaderEl}>ELEV 0 M</span>
+          </span>
+        </div>
+      )}
+
       {/* pierce blackout */}
       <div className="terra-pierce" ref={pierceEl} aria-hidden />
 
-      {/* top bar */}
       <header className="terra-nav">
         <a className="terra-brand" href="/">
           TUCKER ANGLEMYER©
@@ -339,39 +349,35 @@ export default function TerrainApp() {
         </div>
       </header>
 
-      {/* HUD rail */}
-      <aside className="terra-hud" aria-hidden>
+      {/* HUD: three instruments, nothing else */}
+      <aside className={`terra-hud${ready ? ' on' : ''}`} aria-hidden>
         <span className="hud-elev" ref={elevEl}>
           ELEV 2,973 M
         </span>
-        <div className="hud-sig" ref={sigEl}>
-          <i /><i /><i /><i /><i />
-          <em>SIG</em>
-        </div>
-        <span className="hud-hz" ref={hzEl}>
-          LP 42HZ
+        <span className="hud-right">
+          <span className="hud-live">
+            <span className="hud-dot" />
+            AVAILABLE
+          </span>
+          <button className="hud-snd" onClick={toggleAudio}>
+            {audioOn ? 'SND ▮▮' : 'SND ▶'}
+          </button>
         </span>
-        <span className="hud-clock">{clock}</span>
-        <span className="hud-live">
-          <span className="hud-dot" />
-          AVAILABLE
-        </span>
-        <button className="hud-snd" onClick={toggleAudio}>
-          {audioOn ? 'SND ▮▮' : 'SND ▶'}
-        </button>
       </aside>
 
       <main className="terra-main">
         {/* 00 SUMMIT */}
-        <section className="band band-summit" ref={bind(0)}>
+        <section className={`band band-summit${ready ? ' up' : ''}`} ref={bind(0)}>
           <div className="summit-top">
-            <span className="mono-label">
-              MT COSTIGAN · PALLISER RANGE · 51.2834 N 115.2854 W
-            </span>
+            <span className="mono-label">MOUNT COSTIGAN · 2,973 M · 12 MILES IN</span>
           </div>
           <h1 className="terra-monument">
-            <span>Tucker</span>
-            <span>Anglemyer</span>
+            <span className="m-line">
+              <span>Tucker</span>
+            </span>
+            <span className="m-line">
+              <span>Anglemyer</span>
+            </span>
           </h1>
           <div className="summit-bottom">
             <div>
@@ -384,30 +390,10 @@ export default function TerrainApp() {
           </div>
         </section>
 
-        {/* 01 THE CLIMB */}
+        {/* 01 THE WORK */}
         <section className="band" ref={bind(1)}>
-          <div className="band-inner">
-            <span className="mono-label">01 · The climb</span>
-            <h2>12 miles in.</h2>
-            <p className="band-copy">
-              Backpacked the Minnewanka shore, then up. Mount Costigan, 2,973 meters, the
-              Banff and Ghost River boundary. This terrain is the real mountain, built from
-              its elevation data.
-            </p>
-            <p className="band-note">[ climb photos land here ]</p>
-            <span className="friar" title="a friar, 12 mi in" aria-label="a friar">
-              <svg viewBox="0 0 24 32" aria-hidden>
-                <path d="M12 2c-4.4 0-7 3.2-7 7.2v3.2c0 1.2.6 2.2 1.5 2.8L5 30h14l-1.5-14.8c.9-.6 1.5-1.6 1.5-2.8V9.2C19 5.2 16.4 2 12 2z" />
-                <circle cx="12" cy="9.5" r="3.2" fill="#0b0d11" />
-              </svg>
-            </span>
-          </div>
-        </section>
-
-        {/* 02 TREELINE — WORK */}
-        <section className="band" ref={bind(2)}>
           <div className="band-inner wide">
-            <span className="mono-label">02 · The work</span>
+            <span className="mono-label">01 · The work</span>
             <div className="ledger">
               {WORK.map((w) => (
                 <a
@@ -430,10 +416,10 @@ export default function TerrainApp() {
           </div>
         </section>
 
-        {/* 03 VALLEY — CODE */}
-        <section className="band" ref={bind(3)}>
+        {/* 02 THE CODE */}
+        <section className="band" ref={bind(2)}>
           <div className="band-inner wide">
-            <span className="mono-label">03 · The code</span>
+            <span className="mono-label">02 · The code</span>
             {contrib && <Ridgeline contrib={contrib} />}
             <div className="ledger">
               {CODE.map((c) => (
@@ -447,46 +433,24 @@ export default function TerrainApp() {
           </div>
         </section>
 
-        {/* 04 SIGNAL — TIKTOK */}
-        <section className="band" ref={bind(4)}>
-          <div className="band-inner">
-            <span className="mono-label">04 · The signal</span>
-            <div className="tiktok-monument">73.7K</div>
-            <p className="band-copy">
-              Likes, on 90 followers.{' '}
-              <a href="https://www.tiktok.com/@tuck.angle" target="_blank" rel="noreferrer">
-                @tuck.angle ↗
-              </a>{' '}
-              The videos go a lot further than the follow count.
-            </p>
-          </div>
-        </section>
-
-        {/* 05 PIERCE */}
-        <section className="band band-pierce" ref={bind(5)}>
+        {/* THE PIERCE */}
+        <section className="band band-pierce" ref={bind(3)}>
           <div className="band-inner center">
             <span className="pierce-zero">0 M</span>
             <span className="mono-label center">Working to surface the underground</span>
           </div>
         </section>
 
-        {/* 06 BUNKER */}
-        <section className="band band-bunker" ref={bind(6)}>
+        {/* 03 THE BUNKER */}
+        <section className="band band-bunker" ref={bind(4)}>
           <div className="band-inner wide">
-            <span className="mono-label">05 · The bunker</span>
-            <div className="bunker-now">
-              <span className="mono-label viol">
-                NOW PLAYING · TUCK 004 · DEEP HOUSE · 18:38 · PRESSED 06.28.26
-              </span>
-              {!audioOn && (
-                <button className="bunker-snd" onClick={enableAudio}>
-                  Sound on ▶
-                </button>
-              )}
-            </div>
+            <span className="mono-label">03 · The bunker</span>
+            <span className="mono-label wall-head">
+              NOW PLAYING · TUCK 004 · DEEP HOUSE · 18:38 · PRESSED 06.28.26
+            </span>
             {peaks && <WaveWall peaks={peaks} progressRef={playProg} onSeek={seek} />}
             <div className="ledger">
-              {TRACKS.map((t) => (
+              {BUNKER_ROWS.map((t) => (
                 <a key={t.name} className="ledger-row" href={t.url} target="_blank" rel="noreferrer">
                   <span className="lr-name sm">{t.name}</span>
                   <span className="lr-meta">{t.meta}</span>
@@ -494,16 +458,13 @@ export default function TerrainApp() {
                 </a>
               ))}
             </div>
-            <p className="terminal-line">
-              UNTRACKED ▸ scanning 800+ tracks<span className="cursor">_</span>
-            </p>
           </div>
         </section>
 
-        {/* 07 END OF LINE */}
-        <section className="band band-end" ref={bind(7)}>
+        {/* 04 END OF LINE */}
+        <section className="band band-end" ref={bind(5)}>
           <div className="band-inner">
-            <span className="mono-label">06 · End of line</span>
+            <span className="mono-label">04 · End of line</span>
             <a className="end-email" href="mailto:tucker@untrackedmusic.com">
               tucker@untrackedmusic.com
             </a>
@@ -523,6 +484,12 @@ export default function TerrainApp() {
             <p className="end-coords">
               Providence, RI · 41.82 N 71.41 W · © {new Date().getFullYear()}
             </p>
+            <span className="friar" title="the friar · 12 mi in" aria-label="a friar">
+              <svg viewBox="0 0 24 32" aria-hidden>
+                <path d="M12 2c-4.4 0-7 3.2-7 7.2v3.2c0 1.2.6 2.2 1.5 2.8L5 30h14l-1.5-14.8c.9-.6 1.5-1.6 1.5-2.8V9.2C19 5.2 16.4 2 12 2z" />
+                <circle cx="12" cy="9.5" r="3.2" fill="#0b0d11" />
+              </svg>
+            </span>
           </div>
         </section>
       </main>

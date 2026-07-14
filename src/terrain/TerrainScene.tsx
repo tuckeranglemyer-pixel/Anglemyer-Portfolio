@@ -11,13 +11,11 @@ const EXAG = 1.6
 // within a band it holds (breathes only). One real camera event: the pierce.
 const POSES: { p: [number, number, number]; l: [number, number, number] }[] = [
   { p: [-3.6, 14.5, 9], l: [-3.65, 6.8, -8.5] }, // 00 summit — ridge in the bottom third, sky for the name
-  { p: [4.5, 11.5, 1], l: [-3.65, 8.6, -7.7] }, // 01 climb — along the ridge
-  { p: [8.5, 8.5, 11], l: [-2.0, 6.2, -4.0] }, // 02 treeline — work ledger
-  { p: [6.0, 6.2, 18], l: [-4.0, 4.0, -2.0] }, // 03 valley — code floor
-  { p: [0.0, 4.9, 24], l: [0.0, 3.4, -10.0] }, // 04 signal — near the floor
-  { p: [0.0, -5.2, 5], l: [0.0, 4.5, -3.0] }, // 05 pierce — below, looking up
-  { p: [0.0, -6.5, 9], l: [0.0, 3.0, -7.0] }, // 06 bunker
-  { p: [0.0, -7.6, 13], l: [0.0, 1.6, -13.0] }, // 07 end of line
+  { p: [8.5, 8.5, 11], l: [-2.0, 6.2, -4.0] }, // 01 the work — down the shoulder
+  { p: [6.0, 6.2, 18], l: [-4.0, 4.0, -2.0] }, // 02 the code — valley floor
+  { p: [0.0, -5.2, 5], l: [0.0, 4.5, -3.0] }, // 03 pierce — below, looking up
+  { p: [0.0, -6.5, 9], l: [0.0, 3.0, -7.0] }, // 04 bunker
+  { p: [0.0, -7.6, 13], l: [0.0, 1.6, -13.0] }, // 05 end of line
 ]
 
 const CONTOUR_VERT = /* glsl */ `
@@ -52,8 +50,11 @@ const CONTOUR_FRAG = /* glsl */ `
     vec3 bone = vec3(0.925, 0.913, 0.882);
     vec3 viol = vec3(0.655, 0.580, 0.910);
 
-    float minor = cline(vElev, 30.0, 1.1) * 0.22;
-    float major = cline(vElev, 150.0, 1.3) * 0.78;
+    // steep faces compress contours into shimmer — thin them by slope density
+    float dens = fwidth(vElev) / 40.0;
+    float calm = 1.0 - smoothstep(0.35, 0.95, dens);
+    float minor = cline(vElev, 40.0, 1.1) * 0.13 * calm;
+    float major = cline(vElev, 160.0, 1.3) * 0.62 * mix(0.35, 1.0, calm);
 
     // Lake Minnewanka reads as flat dark water: no lines below the shore
     float lake = 1.0 - smoothstep(1477.0, 1482.0, vElev);
