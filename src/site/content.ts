@@ -61,7 +61,7 @@ export const PROFILE: Profile = {
   name: 'Tucker Anglemyer',
   eyebrow: 'Providence College — Incoming PwC — Founder, Untracked',
   lede:
-    'I build sites and ship code. I run Untracked. If it’s underground, I’m probably already digging for it.',
+    'I build sites and ship code. I run Untracked — working to surface the underground.',
   email: 'tucker@untrackedmusic.com',
   socials: [
     { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
