@@ -418,7 +418,7 @@ export default function TerrainApp() {
   }
 
   return (
-    <div className="terra">
+    <div className={`terra${lite ? ' lite' : ''}`}>
       {terra && !lite && (
         <div className="terra-canvas-wrap" aria-hidden>
           <Suspense fallback={null}>
@@ -466,6 +466,15 @@ export default function TerrainApp() {
       <main className="terra-main">
         {/* 00 SUMMIT */}
         <section className={`band band-summit${ready ? ' up' : ''}`} ref={bind(0)}>
+          {lite && (
+            <img
+              className="lite-topo"
+              src="/terrain/costigan-topo.jpg"
+              alt=""
+              aria-hidden
+              loading="eager"
+            />
+          )}
           <div className="summit-top">
             <span className="mono-label">
               MOUNT COSTIGAN · 2,973 M · 12 MILES IN.
