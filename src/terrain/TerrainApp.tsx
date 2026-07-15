@@ -59,6 +59,7 @@ function Ridgeline({ contrib }: { contrib: Contrib }) {
         <span>
           {contrib.total} contributions · {contrib.days.filter((d) => d.c > 0).length} days on
         </span>
+        <span className="viol">◆ 100 in one day</span>
       </div>
     </div>
   )
@@ -75,6 +76,7 @@ function WaveWall({
   onSeek: (frac: number) => void
 }) {
   const cv = useRef<HTMLCanvasElement>(null)
+  const hoverFrac = useRef(-1)
   useEffect(() => {
     const canvas = cv.current
     if (!canvas) return
@@ -93,10 +95,23 @@ function WaveWall({
       const n = peaks.peaks.length
       const bw = w / n
       const prog = progressRef.current
+      const hf = hoverFrac.current
       for (let i = 0; i < n; i++) {
         const bh = Math.max(peaks.peaks[i] * h * 0.92, 2 * dpr)
-        ctx.fillStyle = i / n <= prog ? '#a794e8' : 'rgba(236,233,225,0.72)'
+        const near = hf >= 0 && Math.abs(i / n - hf) < 0.006
+        ctx.fillStyle =
+          i / n <= prog ? '#a794e8' : near ? 'rgba(167,148,232,0.9)' : 'rgba(236,233,225,0.72)'
         ctx.fillRect(i * bw, (h - bh) / 2, Math.max(bw * 0.62, 1), bh)
+      }
+      // ghost playhead under the cursor: teaches "this is a scrubber" before any click
+      if (hf >= 0) {
+        const hx = hf * w
+        ctx.fillStyle = '#a794e8'
+        ctx.fillRect(hx, 0, Math.max(1.5 * dpr, 1), h)
+        ctx.font = `${10 * dpr}px 'Space Mono', monospace`
+        const label = fmtTime(hf * peaks.duration)
+        const tx = Math.min(hx + 8 * dpr, w - 44 * dpr)
+        ctx.fillText(label, tx, 12 * dpr)
       }
       raf = requestAnimationFrame(draw)
     }
@@ -107,6 +122,13 @@ function WaveWall({
     <canvas
       ref={cv}
       className="wavewall"
+      onMouseMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect()
+        hoverFrac.current = (e.clientX - r.left) / r.width
+      }}
+      onMouseLeave={() => {
+        hoverFrac.current = -1
+      }}
       onClick={(e) => {
         const r = e.currentTarget.getBoundingClientRect()
         onSeek((e.clientX - r.left) / r.width)
@@ -123,6 +145,9 @@ export default function TerrainApp() {
   const [audioOn, setAudioOn] = useState(false)
   const [counted, setCounted] = useState(false)
   const [gateGone, setGateGone] = useState(false)
+  const [below, setBelow] = useState(false)
+  const belowRef = useRef(false)
+  const wallHeadEl = useRef<HTMLSpanElement>(null)
   const ready = counted && !!terra
 
   // unmount the gate after its fade: overlay-killing browser extensions
@@ -138,7 +163,8 @@ export default function TerrainApp() {
     () =>
       typeof window !== 'undefined' &&
       (window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-        window.matchMedia('(pointer: coarse)').matches),
+        window.matchMedia('(pointer: coarse)').matches ||
+        new URLSearchParams(window.location.search).has('lite')),
     [],
   )
 
@@ -148,6 +174,14 @@ export default function TerrainApp() {
   const pierceEl = useRef<HTMLDivElement>(null)
   const audioEl = useRef<HTMLAudioElement>(null)
   const playProg = useRef(0)
+  const bassFloor = useRef(0)
+  const kickEnv = useRef(0)
+  const lastKick = useRef(0)
+  const dispRef = useRef<SVGFEDisplacementMapElement>(null)
+  const turbRef = useRef<SVGFETurbulenceElement>(null)
+  const violRef = useRef<HTMLDivElement>(null)
+  const foreRef = useRef<HTMLDivElement>(null)
+  const hoveringName = useRef(false)
   const chain = useRef<{
     ctx: AudioContext
     gain: GainNode
@@ -204,6 +238,46 @@ export default function TerrainApp() {
     return () => io.disconnect()
   }, [ready])
 
+  // the OG name ink: dead until hovered, then a slow liquid wobble + violet fringe
+  useEffect(() => {
+    if (!window.matchMedia('(pointer: fine)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf = 0
+    let ink = 0
+    const loop = () => {
+      const now = performance.now() / 1000
+      const target = hoveringName.current ? 1 : 0
+      ink += (target - ink) * 0.08
+      const disp = dispRef.current
+      const turb = turbRef.current
+      const fore = foreRef.current
+      const viol = violRef.current
+      if (disp && turb && fore) {
+        if (ink > 0.01) {
+          const bx = (0.011 + 0.004 * Math.sin(now * 0.9)).toFixed(4)
+          const by = (0.017 + 0.005 * Math.sin(now * 0.7 + 1.3)).toFixed(4)
+          turb.setAttribute('baseFrequency', `${bx} ${by}`)
+          disp.setAttribute('scale', (ink * 7).toFixed(2))
+          fore.style.filter = 'url(#tink)'
+          if (viol) {
+            viol.style.filter = 'url(#tink)'
+            viol.style.opacity = (ink * 0.8).toFixed(3)
+          }
+        } else {
+          disp.setAttribute('scale', '0')
+          fore.style.filter = 'none'
+          if (viol) {
+            viol.style.filter = 'none'
+            viol.style.opacity = '0'
+          }
+        }
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
   // scroll -> world.t, HUD, pierce blackout, audio depth
   useEffect(() => {
     let raf = 0
@@ -225,6 +299,10 @@ export default function TerrainApp() {
         }
         world.t = t
         world.underground = t >= PIERCE_T
+        if (belowRef.current !== world.underground) {
+          belowRef.current = world.underground
+          setBelow(world.underground)
+        }
 
         if (elevEl.current) {
           if (t < PIERCE_T) {
@@ -246,7 +324,9 @@ export default function TerrainApp() {
         if (c) {
           const depthProg = Math.min(1, t / PIERCE_T)
           c.filter.frequency.value = world.underground ? 18000 : 120 * Math.pow(150, depthProg)
-          c.gain.gain.value = 0.14 + 0.8 * Math.pow(depthProg, 1.4)
+          // approach the depth-target gently: play always fades in, never blasts
+          const target = 0.08 + 0.42 * Math.pow(depthProg, 1.4)
+          c.gain.gain.value += (target - c.gain.gain.value) * 0.03
         }
       }
       const c = chain.current
@@ -254,11 +334,31 @@ export default function TerrainApp() {
       if (c && audio && !audio.paused) {
         c.analyser.getByteFrequencyData(c.bins)
         let sum = 0
-        for (let i = 1; i <= 6; i++) sum += c.bins[i]
-        world.bass += (sum / 6 / 255 - world.bass) * 0.25
+        for (let i = 1; i <= 5; i++) sum += c.bins[i]
+        const inst = sum / 5 / 255
+        // kick detection: onset above the running floor, with a cooldown,
+        // drives a punchy envelope so the mountain hits WITH the drum
+        bassFloor.current += (inst - bassFloor.current) * 0.04
+        const now = performance.now()
+        if (
+          inst > Math.max(bassFloor.current * 1.32, 0.16) &&
+          now - lastKick.current > 220
+        ) {
+          kickEnv.current = 1
+          lastKick.current = now
+        }
+        kickEnv.current *= 0.86
+        world.bass = kickEnv.current * 0.92 + inst * 0.08
         playProg.current = audio.currentTime / (audio.duration || 1)
       } else {
         world.bass *= 0.94
+      }
+      // wall header: never claim NOW PLAYING unless something is playing
+      if (wallHeadEl.current) {
+        wallHeadEl.current.textContent =
+          audio && !audio.paused
+            ? `NOW PLAYING · TUCK 004 · ${fmtTime(audio.currentTime)} / 2:27`
+            : 'TUCK 004 · DEEP HOUSE · 2:27 CUT · PRESSED 06.28.26. TAP THE WALL TO DROP IN.'
       }
       raf = requestAnimationFrame(tick)
     }
@@ -276,7 +376,7 @@ export default function TerrainApp() {
       filter.type = 'lowpass'
       filter.frequency.value = 140
       const gain = ctx.createGain()
-      gain.gain.value = 0.15
+      gain.gain.value = 0.0001 // fade in from silence; the rAF loop ramps to target
       const analyser = ctx.createAnalyser()
       analyser.fftSize = 512
       src.connect(filter)
@@ -302,7 +402,7 @@ export default function TerrainApp() {
     const audio = audioEl.current
     if (!audio) return
     if (audio.paused) enableAudio()
-    audio.currentTime = frac * (audio.duration || 1118)
+    audio.currentTime = frac * (audio.duration || 147)
   }
 
   const setBeacon = (b: { x: number; z: number } | null) => {
@@ -331,8 +431,9 @@ export default function TerrainApp() {
       {!gateGone && (
         <div className={`summit-gate${ready ? ' done' : ''}`} aria-hidden={ready}>
           <span className="gate-line">
-            MOUNT COSTIGAN ▸ <span ref={loaderEl}>ELEV 0 M</span>
+            MOUNT COSTIGAN, ALBERTA · REAL SUMMIT DATA ▸ <span ref={loaderEl}>ELEV 0 M</span>
           </span>
+          <span className="gate-sub">CLIMBED 2026 · 12 MI IN</span>
         </div>
       )}
 
@@ -340,13 +441,9 @@ export default function TerrainApp() {
       <div className="terra-pierce" ref={pierceEl} aria-hidden />
 
       <header className="terra-nav">
-        <a className="terra-brand" href="/">
+        <a className="terra-brand" href="#top">
           TUCKER ANGLEMYER©
         </a>
-        <div className="terra-nav-right">
-          <span className="terra-tag">TERRAIN · V2 DRAFT</span>
-          <a href="/">current site ↗</a>
-        </div>
       </header>
 
       {/* HUD: three instruments, nothing else */}
@@ -355,12 +452,13 @@ export default function TerrainApp() {
           ELEV 2,973 M
         </span>
         <span className="hud-right">
+          <span className="hud-legend">◆ live signal</span>
           <span className="hud-live">
             <span className="hud-dot" />
             AVAILABLE
           </span>
           <button className="hud-snd" onClick={toggleAudio}>
-            {audioOn ? 'SND ▮▮' : 'SND ▶'}
+            {audioOn ? (below ? 'SND ▮▮' : 'SND ▮▮ · THROUGH ROCK') : 'SND ▶ TUCK 004'}
           </button>
         </span>
       </aside>
@@ -369,21 +467,61 @@ export default function TerrainApp() {
         {/* 00 SUMMIT */}
         <section className={`band band-summit${ready ? ' up' : ''}`} ref={bind(0)}>
           <div className="summit-top">
-            <span className="mono-label">MOUNT COSTIGAN · 2,973 M · 12 MILES IN</span>
+            <span className="mono-label">
+              MOUNT COSTIGAN · 2,973 M · 12 MILES IN.
+              <br />
+              I CLIMBED THIS. YOU'RE SCROLLING THE DATA.
+            </span>
           </div>
-          <h1 className="terra-monument">
-            <span className="m-line">
-              <span>Tucker</span>
-            </span>
-            <span className="m-line">
-              <span>Anglemyer</span>
-            </span>
+          <h1
+            className="terra-monument"
+            aria-label="Tucker Anglemyer"
+            onMouseEnter={() => (hoveringName.current = true)}
+            onMouseLeave={() => (hoveringName.current = false)}
+          >
+            <svg className="tink-defs" width="0" height="0" aria-hidden focusable="false">
+              <filter id="tink" x="-15%" y="-15%" width="130%" height="130%">
+                <feTurbulence
+                  ref={turbRef}
+                  type="fractalNoise"
+                  baseFrequency="0.011 0.017"
+                  numOctaves={2}
+                  seed={7}
+                  result="n"
+                />
+                <feDisplacementMap
+                  ref={dispRef}
+                  in="SourceGraphic"
+                  in2="n"
+                  scale="0"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+              </filter>
+            </svg>
+            <div className="tm-layer tm-viol" aria-hidden ref={violRef}>
+              <span className="m-line">
+                <span>Tucker</span>
+              </span>
+              <span className="m-line">
+                <span>Anglemyer</span>
+              </span>
+            </div>
+            <div className="tm-layer tm-fore" aria-hidden ref={foreRef}>
+              <span className="m-line">
+                <span>Tucker</span>
+              </span>
+              <span className="m-line">
+                <span>Anglemyer</span>
+              </span>
+            </div>
           </h1>
           <div className="summit-bottom">
             <div>
               <p className="terra-eyebrow">Providence College · Incoming PwC · Founder, Untracked</p>
               <p className="terra-lede">
-                I build sites and ship code. I run Untracked, working to surface the underground.
+                I build sites and ship code. I run Untracked: AI music discovery for DJs, 800+
+                tracks, working to surface the underground.
               </p>
             </div>
             <span className="terra-cue">Begin descent ↓</span>
@@ -394,7 +532,7 @@ export default function TerrainApp() {
         <section className="band" ref={bind(1)}>
           <div className="band-inner wide">
             <span className="mono-label">01 · The work</span>
-            <div className="ledger">
+            <div className="ledger ledger-work">
               {WORK.map((w) => (
                 <a
                   key={w.name}
@@ -444,11 +582,19 @@ export default function TerrainApp() {
         {/* 03 THE BUNKER */}
         <section className="band band-bunker" ref={bind(4)}>
           <div className="band-inner wide">
-            <span className="mono-label">03 · The bunker</span>
-            <span className="mono-label wall-head">
-              NOW PLAYING · TUCK 004 · DEEP HOUSE · 18:38 · PRESSED 06.28.26
+            <span className="mono-label">03 · The bunker · -22 M</span>
+            <span className="mono-label wall-head" ref={wallHeadEl}>
+              TUCK 004 · DEEP HOUSE · 2:27 CUT · PRESSED 06.28.26. TAP THE WALL TO DROP IN.
             </span>
-            {peaks && <WaveWall peaks={peaks} progressRef={playProg} onSeek={seek} />}
+            <div className="wall-wrap">
+              {peaks && <WaveWall peaks={peaks} progressRef={playProg} onSeek={seek} />}
+              {!audioOn && (
+                <span className="wall-play" aria-hidden>
+                  ▶
+                </span>
+              )}
+            </div>
+            <p className="wall-cap">The wall is the mix. 1,200 bars · 2:27. Tap anywhere.</p>
             <div className="ledger">
               {BUNKER_ROWS.map((t) => (
                 <a key={t.name} className="ledger-row" href={t.url} target="_blank" rel="noreferrer">
@@ -494,7 +640,7 @@ export default function TerrainApp() {
         </section>
       </main>
 
-      <audio ref={audioEl} src="/audio/tuck-004.mp3" preload="metadata" loop />
+      <audio ref={audioEl} src="/audio/tuck-004-clip.mp3" preload="metadata" loop />
     </div>
   )
 }

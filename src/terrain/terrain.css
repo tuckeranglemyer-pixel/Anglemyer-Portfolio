@@ -66,10 +66,18 @@ body {
   z-index: 60;
   background: var(--t-bg);
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
   padding: 0 clamp(16px, 4vw, 44px) 26px;
   opacity: 1;
   transition: opacity 0.7s ease 0.15s;
+}
+.gate-sub {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--t-ghost);
 }
 .summit-gate.done {
   opacity: 0;
@@ -151,7 +159,9 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 30;
+  /* above the pierce blackout: the instruments never blink out, so the
+     black beat reads as descent, not crash */
+  z-index: 55;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -181,6 +191,12 @@ body {
   display: flex;
   align-items: center;
   gap: 22px;
+}
+.hud-legend {
+  color: var(--t-ghost);
+}
+.hud-legend::first-letter {
+  color: var(--t-accent);
 }
 .hud-live {
   display: inline-flex;
@@ -348,9 +364,34 @@ body {
   letter-spacing: -0.05em;
   text-transform: uppercase;
   margin: 0;
+  position: relative;
+  text-shadow: 0 3px 34px rgba(11, 13, 17, 0.9);
+}
+.tm-layer {
   display: flex;
   flex-direction: column;
-  text-shadow: 0 3px 34px rgba(11, 13, 17, 0.9);
+}
+.tm-fore {
+  position: relative;
+  z-index: 1;
+}
+/* the OG violet ink fringe: invisible until the name is hovered (JS drives it) */
+.tm-viol {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  color: var(--t-accent);
+  transform: translate(5px, -3px);
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  will-change: opacity, filter;
+}
+.tink-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 .summit-bottom {
   display: flex;
@@ -451,6 +492,11 @@ body {
 .ledger-row:hover .lr-meta {
   color: var(--t-bg);
 }
+/* work rows are pinned to real places on the terrain: say so when the beacon burns */
+.ledger-work .ledger-row:hover .lr-meta::after {
+  content: ' · ◆ on the route';
+  color: var(--t-accent);
+}
 
 /* ── ridgeline ──────────────────────────────────────────────────────────── */
 .ridgeline {
@@ -506,12 +552,35 @@ body {
 .wall-head::before {
   background: var(--t-bone-faint);
 }
+.wall-wrap {
+  position: relative;
+  margin: 0 0 10px;
+}
 .wavewall {
   display: block;
   width: 100%;
   height: 150px;
-  cursor: crosshair;
+  cursor: pointer;
+}
+.wall-play {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 10px 15px;
+  background: rgba(11, 13, 17, 0.88);
+  border: 1px solid var(--t-line);
+  color: var(--t-bone);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+.wall-cap {
   margin: 0 0 34px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-ghost);
 }
 /* ── end of line ────────────────────────────────────────────────────────── */
 .band-end {
