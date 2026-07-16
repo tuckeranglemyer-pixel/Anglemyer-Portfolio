@@ -1,8 +1,10 @@
 import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 
-// ?v=terrain -> the SUMMIT TO BUNKER draft; default -> the current site.
-const isTerrain = new URLSearchParams(window.location.search).get('v') === 'terrain'
+// /descent (or ?v=terrain) -> SUMMIT TO BUNKER; default -> the index site.
+const isTerrain =
+  window.location.pathname === '/descent' ||
+  new URLSearchParams(window.location.search).get('v') === 'terrain'
 const SiteApp = lazy(() => import('./site/SiteApp.tsx'))
 const TerrainApp = lazy(() => import('./terrain/TerrainApp.tsx'))
 

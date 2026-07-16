@@ -61,7 +61,7 @@ export const PROFILE: Profile = {
   name: 'Tucker Anglemyer',
   eyebrow: 'Providence College · Incoming PwC · Founder, Untracked',
   lede:
-    'I build sites and ship code. I run Untracked, working to surface the underground.',
+    'I build sites and ship code. I run Untracked: AI music discovery for DJs, 800+ tracks, working to surface the underground.',
   email: 'tucker@untrackedmusic.com',
   socials: [
     { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
@@ -73,6 +73,16 @@ export const PROFILE: Profile = {
 
 // ── Selected Work — websites designed & built ────────────────────────────────
 export const WORK: WorkItem[] = [
+  {
+    title: 'Summit to Bunker',
+    client: 'tuckerangle.com/descent',
+    role: 'Design & build',
+    year: '2026',
+    url: '/descent',
+    tags: ['WebGL', 'Interactive'],
+    blurb:
+      'A descent of Mount Costigan, the mountain I climbed in Alberta, rebuilt from real elevation data. Scroll loses altitude. At zero, the floor pierces, and my mix is playing underneath.',
+  },
   {
     title: 'TWO THIRTY',
     client: 'twothirty.fm',

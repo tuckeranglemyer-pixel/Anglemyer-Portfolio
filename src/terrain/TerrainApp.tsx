@@ -31,6 +31,12 @@ const SOCIALS = [
   { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
 ]
 
+const fmtTime = (s: number) => {
+  const m = Math.floor(s / 60)
+  const ss = Math.floor(s % 60)
+  return `${m}:${String(ss).padStart(2, '0')}`
+}
+
 // ── contributions ridgeline ───────────────────────────────────────────────────
 function Ridgeline({ contrib }: { contrib: Contrib }) {
   const { path, peakX } = useMemo(() => {
@@ -187,7 +193,7 @@ export default function TerrainApp() {
     gain: GainNode
     filter: BiquadFilterNode
     analyser: AnalyserNode
-    bins: Uint8Array
+    bins: Uint8Array<ArrayBuffer>
   } | null>(null)
 
   useEffect(() => {
@@ -441,7 +447,7 @@ export default function TerrainApp() {
       <div className="terra-pierce" ref={pierceEl} aria-hidden />
 
       <header className="terra-nav">
-        <a className="terra-brand" href="#top">
+        <a className="terra-brand" href="/">
           TUCKER ANGLEMYER©
         </a>
       </header>
