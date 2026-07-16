@@ -25,6 +25,8 @@ export interface WorkItem {
   image?: string
   tags: string[]
   blurb: string
+  /** The engineering decision and its reason. A constraint or user-truth, never an adjective. */
+  why?: string
   placeholder?: boolean
 }
 
@@ -82,6 +84,8 @@ export const WORK: WorkItem[] = [
     tags: ['Web design', 'Event site'],
     blurb:
       'Site for a Bushwick techno & UK garage night. Lineup, venue, RA tickets. Stripped back and raw, like the night.',
+    why:
+      'Why WebGL: the hero is the flyer. It gets opened in club-dark next to the lineup, and motion reads before type does.',
   },
   {
     title: 'Untracked',
@@ -92,6 +96,8 @@ export const WORK: WorkItem[] = [
     tags: ['React', 'WebGL', 'Terminal UI'],
     blurb:
       'The Untracked landing, a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
+    why:
+      'Why a terminal: digging for tracks is a command-line feeling. The interface is the product thesis.',
   },
   {
     title: 'Perks Beer Garden',
@@ -102,6 +108,8 @@ export const WORK: WorkItem[] = [
     tags: ['Web design', 'Hospitality'],
     blurb:
       'A Cape Cod coffee shop, raw bar & beer garden. Three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
+    why:
+      'Why the live open-now status: it is the only question a coffee shop actually gets asked. The site answers before the phone rings.',
   },
   {
     title: 'Summit to Bunker',
@@ -111,7 +119,9 @@ export const WORK: WorkItem[] = [
     url: '/descent',
     tags: ['WebGL', 'Interactive'],
     blurb:
-      'The other side of all this. The mountain I climbed, rebuilt from its elevation data. The photos, the music, the descent. Not a work page.',
+      'The other side of all this. The mountain I climbed, rebuilt from its elevation data. The photos, the music, the descent.',
+    why:
+      'Why real elevation data: if the mountain is not real, it is decoration. Every contour on that page is Costigan.',
   },
 ]
 

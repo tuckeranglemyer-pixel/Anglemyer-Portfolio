@@ -471,9 +471,8 @@ export default function TerrainApp() {
             <div>
               <p className="terra-eyebrow">A descent of Mount Costigan · Tucker Anglemyer</p>
               <p className="terra-lede">
-                The mountain I climbed, rebuilt from its elevation data. Everything on the way
-                down is the stuff that never makes the resume. The deeper you go, the louder it
-                gets.
+                The mountain I climbed, rebuilt from its elevation data. Under it, the music I
+                make. The two have nothing to do with each other. I like them both.
               </p>
             </div>
             <span className="terra-cue">Begin descent ↓</span>
@@ -504,7 +503,7 @@ export default function TerrainApp() {
         <section className="band band-pierce" ref={bind(2)}>
           <div className="band-inner center">
             <span className="pierce-zero">0 M</span>
-            <span className="mono-label center">Working to surface the underground</span>
+            <span className="mono-label center">Past this line, the music</span>
           </div>
         </section>
 

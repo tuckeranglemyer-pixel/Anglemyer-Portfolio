@@ -266,6 +266,7 @@ function IndexRow({
   num,
   name,
   sub,
+  why,
   meta,
   href,
   placeholder,
@@ -275,6 +276,7 @@ function IndexRow({
   num: string
   name: string
   sub?: string
+  why?: string
   meta?: string[]
   href?: string
   placeholder?: boolean
@@ -291,6 +293,7 @@ function IndexRow({
       <div className="index-main">
         <h3 className={`index-name${nameSm ? ' sm' : ''}`}>{name}</h3>
         {sub && <p className="index-sub">{sub}</p>}
+        {why && <p className="index-why">{why}</p>}
       </div>
       <div className="index-meta">
         {flag && <span className="index-flag">{flag}</span>}
@@ -373,6 +376,7 @@ export default function SiteApp() {
                 num={pad2(i + 1)}
                 name={w.title}
                 sub={w.blurb}
+                why={w.why}
                 meta={[`${w.role} · ${w.year}`, w.tags.join(' · ')]}
                 href={w.url && w.url !== '#' ? w.url : undefined}
                 placeholder={w.placeholder}

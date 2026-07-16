@@ -410,6 +410,24 @@ a {
 .index-row:hover .index-sub {
   color: rgba(11, 13, 17, 0.7);
 }
+/* the decision receipt: constraint or user-truth, never an adjective */
+.index-why {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+  margin: 10px 0 0;
+  max-width: 68ch;
+  padding-left: 14px;
+  border-left: 1px solid var(--accent);
+  transition: color 0.25s ease;
+}
+.index-row:hover .index-why {
+  color: rgba(11, 13, 17, 0.62);
+  border-left-color: rgba(11, 13, 17, 0.62);
+}
 .index-meta {
   font-family: var(--mono);
   font-size: 12px;
