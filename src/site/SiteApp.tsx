@@ -460,7 +460,7 @@ export default function SiteApp() {
           <div className="section-head">
             <span className="tag-label">05 · Available for work</span>
           </div>
-          <p className="contact-lead">Ask me about anything on here. I can go into crazy depth.</p>
+          <p className="contact-lead">Open to work</p>
           <a className="contact-email" href={`mailto:${PROFILE.email}`}>
             {PROFILE.email}
           </a>
