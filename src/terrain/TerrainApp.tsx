@@ -15,7 +15,7 @@ const BUNKER_ROWS = [
   { name: 'bay st (tucker remix)', meta: 'Deep House · 3:00', url: 'https://soundcloud.com/tuckerq' },
   { name: 'Foggy', meta: 'Dance · 1:30', url: 'https://soundcloud.com/tuckerq' },
   { name: '73.7K likes', meta: '90 followers · @tuck.angle', url: 'https://www.tiktok.com/@tuck.angle' },
-  { name: 'Untracked', meta: 'Surfacing the underground · 800+ tracks', url: 'https://untrackedmusic.com' },
+  { name: 'Untracked', meta: 'AI music discovery for DJs · 800+ tracks', url: 'https://untrackedmusic.com' },
 ]
 const END_LINKS = [
   { label: 'SoundCloud', href: 'https://soundcloud.com/tuckerq' },
@@ -421,7 +421,7 @@ export default function TerrainApp() {
             <span className="mono-label">
               MOUNT COSTIGAN · 2,973 M · 12 MILES IN.
               <br />
-              I CLIMBED THIS. YOU'RE SCROLLING THE DATA.
+              I CLIMBED THIS.
             </span>
           </div>
           <h1
@@ -471,8 +471,8 @@ export default function TerrainApp() {
             <div>
               <p className="terra-eyebrow">A descent of Mount Costigan · Tucker Anglemyer</p>
               <p className="terra-lede">
-                The mountain I climbed, rebuilt from its elevation data. Under it, the music I
-                make. The two have nothing to do with each other. I like them both.
+                The mountain I climbed, rebuilt from its elevation data. The music I make is
+                under it. They have nothing to do with each other, I just like both.
               </p>
             </div>
             <span className="terra-cue">Begin descent ↓</span>
@@ -503,7 +503,7 @@ export default function TerrainApp() {
         <section className="band band-pierce" ref={bind(2)}>
           <div className="band-inner center">
             <span className="pierce-zero">0 M</span>
-            <span className="mono-label center">Past this line, the music</span>
+            <span className="mono-label center">Music from here down</span>
           </div>
         </section>
 
@@ -522,7 +522,7 @@ export default function TerrainApp() {
                 </span>
               )}
             </div>
-            <p className="wall-cap">The wall is the mix. 1,200 bars · 2:27. Tap anywhere.</p>
+            <p className="wall-cap">Whole mix, start to finish. 1,200 bars · 2:27. Tap anywhere.</p>
             <div className="ledger">
               {BUNKER_ROWS.map((t) => (
                 <a key={t.name} className="ledger-row" href={t.url} target="_blank" rel="noreferrer">

@@ -63,7 +63,7 @@ export const PROFILE: Profile = {
   name: 'Tucker Anglemyer',
   eyebrow: 'Providence College · Incoming PwC · Founder, Untracked',
   lede:
-    'I build sites and ship code. I run Untracked: AI music discovery for DJs, 800+ tracks, working to surface the underground.',
+    'I build websites. I run Untracked: AI music discovery for DJs, 800+ tracks, working to surface the underground.',
   email: 'tucker@untrackedmusic.com',
   socials: [
     { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
@@ -83,9 +83,9 @@ export const WORK: WorkItem[] = [
     url: 'https://twothirty.fm',
     tags: ['Web design', 'Event site'],
     blurb:
-      'Site for a Bushwick techno & UK garage night. Lineup, venue, RA tickets. Stripped back and raw, like the night.',
+      'Site for a Bushwick techno & UK garage night. Lineup, venue, RA tickets. Nothing else.',
     why:
-      'Why WebGL: the hero is the flyer. It gets opened in club-dark next to the lineup, and motion reads before type does.',
+      'Why WebGL: the hero is the flyer. It gets opened in a dark club next to the lineup, and you see it move before you read anything.',
   },
   {
     title: 'Untracked',
@@ -95,9 +95,9 @@ export const WORK: WorkItem[] = [
     url: 'https://untrackedmusic.com',
     tags: ['React', 'WebGL', 'Terminal UI'],
     blurb:
-      'The Untracked landing, a terminal that scans for tracks almost nobody has. Built it to feel like digging.',
+      'The Untracked landing, a terminal that scans for tracks almost nobody has.',
     why:
-      'Why a terminal: digging for tracks is a command-line feeling. The interface is the product thesis.',
+      'Why a terminal: digging for tracks already feels like typing into a terminal. You get what Untracked does the second it loads.',
   },
   {
     title: 'Perks Beer Garden',
@@ -107,9 +107,9 @@ export const WORK: WorkItem[] = [
     url: 'https://perks-harwich-port.vercel.app/',
     tags: ['Web design', 'Hospitality'],
     blurb:
-      'A Cape Cod coffee shop, raw bar & beer garden. Three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
+      'A Cape Cod coffee shop, raw bar & beer garden. One spot doing all three. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
     why:
-      'Why the live open-now status: it is the only question a coffee shop actually gets asked. The site answers before the phone rings.',
+      'Why the live open-now status: it’s the only thing people actually ask a coffee shop. Put the answer on the site so people stop calling.',
   },
   {
     title: 'Summit to Bunker',
@@ -119,9 +119,9 @@ export const WORK: WorkItem[] = [
     url: '/descent',
     tags: ['WebGL', 'Interactive'],
     blurb:
-      'The other side of all this. The mountain I climbed, rebuilt from its elevation data. The photos, the music, the descent.',
+      'The other side of all this. The mountain I climbed, rebuilt from its elevation data. It’s got the photos, the music, and the actual descent.',
     why:
-      'Why real elevation data: if the mountain is not real, it is decoration. Every contour on that page is Costigan.',
+      'Why real elevation data: I climbed this mountain, so faking the terrain felt like cheating. Every contour on that page is pulled from Costigan’s elevation data.',
   },
 ]
 
@@ -131,7 +131,7 @@ export const CODE: CodeItem[] = [
     title: 'Running ACE-Step 1.5 on AMD (ROCm): working setup + fixes',
     repo: 'ace-step/ACE-Step · Discussion #404',
     description:
-      'Four fixes to get the ACE-Step AI music model training on AMD GPUs (ROCm, Windows). The stuff nobody had written down. People actually used it to train their own models. 9 comments, 16 replies.',
+      'Four fixes to get the ACE-Step AI music model training on AMD GPUs (ROCm, Windows). None of it was written down anywhere. People actually used it to train their own models. 9 comments, 16 replies.',
     url: 'https://github.com/ace-step/ACE-Step/discussions/404',
     kind: 'Open source',
   },
@@ -139,14 +139,14 @@ export const CODE: CodeItem[] = [
     title: 'LoKr training on AMD RX 7900 XT + an undocumented instability',
     repo: 'ace-step/ACE-Step-1.5 · Discussion #1232',
     description:
-      'A 16-minute LoKr training setup on AMD ROCm, plus the first writeup of a numerical bug in the Kronecker path that nobody had caught.',
+      'A 16-minute LoKr training setup on AMD ROCm, plus the first writeup of a numerical bug in the Kronecker path.',
     url: 'https://github.com/ace-step/ACE-Step-1.5/discussions/1232',
     kind: 'Guide + bug report',
   },
   {
     title: 'untracked-audio-engine',
     repo: 'tuckeranglemyer-pixel/untracked-audio-engine',
-    description: 'The audio engine behind Untracked. It’s what does the listening. JavaScript.',
+    description: 'The audio engine behind Untracked. The part that actually listens to the tracks. JavaScript.',
     url: 'https://github.com/tuckeranglemyer-pixel/untracked-audio-engine',
     kind: 'Repo',
   },
@@ -165,7 +165,7 @@ export const TIKTOK: TikTok = {
   url: 'https://www.tiktok.com/@tuck.angle',
   likes: '73.7K',
   followers: '90',
-  blurb: 'The videos go a lot further than the follow count.',
+  blurb: 'People watch the videos, they just don’t hit follow.',
   featured: {
     caption:
       'went to kettama alone thinking I was gonna find my wife. it was 400 dudes w/ y2k sunglasses.',
@@ -178,18 +178,18 @@ export const VENTURES: Venture[] = [
   {
     name: 'Untracked',
     meta: 'Founder · untrackedmusic.com',
-    tagline: 'The infrastructure underground music deserves.',
+    tagline: 'Working to surface the underground.',
     description:
-      'AI music discovery for DJs. React, FastAPI, pgvector, MERT audio analysis, 800+ tracks and counting.',
+      'AI music discovery for DJs. React, FastAPI, pgvector, MERT audio analysis, 800+ tracks.',
     url: 'https://untrackedmusic.com',
     tags: ['React', 'FastAPI', 'pgvector', 'MERT'],
   },
   {
     name: 'The War Room',
     meta: 'yconic New England AI Hackathon · 24 hours',
-    tagline: 'Three LLMs arguing about your product until they find the truth.',
+    tagline: 'Three LLMs arguing about your product until they agree.',
     description:
-      'Multi-agent product analysis. Two of us, 24 hours, built against CS masters teams.',
+      'Multi-agent product analysis. It was two of us with 24 hours, up against CS masters teams.',
     url: 'https://frontend-pi-seven-13.vercel.app/',
     tags: ['CrewAI', 'ChromaDB', 'DGX Spark'],
   },

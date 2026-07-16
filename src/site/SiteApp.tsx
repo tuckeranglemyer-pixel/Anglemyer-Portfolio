@@ -389,7 +389,7 @@ export default function SiteApp() {
         {/* ── Code & Fixes ── */}
         <section className="section reveal" id="code" ref={codeRef}>
           <div className="section-head">
-            <span className="tag-label">02 · 770 contributions this year</span>
+            <span className="tag-label">02 · 340 contributions in the last year</span>
             <h2 className="section-label">Code &amp; Fixes</h2>
           </div>
           <div className="index-list">
@@ -410,7 +410,7 @@ export default function SiteApp() {
         {/* ── TikTok ── */}
         <section className="section reveal" id="tiktok" ref={tiktokRef}>
           <div className="section-head">
-            <span className="tag-label">03 · Where I blew up building in public</span>
+            <span className="tag-label">03 · Where I blew up</span>
             <h2 className="section-label">TikTok</h2>
           </div>
           <div className="tiktok-body">
@@ -460,7 +460,7 @@ export default function SiteApp() {
           <div className="section-head">
             <span className="tag-label">05 · Available for work</span>
           </div>
-          <p className="contact-lead">Let's build something.</p>
+          <p className="contact-lead">Ask me about anything on here. I can go into crazy depth.</p>
           <a className="contact-email" href={`mailto:${PROFILE.email}`}>
             {PROFILE.email}
           </a>
