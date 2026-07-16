@@ -1,20 +1,14 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { world, PIERCE_T, type Terra, type Peaks, type Contrib } from './world'
+import { world, PIERCE_T, type Terra, type Peaks } from './world'
 import './terrain.css'
 
 const TerrainScene = lazy(() => import('./TerrainScene'))
 
-// ── content ───────────────────────────────────────────────────────────────────
-const WORK = [
-  { name: 'TWO THIRTY', cls: 'Event site', year: '2025', url: 'https://twothirty.fm', beacon: { x: -14, z: -2 } },
-  { name: 'UNTRACKED', cls: 'Product', year: '2025', url: 'https://untrackedmusic.com', beacon: { x: 6, z: -16 } },
-  { name: 'PERKS BEER GARDEN', cls: 'Hospitality', year: '2025', url: 'https://perks-harwich-port.vercel.app/', beacon: { x: 16, z: 8 } },
-]
-const CODE = [
-  { name: 'War Room', meta: '211 commits · 24 hours · 3 LLMs debating 31,668 review chunks', url: 'https://github.com/tuckeranglemyer-pixel/War-Room' },
-  { name: 'ACE-Step on AMD (ROCm)', meta: 'Discussion #404 · people trained models off these fixes', url: 'https://github.com/ace-step/ACE-Step/discussions/404' },
-  { name: 'LoKr instability writeup', meta: 'Discussion #1232 · first report of the Kronecker-path bug', url: 'https://github.com/ace-step/ACE-Step-1.5/discussions/1232' },
-  { name: 'untracked-audio-engine', meta: 'The part of Untracked that does the listening', url: 'https://github.com/tuckeranglemyer-pixel/untracked-audio-engine' },
+// ── content: everything that is NOT on the main site ─────────────────────────
+const PLATES = [
+  { src: '/terrain/climb/ridge.jpg', cap: 'The ridge, into the cloud' },
+  { src: '/terrain/climb/crest.jpg', cap: 'The crest' },
+  { src: '/terrain/climb/lake.jpg', cap: 'Minnewanka, below' },
 ]
 const BUNKER_ROWS = [
   { name: 'tuck 003', meta: 'House · 59:42', url: 'https://soundcloud.com/tuckerq/tuck-003' },
@@ -23,52 +17,16 @@ const BUNKER_ROWS = [
   { name: '73.7K likes', meta: '90 followers · @tuck.angle', url: 'https://www.tiktok.com/@tuck.angle' },
   { name: 'Untracked', meta: 'Surfacing the underground · 800+ tracks', url: 'https://untrackedmusic.com' },
 ]
-const SOCIALS = [
-  { label: 'Email', href: 'mailto:tucker@untrackedmusic.com' },
-  { label: 'GitHub', href: 'https://github.com/tuckeranglemyer-pixel' },
+const END_LINKS = [
   { label: 'SoundCloud', href: 'https://soundcloud.com/tuckerq' },
   { label: 'TikTok', href: 'https://www.tiktok.com/@tuck.angle' },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/tucker-anglemyer-42a13a32b' },
+  { label: 'tuckerangle.com', href: '/' },
 ]
 
 const fmtTime = (s: number) => {
   const m = Math.floor(s / 60)
   const ss = Math.floor(s % 60)
   return `${m}:${String(ss).padStart(2, '0')}`
-}
-
-// ── contributions ridgeline ───────────────────────────────────────────────────
-function Ridgeline({ contrib }: { contrib: Contrib }) {
-  const { path, peakX } = useMemo(() => {
-    const days = contrib.days
-    const W = 1000
-    const H = 120
-    const max = Math.max(...days.map((d) => d.c), 1)
-    const pts: string[] = [`0,${H}`]
-    let px = 0
-    days.forEach((d, i) => {
-      const x = (i / (days.length - 1)) * W
-      const y = H - Math.sqrt(d.c / max) * (H - 8)
-      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
-      if (d.c === max) px = x
-    })
-    pts.push(`${W},${H}`)
-    return { path: pts.join(' '), peakX: px }
-  }, [contrib])
-  return (
-    <div className="ridgeline">
-      <svg viewBox="0 0 1000 132" preserveAspectRatio="none" aria-hidden>
-        <polygon points={path} fill="#12151c" stroke="#ece9e1" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        <circle cx={peakX} cy="10" r="3" fill="#a794e8" />
-      </svg>
-      <div className="ridgeline-cap">
-        <span>
-          {contrib.total} contributions · {contrib.days.filter((d) => d.c > 0).length} days on
-        </span>
-        <span className="viol">◆ 100 in one day</span>
-      </div>
-    </div>
-  )
 }
 
 // ── waveform wall ─────────────────────────────────────────────────────────────
@@ -143,11 +101,10 @@ function WaveWall({
   )
 }
 
-// ── the app ───────────────────────────────────────────────────────────────────
+// ── the artifact ──────────────────────────────────────────────────────────────
 export default function TerrainApp() {
   const [terra, setTerra] = useState<Terra | null>(null)
   const [peaks, setPeaks] = useState<Peaks | null>(null)
-  const [contrib, setContrib] = useState<Contrib | null>(null)
   const [audioOn, setAudioOn] = useState(false)
   const [counted, setCounted] = useState(false)
   const [gateGone, setGateGone] = useState(false)
@@ -156,9 +113,6 @@ export default function TerrainApp() {
   const wallHeadEl = useRef<HTMLSpanElement>(null)
   const ready = counted && !!terra
 
-  // unmount the gate after its fade: overlay-killing browser extensions
-  // (cookie-banner blockers) can pin a fixed overlay's styles with
-  // !important, so removal must not depend on CSS.
   useEffect(() => {
     if (!ready) return
     const id = setTimeout(() => setGateGone(true), 900)
@@ -197,14 +151,14 @@ export default function TerrainApp() {
   } | null>(null)
 
   useEffect(() => {
+    document.title = 'Summit to Bunker · Tucker Anglemyer'
     fetch('/terrain/costigan.json').then((r) => r.json()).then(setTerra)
     fetch('/terrain/tuck004-peaks.json').then((r) => r.json()).then(setPeaks)
-    fetch('/terrain/contributions.json').then((r) => r.json()).then(setContrib)
     const loading = document.getElementById('loading')
     if (loading) loading.remove()
   }, [])
 
-  // preloader: ELEV counts 0 -> 2,973 while the terrain loads behind it
+  // gate: ELEV counts 0 -> 2,973 while the mountain loads behind it
   useEffect(() => {
     const dur = 1500
     const start = performance.now()
@@ -330,7 +284,6 @@ export default function TerrainApp() {
         if (c) {
           const depthProg = Math.min(1, t / PIERCE_T)
           c.filter.frequency.value = world.underground ? 18000 : 120 * Math.pow(150, depthProg)
-          // approach the depth-target gently: play always fades in, never blasts
           const target = 0.08 + 0.42 * Math.pow(depthProg, 1.4)
           c.gain.gain.value += (target - c.gain.gain.value) * 0.03
         }
@@ -342,8 +295,6 @@ export default function TerrainApp() {
         let sum = 0
         for (let i = 1; i <= 5; i++) sum += c.bins[i]
         const inst = sum / 5 / 255
-        // kick detection: onset above the running floor, with a cooldown,
-        // drives a punchy envelope so the mountain hits WITH the drum
         bassFloor.current += (inst - bassFloor.current) * 0.04
         const now = performance.now()
         if (
@@ -359,7 +310,6 @@ export default function TerrainApp() {
       } else {
         world.bass *= 0.94
       }
-      // wall header: never claim NOW PLAYING unless something is playing
       if (wallHeadEl.current) {
         wallHeadEl.current.textContent =
           audio && !audio.paused
@@ -411,14 +361,6 @@ export default function TerrainApp() {
     audio.currentTime = frac * (audio.duration || 147)
   }
 
-  const setBeacon = (b: { x: number; z: number } | null) => {
-    if (b) {
-      world.beacon.x = b.x
-      world.beacon.z = b.z
-      world.beacon.i = 1.4
-    } else world.beacon.i = 0
-  }
-
   const bind = (i: number) => (el: HTMLElement | null) => {
     sections.current[i] = el
   }
@@ -447,26 +389,20 @@ export default function TerrainApp() {
       <div className="terra-pierce" ref={pierceEl} aria-hidden />
 
       <header className="terra-nav">
-        <a className="terra-brand" href="/">
-          TUCKER ANGLEMYER©
+        <span className="terra-brand">SUMMIT TO BUNKER</span>
+        <a className="terra-home" href="/">
+          BY TUCKER ANGLEMYER© ↗
         </a>
       </header>
 
-      {/* HUD: three instruments, nothing else */}
+      {/* HUD: two instruments, nothing else */}
       <aside className={`terra-hud${ready ? ' on' : ''}`} aria-hidden>
         <span className="hud-elev" ref={elevEl}>
           ELEV 2,973 M
         </span>
-        <span className="hud-right">
-          <span className="hud-legend">◆ live signal</span>
-          <span className="hud-live">
-            <span className="hud-dot" />
-            AVAILABLE
-          </span>
-          <button className="hud-snd" onClick={toggleAudio}>
-            {audioOn ? (below ? 'SND ▮▮' : 'SND ▮▮ · THROUGH ROCK') : 'SND ▶ TUCK 004'}
-          </button>
-        </span>
+        <button className="hud-snd" onClick={toggleAudio}>
+          {audioOn ? (below ? 'SND ▮▮' : 'SND ▮▮ · THROUGH ROCK') : 'SND ▶ TUCK 004'}
+        </button>
       </aside>
 
       <main className="terra-main">
@@ -490,7 +426,7 @@ export default function TerrainApp() {
           </div>
           <h1
             className="terra-monument"
-            aria-label="Tucker Anglemyer"
+            aria-label="Summit to Bunker"
             onMouseEnter={() => (hoveringName.current = true)}
             onMouseLeave={() => (hoveringName.current = false)}
           >
@@ -516,88 +452,66 @@ export default function TerrainApp() {
             </svg>
             <div className="tm-layer tm-viol" aria-hidden ref={violRef}>
               <span className="m-line">
-                <span>Tucker</span>
+                <span>Summit</span>
               </span>
               <span className="m-line">
-                <span>Anglemyer</span>
+                <span>To Bunker</span>
               </span>
             </div>
             <div className="tm-layer tm-fore" aria-hidden ref={foreRef}>
               <span className="m-line">
-                <span>Tucker</span>
+                <span>Summit</span>
               </span>
               <span className="m-line">
-                <span>Anglemyer</span>
+                <span>To Bunker</span>
               </span>
             </div>
           </h1>
           <div className="summit-bottom">
             <div>
-              <p className="terra-eyebrow">Providence College · Incoming PwC · Founder, Untracked</p>
+              <p className="terra-eyebrow">A descent of Mount Costigan · Tucker Anglemyer</p>
               <p className="terra-lede">
-                I build sites and ship code. I run Untracked: AI music discovery for DJs, 800+
-                tracks, working to surface the underground.
+                The mountain I climbed, rebuilt from its elevation data. Everything on the way
+                down is the stuff that never makes the resume. The deeper you go, the louder it
+                gets.
               </p>
             </div>
             <span className="terra-cue">Begin descent ↓</span>
           </div>
         </section>
 
-        {/* 01 THE WORK */}
+        {/* 01 THE CLIMB */}
         <section className="band" ref={bind(1)}>
           <div className="band-inner wide">
-            <span className="mono-label">01 · The work</span>
-            <div className="ledger ledger-work">
-              {WORK.map((w) => (
-                <a
-                  key={w.name}
-                  className="ledger-row"
-                  href={w.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onMouseEnter={() => setBeacon(w.beacon)}
-                  onMouseLeave={() => setBeacon(null)}
-                >
-                  <span className="lr-name">{w.name}</span>
-                  <span className="lr-meta">
-                    {w.cls} · {w.year}
-                  </span>
-                  <span className="lr-arrow">↗</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* 02 THE CODE */}
-        <section className="band" ref={bind(2)}>
-          <div className="band-inner wide">
-            <span className="mono-label">02 · The code</span>
-            {contrib && <Ridgeline contrib={contrib} />}
-            <div className="ledger">
-              {CODE.map((c) => (
-                <a key={c.name} className="ledger-row" href={c.url} target="_blank" rel="noreferrer">
-                  <span className="lr-name sm">{c.name}</span>
-                  <span className="lr-meta">{c.meta}</span>
-                  <span className="lr-arrow">↗</span>
-                </a>
+            <span className="mono-label">01 · The climb</span>
+            <h2>12 miles in.</h2>
+            <p className="band-copy">
+              Backpacked the Minnewanka shore, then up the ridge. Mount Costigan, 2,973 meters,
+              June 2026.
+            </p>
+            <div className="plates">
+              {PLATES.map((p) => (
+                <figure className="plate" key={p.src}>
+                  <img src={p.src} alt={p.cap} loading="lazy" />
+                  <figcaption>{p.cap}</figcaption>
+                </figure>
               ))}
             </div>
           </div>
         </section>
 
         {/* THE PIERCE */}
-        <section className="band band-pierce" ref={bind(3)}>
+        <section className="band band-pierce" ref={bind(2)}>
           <div className="band-inner center">
             <span className="pierce-zero">0 M</span>
             <span className="mono-label center">Working to surface the underground</span>
           </div>
         </section>
 
-        {/* 03 THE BUNKER */}
-        <section className="band band-bunker" ref={bind(4)}>
+        {/* 02 THE BUNKER */}
+        <section className="band band-bunker" ref={bind(3)}>
           <div className="band-inner wide">
-            <span className="mono-label">03 · The bunker · -22 M</span>
+            <span className="mono-label">02 · The bunker · -22 M</span>
             <span className="mono-label wall-head" ref={wallHeadEl}>
               TUCK 004 · DEEP HOUSE · 2:27 CUT · PRESSED 06.28.26. TAP THE WALL TO DROP IN.
             </span>
@@ -619,19 +533,21 @@ export default function TerrainApp() {
                 </a>
               ))}
             </div>
+            <figure className="plate plate-desk">
+              <img src="/terrain/climb/decks.jpg" alt="The decks, at dusk" loading="lazy" />
+              <figcaption>Where the mixes get made</figcaption>
+            </figure>
           </div>
         </section>
 
-        {/* 04 END OF LINE */}
-        <section className="band band-end" ref={bind(5)}>
+        {/* 03 END OF LINE */}
+        <section className="band band-end" ref={bind(4)}>
           <div className="band-inner">
-            <span className="mono-label">04 · End of line</span>
-            <a className="end-email" href="mailto:tucker@untrackedmusic.com">
-              tucker@untrackedmusic.com
-            </a>
+            <span className="mono-label">03 · End of line</span>
+            <h2>That's the bottom.</h2>
             <div className="end-socials">
-              {SOCIALS.map((s) => (
-                <a key={s.label} href={s.href} target="_blank" rel="noreferrer">
+              {END_LINKS.map((s) => (
+                <a key={s.label} href={s.href} {...(s.href.startsWith('http') ? { target: '_blank', rel: 'noreferrer' } : {})}>
                   {s.label} ↗
                 </a>
               ))}
@@ -643,7 +559,7 @@ export default function TerrainApp() {
               Return to summit ↑
             </button>
             <p className="end-coords">
-              Providence, RI · 41.82 N 71.41 W · © {new Date().getFullYear()}
+              Mount Costigan · 51.2834 N 115.2854 W · © {new Date().getFullYear()}
             </p>
             <span className="friar" title="the friar · 12 mi in" aria-label="a friar">
               <svg viewBox="0 0 24 32" aria-hidden>

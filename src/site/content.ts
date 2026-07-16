@@ -74,16 +74,6 @@ export const PROFILE: Profile = {
 // ── Selected Work — websites designed & built ────────────────────────────────
 export const WORK: WorkItem[] = [
   {
-    title: 'Summit to Bunker',
-    client: 'tuckerangle.com/descent',
-    role: 'Design & build',
-    year: '2026',
-    url: '/descent',
-    tags: ['WebGL', 'Interactive'],
-    blurb:
-      'A descent of Mount Costigan, the mountain I climbed in Alberta, rebuilt from real elevation data. Scroll loses altitude. At zero, the floor pierces, and my mix is playing underneath.',
-  },
-  {
     title: 'TWO THIRTY',
     client: 'twothirty.fm',
     role: 'Design & build',
@@ -112,6 +102,16 @@ export const WORK: WorkItem[] = [
     tags: ['Web design', 'Hospitality'],
     blurb:
       'A Cape Cod coffee shop, raw bar & beer garden. Three doors, one Perks. Full site: menus, merch, a live “open now” status, and the Instagram feed.',
+  },
+  {
+    title: 'Summit to Bunker',
+    client: 'tuckerangle.com/descent',
+    role: 'A side quest',
+    year: '2026',
+    url: '/descent',
+    tags: ['WebGL', 'Interactive'],
+    blurb:
+      'The other side of all this. The mountain I climbed, rebuilt from its elevation data. The photos, the music, the descent. Not a work page.',
   },
 ]
 

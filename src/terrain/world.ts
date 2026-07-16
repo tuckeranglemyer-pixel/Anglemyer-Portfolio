@@ -12,7 +12,7 @@ export const world = {
 }
 
 /** the t value at which the floor pierces (section index of the pierce band) */
-export const PIERCE_T = 3.0
+export const PIERCE_T = 2.0
 
 export interface Terra {
   size: number

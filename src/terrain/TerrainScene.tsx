@@ -11,11 +11,10 @@ const EXAG = 1.6
 // within a band it holds (breathes only). One real camera event: the pierce.
 const POSES: { p: [number, number, number]; l: [number, number, number] }[] = [
   { p: [-3.6, 14.5, 9], l: [-3.65, 6.8, -8.5] }, // 00 summit — ridge in the bottom third, sky for the name
-  { p: [8.5, 8.5, 11], l: [-2.0, 6.2, -4.0] }, // 01 the work — down the shoulder
-  { p: [6.0, 6.2, 18], l: [-4.0, 4.0, -2.0] }, // 02 the code — valley floor
-  { p: [0.0, -5.2, 5], l: [0.0, 4.5, -3.0] }, // 03 pierce — below, looking up
-  { p: [0.0, -6.5, 9], l: [0.0, 3.0, -7.0] }, // 04 bunker
-  { p: [0.0, -7.6, 13], l: [0.0, 1.6, -13.0] }, // 05 end of line
+  { p: [4.5, 11.5, 1], l: [-3.65, 8.6, -7.7] }, // 01 the climb — along the ridge he walked
+  { p: [0.0, -5.2, 5], l: [0.0, 4.5, -3.0] }, // 02 pierce — below, looking up
+  { p: [0.0, -6.5, 9], l: [0.0, 3.0, -7.0] }, // 03 bunker
+  { p: [0.0, -7.6, 13], l: [0.0, 1.6, -13.0] }, // 04 end of line
 ]
 
 const CONTOUR_VERT = /* glsl */ `

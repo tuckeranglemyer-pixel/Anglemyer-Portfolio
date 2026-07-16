@@ -140,16 +140,11 @@ body {
 .terra-brand {
   font-weight: 700;
 }
-.terra-nav-right {
-  display: flex;
-  gap: 18px;
-  align-items: center;
+.terra-home {
   color: var(--t-bone-faint);
+  transition: color 0.2s;
 }
-.terra-nav-right a:hover {
-  color: var(--t-accent);
-}
-.terra-tag {
+.terra-home:hover {
   color: var(--t-accent);
 }
 
@@ -186,36 +181,6 @@ body {
 }
 .hud-elev.neg {
   color: var(--t-accent);
-}
-.hud-right {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-}
-.hud-legend {
-  color: var(--t-ghost);
-}
-.hud-legend::first-letter {
-  color: var(--t-accent);
-}
-.hud-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--t-bone);
-}
-.hud-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--t-accent);
-  box-shadow: 0 0 10px rgba(167, 148, 232, 0.5);
-  animation: t-blink 1.8s steps(1) infinite;
-}
-@keyframes t-blink {
-  50% {
-    opacity: 0.25;
-  }
 }
 .hud-snd {
   background: transparent;
@@ -492,36 +457,40 @@ body {
 .ledger-row:hover .lr-meta {
   color: var(--t-bg);
 }
-/* work rows are pinned to real places on the terrain: say so when the beacon burns */
-.ledger-work .ledger-row:hover .lr-meta::after {
-  content: ' · ◆ on the route';
-  color: var(--t-accent);
+/* ── climb plates: real photos, mono until touched ──────────────────────── */
+.plates {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  margin-top: 40px;
 }
-
-/* ── ridgeline ──────────────────────────────────────────────────────────── */
-.ridgeline {
-  margin: 0 0 34px;
-  padding: 14px 14px 10px;
-  background: rgba(11, 13, 17, 0.72);
+.plate {
+  margin: 0;
+  width: min(560px, 82%);
 }
-.ridgeline svg {
+.plates .plate:nth-child(2) {
+  margin-left: auto;
+}
+.plate img {
   display: block;
   width: 100%;
-  height: 132px;
+  height: auto;
+  filter: grayscale(1) contrast(1.06) brightness(0.94);
+  transition: filter 0.6s ease;
 }
-.ridgeline-cap {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 10px;
+.plate:hover img {
+  filter: none;
+}
+.plate figcaption {
+  margin-top: 9px;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--t-bone-faint);
 }
-.ridgeline-cap .viol {
-  color: var(--t-accent);
+.plate-desk {
+  margin-top: 40px;
+  width: min(480px, 78%);
 }
 
 /* ── pierce ─────────────────────────────────────────────────────────────── */
@@ -586,22 +555,6 @@ body {
 .band-end {
   min-height: 130vh;
 }
-.end-email {
-  display: inline-block;
-  font-family: var(--t-grotesk);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  font-size: clamp(22px, 4.4vw, 54px);
-  line-height: 1;
-  margin: 0 0 30px;
-  border-bottom: 3px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-}
-.end-email:hover {
-  color: var(--t-accent);
-  border-color: var(--t-accent);
-}
 .end-socials {
   display: flex;
   gap: 22px;
@@ -665,11 +618,8 @@ body {
   .hud-elev {
     font-size: 12px;
   }
-  .hud-legend {
-    display: none;
-  }
-  .hud-right {
-    gap: 14px;
+  .plate {
+    width: 100%;
   }
   .band {
     min-height: 100vh;
